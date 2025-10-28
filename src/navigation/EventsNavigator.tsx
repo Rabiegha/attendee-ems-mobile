@@ -5,11 +5,13 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { EventsListScreen } from '../screens/Events/EventsListScreen';
+import { SettingsScreen } from '../screens/Settings/SettingsScreen';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../theme/ThemeProvider';
 
 export type EventsStackParamList = {
   EventsList: undefined;
+  Settings: undefined;
 };
 
 const Stack = createNativeStackNavigator<EventsStackParamList>();
@@ -34,6 +36,11 @@ export const EventsNavigator: React.FC = () => {
         name="EventsList"
         component={EventsListScreen}
         options={{ title: t('events.title') }}
+      />
+      <Stack.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{ title: t('settings.title') }}
       />
     </Stack.Navigator>
   );

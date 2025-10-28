@@ -78,12 +78,20 @@ export const Input: React.FC<InputProps> = ({
         {showPasswordToggle && (
           <TouchableOpacity
             onPress={togglePasswordVisibility}
-            style={styles.toggleButton}
+            style={[
+              styles.toggleButton,
+              {
+                backgroundColor: theme.colors.brand[100],
+                borderRadius: 6,
+                padding: 6,
+              }
+            ]}
           >
             <Image 
               source={isPasswordVisible ? Icons.Vu : Icons.PasVu} 
               style={{ width: 20, height: 20 }}
               resizeMode="contain"
+              tintColor={theme.colors.brand[600]}
             />
           </TouchableOpacity>
         )}

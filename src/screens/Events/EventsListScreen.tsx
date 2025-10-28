@@ -46,9 +46,18 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
       headerRight: () => (
         <TouchableOpacity
           onPress={() => navigation.navigate('Settings')}
-          style={{ marginRight: 16 }}
+          style={{
+            marginRight: 16,
+            backgroundColor: theme.colors.brand[100],
+            borderRadius: 8,
+            padding: 8,
+          }}
         >
-          <Image source={Icons.Outils} style={{ width: 24, height: 24 }} />
+          <Image 
+            source={Icons.Outils} 
+            style={{ width: 24, height: 24 }} 
+            tintColor={theme.colors.brand[600]}
+          />
         </TouchableOpacity>
       ),
     });
