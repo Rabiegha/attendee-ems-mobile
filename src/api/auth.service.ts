@@ -14,9 +14,21 @@ export const authService = {
     const response = await axiosClient.post<LoginResponse>('/auth/login', credentials);
     const { access_token, refresh_token, expires_in } = response.data;
 
+    console.log('[authService.login] Response data:', {
+      hasAccessToken: !!access_token,
+      hasRefreshToken: !!refresh_token,
+      expiresIn: expires_in,
+    });
+
+    if (!refresh_token) {
+      throw new Error('No refresh token received from server');
+    }
+
     // Stocker les tokens
     setAuthTokens(access_token, expires_in);
     await secureStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refresh_token);
+
+    console.log('[authService.login] Tokens stored successfully');
 
     return response.data;
   },
