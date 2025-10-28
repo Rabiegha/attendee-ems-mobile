@@ -8,7 +8,6 @@ import { initReactI18next } from 'react-i18next';
 import fr from './fr/common.json';
 
 i18n.use(initReactI18next).init({
-  compatibilityJSON: 'v3',
   lng: 'fr',
   fallbackLng: 'fr',
   resources: {

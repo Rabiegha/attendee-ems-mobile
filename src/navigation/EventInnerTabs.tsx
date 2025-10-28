@@ -57,9 +57,6 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
           fontWeight: theme.fontWeight.medium,
         },
       }}
-      sceneContainerStyle={{
-        backgroundColor: theme.colors.background,
-      }}
     >
       <Tab.Screen
         name="Dashboard"

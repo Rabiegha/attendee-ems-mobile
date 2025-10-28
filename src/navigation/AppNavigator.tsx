@@ -12,8 +12,6 @@ import { AuthNavigator } from './AuthNavigator';
 import { EventsNavigator } from './EventsNavigator';
 import { EventInnerTabs } from './EventInnerTabs';
 import { AttendeeDetailsScreen } from '../screens/Attendees/AttendeeDetailsScreen';
-import { LoginScreen } from '../screens/Auth/LoginScreen';
-import { TestScreen } from '../screens/TestScreen';
 import { View, ActivityIndicator, Text } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
 
