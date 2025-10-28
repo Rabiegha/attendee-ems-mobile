@@ -34,6 +34,7 @@ const axiosClient: AxiosInstance = axios.create({
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
+    'x-client-type': 'mobile', // Identifier l'app mobile pour le backend
   },
 });
 
