@@ -147,6 +147,7 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
                   marginBottom: theme.spacing.xs,
                 }}
                 numberOfLines={1}
+                ellipsizeMode="tail"
               >
                 {item.name || 'Événement sans titre'}
               </Text>
@@ -339,7 +340,7 @@ const styles = StyleSheet.create({
   },
   eventInfo: {
     flex: 1,
-    justifyContent: 'center' as const,
+    justifyContent: 'flex-start' as const,
   },
   loadingContainer: {
     flex: 1,
