@@ -6,6 +6,22 @@ import axiosClient from './axiosClient';
 import { Event, EventStats } from '../types/event';
 import { PaginatedResponse } from '../types/api';
 
+// Mapper les données du backend vers le format frontend
+const mapEventFromBackend = (backendEvent: any): Event => {
+  return {
+    id: backendEvent.id,
+    name: backendEvent.name,
+    description: backendEvent.description,
+    startDate: backendEvent.start_at,
+    endDate: backendEvent.end_at,
+    location: backendEvent.address_formatted || backendEvent.address_city || 'En ligne',
+    status: backendEvent.status === 'published' ? 'upcoming' : backendEvent.status,
+    organizationId: backendEvent.org_id,
+    createdAt: backendEvent.created_at,
+    updatedAt: backendEvent.updated_at,
+  };
+};
+
 export const eventsService = {
   /**
    * Récupérer tous les événements
@@ -16,16 +32,26 @@ export const eventsService = {
     status?: 'upcoming' | 'past';
     search?: string;
   }): Promise<PaginatedResponse<Event>> {
-    const response = await axiosClient.get<PaginatedResponse<Event>>('/events', { params });
-    return response.data;
+    const response = await axiosClient.get<any>('/events', { params });
+    
+    console.log('[eventsService.getEvents] Response:', {
+      total: response.data.meta?.total,
+      count: response.data.data?.length,
+      firstEvent: response.data.data?.[0],
+    });
+    
+    return {
+      data: response.data.data.map(mapEventFromBackend),
+      meta: response.data.meta,
+    };
   },
 
   /**
    * Récupérer un événement par ID
    */
   async getEventById(id: string): Promise<Event> {
-    const response = await axiosClient.get<Event>(`/events/${id}`);
-    return response.data;
+    const response = await axiosClient.get<any>(`/events/${id}`);
+    return mapEventFromBackend(response.data);
   },
 
   /**
