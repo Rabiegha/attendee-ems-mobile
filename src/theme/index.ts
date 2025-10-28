@@ -11,6 +11,7 @@ export const theme = {
       ...colors,
       background: '#FFFFFF',
       surface: '#FFFFFF',
+      card: colors.neutral[100], // Fond des cartes en mode light
       text: {
         primary: colors.neutral[900],
         secondary: colors.neutral[600],
@@ -31,6 +32,7 @@ export const theme = {
       ...colors,
       background: colors.neutral[900],
       surface: colors.neutral[800],
+      card: colors.neutral[800], // Fond des cartes en mode dark
       text: {
         primary: '#FFFFFF',
         secondary: colors.neutral[300],

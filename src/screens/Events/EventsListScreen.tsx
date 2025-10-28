@@ -9,7 +9,6 @@ import {
   FlatList,
   TouchableOpacity,
   StyleSheet,
-  TextInput,
   ActivityIndicator,
   ScrollView,
   Dimensions,
@@ -22,6 +21,7 @@ import { fetchEventsThunk } from '../../store/events.slice';
 import { Event } from '../../types/event';
 import { formatDate, formatTime } from '../../utils/format';
 import { Card } from '../../components/ui/Card';
+import { SearchBar } from '../../components/ui/SearchBar';
 import Icons from '../../assets/icons';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -174,23 +174,12 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Barre de recherche */}
-      <View style={[styles.searchContainer, { paddingHorizontal: theme.spacing.lg }]}>
-        <TextInput
-          style={[
-            styles.searchInput,
-            {
-              backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.border,
-              color: theme.colors.text.primary,
-              borderRadius: theme.radius.md,
-              paddingHorizontal: theme.spacing.md,
-            },
-          ]}
+      <View style={styles.searchContainer}>
+        <SearchBar
           placeholder={t('common.search')}
-          placeholderTextColor={theme.colors.text.tertiary}
           value={searchQuery}
           onChangeText={setSearchQuery}
-          onSubmitEditing={loadEvents}
+          onSearch={loadEvents}
         />
       </View>
 
@@ -313,11 +302,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   searchContainer: {
+    paddingHorizontal: 16,
     paddingVertical: 12,
-  },
-  searchInput: {
-    height: 40,
-    borderWidth: 1,
   },
   tabsContainer: {
     flexDirection: 'row' as const,

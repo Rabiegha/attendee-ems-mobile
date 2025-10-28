@@ -19,7 +19,7 @@ export const Card: React.FC<CardProps> = ({ children, style }) => {
     <View
       style={[
         {
-          backgroundColor: theme.colors.neutral[100],
+          backgroundColor: theme.colors.card,
           borderRadius: theme.radius.lg,
           padding: theme.spacing.lg,
           // Shadow pour iOS
