@@ -34,11 +34,11 @@ export const Button: React.FC<ButtonProps> = ({
 
   const getButtonStyle = (): ViewStyle => {
     const baseStyle: ViewStyle = {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
       borderRadius: theme.radius.md,
-      ...theme.shadows.sm,
+      // ...theme.shadows.sm,
     };
 
     // Size

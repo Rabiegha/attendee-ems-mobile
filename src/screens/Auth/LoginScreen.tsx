@@ -152,22 +152,22 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
+    justifyContent: 'center' as const,
   },
   content: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'center' as const,
     paddingHorizontal: 24,
   },
   header: {
-    alignItems: 'center',
+    alignItems: 'center' as const,
     marginBottom: 48,
   },
   title: {
-    textAlign: 'center',
+    textAlign: 'center' as const,
   },
   subtitle: {
-    textAlign: 'center',
+    textAlign: 'center' as const,
   },
   form: {
     width: '100%',

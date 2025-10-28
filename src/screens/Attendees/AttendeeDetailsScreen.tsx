@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   actionsContainer: {
-    flexDirection: 'row',
+    flexDirection: 'row' as const,
   },
   infoRow: {},
 });

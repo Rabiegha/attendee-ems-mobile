@@ -48,7 +48,7 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
           borderTopWidth: 0,
           paddingBottom: 10,
           paddingTop: 10,
-          ...theme.shadows.lg,
+          // ...theme.shadows.lg,
         },
         tabBarActiveTintColor: theme.colors.success[600],
         tabBarInactiveTintColor: theme.colors.neutral[400],
@@ -100,10 +100,10 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
                 height: 60,
                 borderRadius: 30,
                 backgroundColor: theme.colors.success[600],
-                justifyContent: 'center',
-                alignItems: 'center',
+                justifyContent: 'center' as const,
+                alignItems: 'center' as const,
                 marginTop: -30,
-                ...theme.shadows.lg,
+                // ...theme.shadows.lg,
               }}
             >
               <Text style={{ fontSize: 28 }}>📷</Text>

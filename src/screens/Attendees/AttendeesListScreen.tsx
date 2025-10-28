@@ -192,17 +192,17 @@ const styles = StyleSheet.create({
     top: 0,
     width: 40,
     height: 40,
-    transform: [{ rotate: '45deg' }, { translateX: 20 }, { translateY: -20 }],
+    // transform: [{ rotate: '45deg' }, { translateX: 20 }, { translateY: -20 }],
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
     paddingVertical: 48,
   },
 });

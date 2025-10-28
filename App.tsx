@@ -13,19 +13,18 @@ import { ThemeProvider } from './src/theme/ThemeProvider';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { buildAbilityFor, defaultAbility } from './src/permissions/ability';
 import { AbilityProvider } from './src/permissions/AbilityProvider';
-// import './src/i18n';
+import './src/i18n';
 // import './global.css';
 
 // Test progressif pour identifier le problème
 export default function App() {
-  // Étape 4 : Test avec AppNavigator (sans i18n et global.css)
+  // Étape 5 : Test sans StatusBar
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <Provider store={store}>
           <ThemeProvider>
             <AbilityProvider ability={defaultAbility}>
-              <StatusBar style="auto" />
               <AppNavigator />
             </AbilityProvider>
           </ThemeProvider>

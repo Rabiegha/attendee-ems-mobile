@@ -214,22 +214,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   tabsContainer: {
-    flexDirection: 'row',
+    flexDirection: 'row' as const,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.1)',
   },
   tab: {
     flex: 1,
     paddingVertical: 12,
-    alignItems: 'center',
+    alignItems: 'center' as const,
   },
   eventCard: {
-    flexDirection: 'row',
+    flexDirection: 'row' as const,
   },
   dateContainer: {
     marginRight: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
     minWidth: 80,
   },
   eventInfo: {
@@ -237,13 +237,13 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
     paddingVertical: 48,
   },
 });
