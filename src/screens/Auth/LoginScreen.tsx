@@ -2,7 +2,7 @@
  * Écran de connexion
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { loginThunk } from '../../store/auth.slice';
+import { loginThunk, clearError } from '../../store/auth.slice';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { translateError } from '../../utils/errorTranslations';
@@ -24,11 +24,21 @@ export const LoginScreen: React.FC = () => {
   const { t } = useTranslation();
   const { theme } = useTheme();
   const dispatch = useAppDispatch();
-  const { isLoading, error } = useAppSelector((state) => state.auth);
+  const { isLoading, error: reduxError } = useAppSelector((state) => state.auth);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  
+  // Traduire l'erreur Redux si elle existe
+  const displayError = reduxError ? translateError(reduxError) : null;
+
+  // Nettoyer l'erreur Redux quand l'utilisateur commence à taper
+  useEffect(() => {
+    if (reduxError) {
+      dispatch(clearError());
+    }
+  }, [email, password]);
 
   const validate = (): boolean => {
     const newErrors: { email?: string; password?: string } = {};
@@ -126,7 +136,7 @@ export const LoginScreen: React.FC = () => {
               error={errors.password}
             />
 
-            {error && (
+            {displayError && (
               <Text
                 style={{
                   color: theme.colors.error[500],
@@ -135,7 +145,7 @@ export const LoginScreen: React.FC = () => {
                   textAlign: 'center' as const,
                 }}
               >
-                {error}
+                {displayError}
               </Text>
             )}
 
