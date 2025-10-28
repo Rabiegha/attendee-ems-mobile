@@ -13,6 +13,7 @@ import {
   ScrollView,
   Dimensions,
   Image,
+  SafeAreaView,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -172,7 +173,7 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Barre de recherche */}
       <View style={styles.searchContainer}>
         <SearchBar
@@ -293,7 +294,7 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
           )}
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 };
 

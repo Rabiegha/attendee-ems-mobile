@@ -19,7 +19,16 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   const { theme } = useTheme();
 
   return (
-    <View style={[styles.container, style]}>
+    <View 
+      style={[
+        styles.container, 
+        {
+          backgroundColor: theme.colors.card,
+          borderRadius: theme.radius.lg,
+        },
+        style
+      ]}
+    >
       <Image 
         source={Icons.Rechercher} 
         style={styles.icon}
@@ -29,7 +38,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         style={[
           styles.input,
           {
-            backgroundColor: theme.colors.card,
             color: theme.colors.text.primary,
             fontSize: theme.fontSize.base,
           },
