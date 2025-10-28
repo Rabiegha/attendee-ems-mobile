@@ -13,7 +13,8 @@ import { EventsNavigator } from './EventsNavigator';
 import { EventInnerTabs } from './EventInnerTabs';
 import { AttendeeDetailsScreen } from '../screens/Attendees/AttendeeDetailsScreen';
 import { LoginScreen } from '../screens/Auth/LoginScreen';
-import { View, ActivityIndicator } from 'react-native';
+import { TestScreen } from '../screens/TestScreen';
+import { View, ActivityIndicator, Text } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
 
 export type RootStackParamList = {
@@ -29,29 +30,29 @@ export const AppNavigator: React.FC = () => {
   const { theme } = useTheme();
   const dispatch = useAppDispatch();
   const { isAuthenticated } = useAppSelector((state) => state.auth);
-  const [isCheckingAuth, setIsCheckingAuth] = useState(false); // DÉSACTIVÉ pour test
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
-  // useEffect(() => {
-  //   checkAuthentication();
-  // }, []);
+  useEffect(() => {
+    checkAuthentication();
+  }, []);
 
-  // const checkAuthentication = async () => {
-  //   try {
-  //     await dispatch(checkAuthThunk()).unwrap();
-  //   } catch (error) {
-  //     // Utilisateur non authentifié
-  //   } finally {
-  //     setIsCheckingAuth(false);
-  //   }
-  // };
+  const checkAuthentication = async () => {
+    try {
+      await dispatch(checkAuthThunk()).unwrap();
+    } catch (error) {
+      // Utilisateur non authentifié
+    } finally {
+      setIsCheckingAuth(false);
+    }
+  };
 
-  // if (isCheckingAuth) {
-  //   return (
-  //     <View style={{ flex: 1, justifyContent: 'center' as const, alignItems: 'center' as const, backgroundColor: theme.colors.background }}>
-  //       <ActivityIndicator size="large" color={theme.colors.brand[600]} />
-  //     </View>
-  //   );
-  // }
+  if (isCheckingAuth) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center' as const, alignItems: 'center' as const, backgroundColor: theme.colors.background }}>
+        <ActivityIndicator size="large" color={theme.colors.brand[600]} />
+      </View>
+    );
+  }
 
   return (
     <NavigationContainer>
@@ -61,7 +62,7 @@ export const AppNavigator: React.FC = () => {
         }}
       >
         {!isAuthenticated ? (
-          <Stack.Screen name="Auth" component={LoginScreen} />
+          <Stack.Screen name="Auth" component={AuthNavigator} />
         ) : (
           <>
             <Stack.Screen name="Events" component={EventsNavigator} />

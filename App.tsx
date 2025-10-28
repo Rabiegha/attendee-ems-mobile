@@ -16,15 +16,14 @@ import { AbilityProvider } from './src/permissions/AbilityProvider';
 import './src/i18n';
 // import './global.css';
 
-// Test progressif pour identifier le problème
 export default function App() {
-  // Étape 8 : Test avec NavigationContainer seulement
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <Provider store={store}>
           <ThemeProvider>
             <AbilityProvider ability={defaultAbility}>
+              <StatusBar style="auto" />
               <AppNavigator />
             </AbilityProvider>
           </ThemeProvider>

@@ -125,7 +125,7 @@ export const LoginScreen: React.FC = () => {
                   color: theme.colors.error[500],
                   fontSize: theme.fontSize.sm,
                   marginBottom: theme.spacing.md,
-                  textAlign: 'center',
+                  textAlign: 'center' as const,
                 }}
               >
                 {error}
