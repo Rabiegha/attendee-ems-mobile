@@ -1,24 +1,59 @@
 /**
- * Types pour les participants
+ * Types pour les participants et registrations
  */
 
 export interface Attendee {
   id: string;
-  firstName: string;
-  lastName: string;
+  org_id: string;
+  default_type_id: string | null;
   email: string;
-  phone?: string;
-  company?: string;
-  position?: string;
-  category?: string;
-  status: 'registered' | 'checked-in' | 'cancelled';
-  checkedInAt?: string;
-  eventId: string;
-  createdAt: string;
-  updatedAt: string;
-  qrCode?: string;
-  badgePrinted?: boolean;
-  printedAt?: string;
+  first_name: string;
+  last_name: string;
+  phone: string | null;
+  company: string | null;
+  job_title: string | null;
+  country: string | null;
+  metadata: any;
+  labels: string[];
+  notes: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Registration {
+  id: string;
+  org_id: string;
+  event_id: string;
+  attendee_id: string;
+  status: 'pending' | 'approved' | 'rejected' | 'checked-in';
+  attendance_type: 'onsite' | 'online';
+  answers: {
+    email: string;
+    company?: string;
+    jobTitle?: string;
+    lastName: string;
+    firstName: string;
+    [key: string]: any;
+  };
+  event_attendee_type_id: string | null;
+  badge_template_id: string | null;
+  invited_at: string | null;
+  confirmed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  attendee: Attendee;
+  eventAttendeeType: any;
+}
+
+export interface RegistrationsResponse {
+  data: Registration[];
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 export interface CreateAttendeeDto {
@@ -33,5 +68,5 @@ export interface CreateAttendeeDto {
 }
 
 export interface UpdateAttendeeDto extends Partial<CreateAttendeeDto> {
-  status?: 'registered' | 'checked-in' | 'cancelled';
+  status?: 'pending' | 'approved' | 'rejected' | 'checked-in';
 }

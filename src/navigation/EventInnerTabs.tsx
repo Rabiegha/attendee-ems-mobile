@@ -9,8 +9,8 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../theme/ThemeProvider';
 import Icons from '../assets/icons';
-import { EventDashboardScreen } from '../screens/EventDashboard/EventDashboardScreen';
-import { AttendeesListScreen } from '../screens/Attendees/AttendeesListScreen';
+import { EventDashboardNavigator } from './EventDashboardNavigator';
+import { AttendeeAddScreen } from '../screens/Attendees/AttendeeAddScreen';
 import { ScanScreen } from '../screens/Scan/ScanScreen';
 import { PrintSettingsScreen } from '../screens/Print/PrintSettingsScreen';
 import { SettingsScreen } from '../screens/Settings/SettingsScreen';
@@ -64,7 +64,8 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
     >
       <Tab.Screen
         name="Dashboard"
-        component={EventDashboardScreen}
+        component={EventDashboardNavigator}
+        initialParams={{ eventId }}
         options={{
           tabBarLabel: t('navigation.participants'),
           tabBarIcon: ({ color }) => (
@@ -79,7 +80,7 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
 
       <Tab.Screen
         name="Attendees"
-        component={AttendeesListScreen}
+        component={AttendeeAddScreen}
         initialParams={{ eventId }}
         options={{
           tabBarLabel: t('navigation.add'),
@@ -101,9 +102,9 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
           tabBarIcon: ({ focused }) => (
             <View
               style={{
-                width: 60,
+                width: 90,
                 height: 60,
-                borderRadius: 30,
+                borderRadius: 20,
                 backgroundColor: theme.colors.brand[600],
                 justifyContent: 'center' as const,
                 alignItems: 'center' as const,
@@ -116,8 +117,8 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
               }}
             >
               <Image 
-                source={Icons.ScanCamera} 
-                style={{ width: 32, height: 32 }}
+                source={Icons.Scan} 
+                style={{ width: 35, height: 35 }}
                 tintColor="#FFFFFF"
               />
             </View>

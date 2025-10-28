@@ -1,5 +1,5 @@
 /**
- * Écran de détails d'un participant
+ * Écran de détails d'un participant (registration)
  */
 
 import React, { useEffect } from 'react';
@@ -7,7 +7,7 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-nat
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { fetchAttendeeByIdThunk } from '../../store/attendees.slice';
+import { fetchRegistrationByIdThunk } from '../../store/registrations.slice';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 
@@ -19,23 +19,57 @@ export const AttendeeDetailsScreen: React.FC<AttendeeDetailsScreenProps> = ({ ro
   const { t } = useTranslation();
   const { theme } = useTheme();
   const dispatch = useAppDispatch();
-  const { currentAttendee, isLoading } = useAppSelector((state) => state.attendees);
+  const { currentRegistration, isLoading } = useAppSelector((state) => state.registrations);
+  const { currentEvent } = useAppSelector((state) => state.events);
 
-  const attendeeId = route.params?.attendeeId;
+  const registrationId = route.params?.registrationId;
+  const eventId = route.params?.eventId || currentEvent?.id;
 
   useEffect(() => {
-    if (attendeeId) {
-      dispatch(fetchAttendeeByIdThunk(attendeeId));
+    if (registrationId && eventId) {
+      dispatch(fetchRegistrationByIdThunk({ eventId, registrationId }));
     }
-  }, [attendeeId]);
+  }, [registrationId, eventId]);
 
-  if (isLoading || !currentAttendee) {
+  if (isLoading || !currentRegistration) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <ActivityIndicator size="large" color={theme.colors.brand[600]} />
       </View>
     );
   }
+
+  const attendee = currentRegistration.attendee;
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'checked-in':
+        return 'Enregistré';
+      case 'approved':
+        return 'Approuvé';
+      case 'pending':
+        return 'En attente';
+      case 'rejected':
+        return 'Refusé';
+      default:
+        return status;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'checked-in':
+        return theme.colors.success[600];
+      case 'approved':
+        return theme.colors.brand[600];
+      case 'pending':
+        return theme.colors.warning[600];
+      case 'rejected':
+        return theme.colors.error[600];
+      default:
+        return theme.colors.text.primary;
+    }
+  };
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -60,8 +94,8 @@ export const AttendeeDetailsScreen: React.FC<AttendeeDetailsScreenProps> = ({ ro
                 color: theme.colors.brand[600],
               }}
             >
-              {currentAttendee.firstName[0]}
-              {currentAttendee.lastName[0]}
+              {attendee.first_name[0]}
+              {attendee.last_name[0]}
             </Text>
           </View>
           <Text
@@ -71,7 +105,7 @@ export const AttendeeDetailsScreen: React.FC<AttendeeDetailsScreenProps> = ({ ro
               color: theme.colors.text.primary,
             }}
           >
-            {currentAttendee.firstName} {currentAttendee.lastName}
+            {attendee.first_name} {attendee.last_name}
           </Text>
         </Card>
 
@@ -103,11 +137,11 @@ export const AttendeeDetailsScreen: React.FC<AttendeeDetailsScreenProps> = ({ ro
                 marginTop: theme.spacing.xs,
               }}
             >
-              {currentAttendee.email}
+              {attendee.email}
             </Text>
           </View>
 
-          {currentAttendee.phone && (
+          {attendee.phone && (
             <View style={[styles.infoRow, { marginTop: theme.spacing.lg }]}>
               <Text style={{ color: theme.colors.text.secondary, fontSize: theme.fontSize.sm }}>
                 {t('attendees.phone')}
@@ -119,12 +153,12 @@ export const AttendeeDetailsScreen: React.FC<AttendeeDetailsScreenProps> = ({ ro
                   marginTop: theme.spacing.xs,
                 }}
               >
-                {currentAttendee.phone}
+                {attendee.phone}
               </Text>
             </View>
           )}
 
-          {currentAttendee.company && (
+          {attendee.company && (
             <View style={[styles.infoRow, { marginTop: theme.spacing.lg }]}>
               <Text style={{ color: theme.colors.text.secondary, fontSize: theme.fontSize.sm }}>
                 {t('attendees.company')}
@@ -136,12 +170,12 @@ export const AttendeeDetailsScreen: React.FC<AttendeeDetailsScreenProps> = ({ ro
                   marginTop: theme.spacing.xs,
                 }}
               >
-                {currentAttendee.company}
+                {attendee.company}
               </Text>
             </View>
           )}
 
-          {currentAttendee.position && (
+          {attendee.job_title && (
             <View style={[styles.infoRow, { marginTop: theme.spacing.lg }]}>
               <Text style={{ color: theme.colors.text.secondary, fontSize: theme.fontSize.sm }}>
                 {t('attendees.position')}
@@ -153,7 +187,24 @@ export const AttendeeDetailsScreen: React.FC<AttendeeDetailsScreenProps> = ({ ro
                   marginTop: theme.spacing.xs,
                 }}
               >
-                {currentAttendee.position}
+                {attendee.job_title}
+              </Text>
+            </View>
+          )}
+
+          {attendee.country && (
+            <View style={[styles.infoRow, { marginTop: theme.spacing.lg }]}>
+              <Text style={{ color: theme.colors.text.secondary, fontSize: theme.fontSize.sm }}>
+                Pays
+              </Text>
+              <Text
+                style={{
+                  color: theme.colors.text.primary,
+                  fontSize: theme.fontSize.base,
+                  marginTop: theme.spacing.xs,
+                }}
+              >
+                {attendee.country}
               </Text>
             </View>
           )}
@@ -164,16 +215,28 @@ export const AttendeeDetailsScreen: React.FC<AttendeeDetailsScreenProps> = ({ ro
             </Text>
             <Text
               style={{
-                color:
-                  currentAttendee.status === 'checked-in'
-                    ? theme.colors.success[600]
-                    : theme.colors.text.primary,
+                color: getStatusColor(currentRegistration.status),
                 fontSize: theme.fontSize.base,
                 marginTop: theme.spacing.xs,
                 fontWeight: theme.fontWeight.medium,
               }}
             >
-              {t(`attendees.${currentAttendee.status}`)}
+              {getStatusLabel(currentRegistration.status)}
+            </Text>
+          </View>
+
+          <View style={[styles.infoRow, { marginTop: theme.spacing.lg }]}>
+            <Text style={{ color: theme.colors.text.secondary, fontSize: theme.fontSize.sm }}>
+              Type de participation
+            </Text>
+            <Text
+              style={{
+                color: theme.colors.text.primary,
+                fontSize: theme.fontSize.base,
+                marginTop: theme.spacing.xs,
+              }}
+            >
+              {currentRegistration.attendance_type === 'onsite' ? 'Sur place' : 'En ligne'}
             </Text>
           </View>
         </Card>
@@ -187,7 +250,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   actionsContainer: {
-    flexDirection: 'row' as const,
+    flexDirection: 'row',
   },
   infoRow: {},
 });

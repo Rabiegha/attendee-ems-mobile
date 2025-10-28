@@ -11,7 +11,7 @@ import { checkAuthThunk } from '../store/auth.slice';
 import { AuthNavigator } from './AuthNavigator';
 import { EventsNavigator } from './EventsNavigator';
 import { EventInnerTabs } from './EventInnerTabs';
-import { AttendeeDetailsScreen } from '../screens/Attendees/AttendeeDetailsScreen';
+import { AttendeeDetailsScreen } from '../screens/EventDashboard/AttendeeDetailsScreen';
 import { View, ActivityIndicator, Text } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
 
@@ -19,7 +19,7 @@ export type RootStackParamList = {
   Auth: undefined;
   Events: undefined;
   EventInner: { eventId: string; eventName: string };
-  AttendeeDetails: { attendeeId: string };
+  AttendeeDetails: { registrationId: string; eventId: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();

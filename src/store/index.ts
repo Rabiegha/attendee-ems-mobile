@@ -6,12 +6,14 @@ import { configureStore } from '@reduxjs/toolkit';
 import authReducer from './auth.slice';
 import eventsReducer from './events.slice';
 import attendeesReducer from './attendees.slice';
+import registrationsReducer from './registrations.slice';
 
 export const store = configureStore({
   reducer: {
     auth: authReducer,
     events: eventsReducer,
     attendees: attendeesReducer,
+    registrations: registrationsReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
