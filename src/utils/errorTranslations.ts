@@ -2,15 +2,16 @@
  * Traduction des messages d'erreur du serveur en français
  */
 
+// Messages d'erreur user-friendly (affichés à l'utilisateur)
 export const errorTranslations: Record<string, string> = {
   // Auth errors
-  'Invalid credentials': 'Identifiants invalides',
-  'Refresh token not found': 'Token de rafraîchissement introuvable',
-  'Refresh token has been revoked': 'Session expirée, veuillez vous reconnecter',
-  'Refresh token has expired': 'Session expirée, veuillez vous reconnecter',
-  'Invalid refresh token': 'Session invalide, veuillez vous reconnecter',
-  'User not found or inactive': 'Utilisateur introuvable ou inactif',
-  'User not authenticated': 'Utilisateur non authentifié',
+  'Invalid credentials': 'Email ou mot de passe incorrect',
+  'Refresh token not found': 'Votre session a expiré, veuillez vous reconnecter',
+  'Refresh token has been revoked': 'Votre session a expiré, veuillez vous reconnecter',
+  'Refresh token has expired': 'Votre session a expiré, veuillez vous reconnecter',
+  'Invalid refresh token': 'Votre session a expiré, veuillez vous reconnecter',
+  'User not found or inactive': 'Compte introuvable ou désactivé',
+  'User not authenticated': 'Vous devez vous connecter',
   
   // Permission errors
   'Insufficient permissions': 'Permissions insuffisantes',
@@ -48,11 +49,47 @@ export const errorTranslations: Record<string, string> = {
 };
 
 /**
- * Traduit un message d'erreur anglais en français
- * @param errorMessage Message d'erreur en anglais
- * @returns Message traduit en français ou le message original si pas de traduction
+ * Vérifie si une erreur est technique (ne doit pas être affichée à l'utilisateur)
  */
-export const translateError = (errorMessage: string): string => {
+const isTechnicalError = (errorMessage: string): boolean => {
+  const technicalPatterns = [
+    /network error/i,
+    /timeout/i,
+    /ECONNREFUSED/i,
+    /ENOTFOUND/i,
+    /JSON/i,
+    /parse/i,
+    /serialize/i,
+    /SecureStore/i,
+    /Invalid value provided/i,
+    /must be strings/i,
+    /Request failed/i,
+    /status code/i,
+    /500/,
+    /502/,
+    /503/,
+    /504/,
+  ];
+  
+  return technicalPatterns.some(pattern => pattern.test(errorMessage));
+};
+
+/**
+ * Traduit un message d'erreur anglais en français avec gestion des erreurs techniques
+ * @param errorMessage Message d'erreur en anglais
+ * @param showTechnicalDetails Si true, affiche les détails techniques (pour debug)
+ * @returns Message traduit et user-friendly
+ */
+export const translateError = (errorMessage: string, showTechnicalDetails = false): string => {
+  // Log l'erreur pour le debug
+  console.log('[translateError] Message original:', errorMessage);
+  
+  // Si c'est une erreur technique, retourner un message générique
+  if (isTechnicalError(errorMessage)) {
+    console.warn('[translateError] Erreur technique détectée:', errorMessage);
+    return 'Une erreur est survenue. Veuillez réessayer dans quelques instants.';
+  }
+  
   // Recherche exacte
   if (errorTranslations[errorMessage]) {
     return errorTranslations[errorMessage];
@@ -65,6 +102,8 @@ export const translateError = (errorMessage: string): string => {
     }
   }
   
-  // Si aucune traduction trouvée, retourner le message original
-  return errorMessage;
+  // Si aucune traduction trouvée et que ce n'est pas une erreur technique connue
+  // Retourner un message générique pour ne pas exposer les détails
+  console.warn('[translateError] Aucune traduction trouvée pour:', errorMessage);
+  return 'Une erreur est survenue lors de la connexion. Veuillez vérifier vos identifiants.';
 };
