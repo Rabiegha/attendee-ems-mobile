@@ -146,7 +146,7 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
                   color: theme.colors.text.primary,
                   marginBottom: theme.spacing.xs,
                 }}
-                numberOfLines={1}
+                numberOfLines={2}
                 ellipsizeMode="tail"
               >
                 {item.name || 'Événement sans titre'}
