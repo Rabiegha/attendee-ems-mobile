@@ -4,7 +4,6 @@
 
 import React from 'react';
 import { View, Text } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Provider } from 'react-redux';
@@ -13,6 +12,7 @@ import { ThemeProvider } from './src/theme/ThemeProvider';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { buildAbilityFor, defaultAbility } from './src/permissions/ability';
 import { AbilityProvider } from './src/permissions/AbilityProvider';
+import { AppContent } from './src/AppContent';
 import './src/i18n';
 // import './global.css';
 
@@ -23,8 +23,7 @@ export default function App() {
         <Provider store={store}>
           <ThemeProvider>
             <AbilityProvider ability={defaultAbility}>
-              <StatusBar style="auto" />
-              <AppNavigator />
+              <AppContent />
             </AbilityProvider>
           </ThemeProvider>
         </Provider>
