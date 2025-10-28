@@ -99,6 +99,13 @@ axiosClient.interceptors.request.use(
       if (shouldRefresh && !isRefreshing) {
         isRefreshing = true;
         try {
+          const refreshToken = await secureStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+          if (!refreshToken) {
+            console.warn('[axiosClient] No refresh token available for preventive refresh');
+            isRefreshing = false;
+            return config;
+          }
+          
           const newToken = await refreshAccessToken();
           if (newToken) {
             accessToken = newToken;

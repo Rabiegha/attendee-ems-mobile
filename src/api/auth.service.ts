@@ -11,6 +11,11 @@ export const authService = {
    * Connexion utilisateur
    */
   async login(credentials: LoginCredentials): Promise<LoginResponse> {
+    console.log('[authService.login] Sending credentials:', {
+      email: credentials.email,
+      passwordLength: credentials.password?.length,
+    });
+    
     const response = await axiosClient.post<LoginResponse>('/auth/login', credentials);
     const { access_token, refresh_token, expires_in } = response.data;
 
