@@ -41,8 +41,7 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
         tabBarStyle: {
           position: 'absolute' as const,
           bottom: 40,
-          left: 16, // Même padding que searchContainer et cards
-          right: 16, // Même padding que searchContainer et cards
+          marginHorizontal: 16, // Même padding que searchContainer et cards
           height: 70,
           backgroundColor: theme.colors.tabBar,
           borderRadius: theme.radius.xl,
