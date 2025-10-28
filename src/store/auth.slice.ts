@@ -32,7 +32,20 @@ export const loginThunk = createAsyncThunk(
       const response = await authService.login(credentials);
       return response;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Erreur de connexion');
+      // Extraire le message d'erreur du serveur
+      const errorMessage = 
+        error.response?.data?.message || 
+        error.response?.data?.error ||
+        error.message ||
+        'Erreur de connexion';
+      
+      console.error('Erreur de login:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: errorMessage,
+      });
+      
+      return rejectWithValue(errorMessage);
     }
   }
 );

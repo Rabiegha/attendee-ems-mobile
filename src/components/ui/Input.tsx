@@ -3,13 +3,14 @@
  */
 
 import React, { useState } from 'react';
-import { View, TextInput, Text, StyleSheet, TextInputProps, ViewStyle } from 'react-native';
+import { View, TextInput, Text, StyleSheet, TextInputProps, ViewStyle, TouchableOpacity } from 'react-native';
 import { useTheme } from '../../theme/ThemeProvider';
 
 interface InputProps extends TextInputProps {
   label?: string;
   error?: string;
   containerStyle?: ViewStyle;
+  showPasswordToggle?: boolean;
 }
 
 export const Input: React.FC<InputProps> = ({
@@ -17,10 +18,17 @@ export const Input: React.FC<InputProps> = ({
   error,
   containerStyle,
   style,
+  showPasswordToggle = false,
+  secureTextEntry,
   ...props
 }) => {
   const { theme } = useTheme();
   const [isFocused, setIsFocused] = useState(false);
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+
+  const togglePasswordVisibility = () => {
+    setIsPasswordVisible(!isPasswordVisible);
+  };
 
   return (
     <View style={[styles.container, containerStyle]}>
@@ -39,29 +47,44 @@ export const Input: React.FC<InputProps> = ({
           {label}
         </Text>
       )}
-      <TextInput
-        style={[
-          {
-            height: 40,
-            borderWidth: 1,
-            borderColor: error
-              ? theme.colors.error[500]
-              : isFocused
-              ? theme.colors.brand[600]
-              : theme.colors.border,
-            borderRadius: theme.radius.md,
-            paddingHorizontal: theme.spacing.md,
-            fontSize: theme.fontSize.base,
-            color: theme.colors.text.primary,
-            backgroundColor: theme.colors.surface,
-          },
-          style,
-        ]}
-        placeholderTextColor={theme.colors.text.tertiary}
-        onFocus={() => setIsFocused(true)}
-        onBlur={() => setIsFocused(false)}
-        {...props}
-      />
+      <View style={styles.inputWrapper}>
+        <TextInput
+          style={[
+            {
+              height: 40,
+              borderWidth: 1,
+              borderColor: error
+                ? theme.colors.error[500]
+                : isFocused
+                ? theme.colors.brand[600]
+                : theme.colors.border,
+              borderRadius: theme.radius.md,
+              paddingHorizontal: theme.spacing.md,
+              paddingRight: showPasswordToggle ? 48 : theme.spacing.md,
+              fontSize: theme.fontSize.base,
+              color: theme.colors.text.primary,
+              backgroundColor: theme.colors.surface,
+              flex: 1,
+            },
+            style,
+          ]}
+          placeholderTextColor={theme.colors.text.tertiary}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          secureTextEntry={showPasswordToggle ? !isPasswordVisible : secureTextEntry}
+          {...props}
+        />
+        {showPasswordToggle && (
+          <TouchableOpacity
+            onPress={togglePasswordVisibility}
+            style={styles.toggleButton}
+          >
+            <Text style={{ fontSize: 20 }}>
+              {isPasswordVisible ? '👁️' : '👁️‍🗨️'}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
       {error && (
         <Text
           style={{
@@ -82,4 +105,16 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   label: {},
+  inputWrapper: {
+    position: 'relative' as const,
+  },
+  toggleButton: {
+    position: 'absolute' as const,
+    right: 12,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    width: 32,
+  },
 });

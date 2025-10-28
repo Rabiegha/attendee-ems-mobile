@@ -55,7 +55,10 @@ export const LoginScreen: React.FC = () => {
       await dispatch(loginThunk({ email, password })).unwrap();
       // Navigation sera gérée automatiquement par le navigator
     } catch (err: any) {
-      Alert.alert('Erreur', err || t('auth.loginError'));
+      // Afficher le message d'erreur détaillé du serveur
+      const errorMessage = typeof err === 'string' ? err : err?.message || t('auth.loginError');
+      Alert.alert('Erreur de connexion', errorMessage);
+      console.log('Erreur de connexion détaillée:', err);
     }
   };
 
@@ -115,6 +118,7 @@ export const LoginScreen: React.FC = () => {
               onChangeText={setPassword}
               placeholder="••••••••"
               secureTextEntry={true}
+              showPasswordToggle={true}
               autoCapitalize="none"
               error={errors.password}
             />
