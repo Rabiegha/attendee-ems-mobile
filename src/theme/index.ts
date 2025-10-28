@@ -9,7 +9,7 @@ export const theme = {
   light: {
     colors: {
       ...colors,
-      background: colors.neutral[50],
+      background: '#FFFFFF',
       surface: '#FFFFFF',
       text: {
         primary: colors.neutral[900],

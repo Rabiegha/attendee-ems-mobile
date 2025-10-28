@@ -95,7 +95,7 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
       <Card style={{ marginBottom: theme.spacing.md }}>
         <View style={styles.eventCard}>
           {/* Colonne de gauche : Date et heure */}
-          <View style={[styles.dateColumn, { backgroundColor: theme.colors.neutral[100] }]}>
+          <View style={styles.dateColumn}>
             <Text
               style={{
                 fontSize: theme.fontSize.xs,
@@ -136,7 +136,6 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
                 fontSize: theme.fontSize.lg,
                 fontWeight: theme.fontWeight.bold,
                 color: theme.colors.text.primary,
-                marginBottom: theme.spacing.xs,
               }}
             >
               {item.name}
@@ -148,6 +147,7 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
                 style={{
                   fontSize: theme.fontSize.sm,
                   color: theme.colors.text.secondary,
+                  marginTop: 4,
                   lineHeight: 18,
                 }}
                 numberOfLines={2}
@@ -323,11 +323,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row' as const,
   },
   dateColumn: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
     marginRight: 16,
-    minWidth: 90,
+    minWidth: 80,
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
   },
