@@ -8,13 +8,19 @@ import { PaginatedResponse } from '../types/api';
 
 // Mapper les données du backend vers le format frontend
 const mapEventFromBackend = (backendEvent: any): Event => {
+  // Pour le lieu, on affiche juste la ville ou "En ligne"
+  let location = 'En ligne';
+  if (backendEvent.location_type === 'physical' || backendEvent.location_type === 'hybrid') {
+    location = backendEvent.address_city || 'Lieu physique';
+  }
+  
   return {
     id: backendEvent.id,
     name: backendEvent.name,
     description: backendEvent.description,
     startDate: backendEvent.start_at,
     endDate: backendEvent.end_at,
-    location: backendEvent.address_formatted || backendEvent.address_city || 'En ligne',
+    location: location,
     status: backendEvent.status === 'published' ? 'upcoming' : backendEvent.status,
     organizationId: backendEvent.org_id,
     createdAt: backendEvent.created_at,
