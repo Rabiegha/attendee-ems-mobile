@@ -1,0 +1,117 @@
+{
+  "common": {
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "success": "Succès",
+    "cancel": "Annuler",
+    "confirm": "Confirmer",
+    "save": "Enregistrer",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "search": "Rechercher...",
+    "filter": "Filtrer",
+    "refresh": "Actualiser",
+    "back": "Retour",
+    "next": "Suivant",
+    "previous": "Précédent",
+    "close": "Fermer",
+    "yes": "Oui",
+    "no": "Non"
+  },
+  "auth": {
+    "login": "Se connecter",
+    "logout": "Déconnexion",
+    "email": "E-mail",
+    "password": "Mot de passe",
+    "forgotPassword": "Mot de passe oublié ?",
+    "loginError": "Identifiants incorrects",
+    "loginSuccess": "Connexion réussie",
+    "sessionExpired": "Session expirée, veuillez vous reconnecter"
+  },
+  "events": {
+    "title": "Événements",
+    "upcoming": "À venir",
+    "past": "Passées",
+    "noEvents": "Aucun événement",
+    "createEvent": "Créer un événement",
+    "eventDetails": "Détails de l'événement",
+    "startDate": "Date de début",
+    "endDate": "Date de fin",
+    "location": "Lieu"
+  },
+  "attendees": {
+    "title": "Participants",
+    "dashboard": "Tableau de bord",
+    "list": "Liste des participants",
+    "details": "Détails du participant",
+    "add": "Ajouter un participant",
+    "edit": "Modifier le participant",
+    "delete": "Supprimer le participant",
+    "firstName": "Prénom",
+    "lastName": "Nom",
+    "email": "E-mail",
+    "phone": "Téléphone",
+    "company": "Entreprise",
+    "position": "Poste",
+    "category": "Catégorie",
+    "status": "Statut",
+    "registered": "Enregistré",
+    "checkedIn": "Enregistré",
+    "cancelled": "Annulé",
+    "checkIn": "Check-in",
+    "print": "Imprimer",
+    "noAttendees": "Aucun participant",
+    "totalAttendees": "Total",
+    "checkedInCount": "Enregistrés",
+    "notCheckedIn": "Non enregistrés"
+  },
+  "sessions": {
+    "title": "Sessions",
+    "noSessions": "Aucune session",
+    "reload": "Recharger"
+  },
+  "scan": {
+    "title": "Scanner",
+    "scanQRCode": "Scanner un QR Code",
+    "scanSuccess": "QR Code scanné avec succès",
+    "scanError": "Erreur lors du scan"
+  },
+  "print": {
+    "title": "Imprimer",
+    "settings": "Paramètres d'impression",
+    "printer": "Imprimante",
+    "selectPrinter": "Sélectionner une imprimante",
+    "orientation": "Orientation",
+    "portrait": "Portrait",
+    "landscape": "Paysage",
+    "autoPrint": "Impression automatique",
+    "quality": "Qualité",
+    "apply": "Appliquer"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "theme": "Thème",
+    "system": "Système",
+    "light": "Clair",
+    "dark": "Sombre",
+    "account": "Compte",
+    "profile": "Profil",
+    "language": "Langue",
+    "notifications": "Notifications",
+    "about": "À propos",
+    "version": "Version"
+  },
+  "navigation": {
+    "participants": "Participants",
+    "add": "Ajouts",
+    "scan": "Scan",
+    "print": "Imprimer",
+    "menu": "Menu"
+  },
+  "errors": {
+    "networkError": "Erreur réseau",
+    "serverError": "Erreur serveur",
+    "unknownError": "Erreur inconnue",
+    "tryAgain": "Réessayer"
+  }
+}
