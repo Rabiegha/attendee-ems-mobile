@@ -12,6 +12,8 @@ export const theme = {
       background: '#FFFFFF',
       surface: '#FFFFFF',
       card: colors.neutral[100], // Fond des cartes en mode light
+      tabBar: colors.neutral[900], // Tab bar foncée en mode light
+      tabBarText: '#FFFFFF', // Texte clair sur tab bar foncée
       text: {
         primary: colors.neutral[900],
         secondary: colors.neutral[600],
@@ -33,6 +35,8 @@ export const theme = {
       background: colors.neutral[900],
       surface: colors.neutral[800],
       card: colors.neutral[800], // Fond des cartes en mode dark
+      tabBar: '#FFFFFF', // Tab bar claire en mode dark
+      tabBarText: colors.neutral[900], // Texte foncé sur tab bar claire
       text: {
         primary: '#FFFFFF',
         secondary: colors.neutral[300],

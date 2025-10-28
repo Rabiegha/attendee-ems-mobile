@@ -44,7 +44,7 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
           left: 20,
           right: 20,
           height: 70,
-          backgroundColor: theme.colors.surface,
+          backgroundColor: theme.colors.tabBar,
           borderRadius: theme.radius.xl,
           borderTopWidth: 0,
           paddingBottom: 10,
@@ -56,7 +56,7 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
           elevation: 8,
         },
         tabBarActiveTintColor: theme.colors.brand[600],
-        tabBarInactiveTintColor: theme.colors.text.tertiary,
+        tabBarInactiveTintColor: theme.colors.tabBarText,
         tabBarLabelStyle: {
           fontSize: theme.fontSize.xs,
           fontWeight: theme.fontWeight.medium,
