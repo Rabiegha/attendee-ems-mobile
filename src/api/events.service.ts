@@ -29,7 +29,6 @@ export const eventsService = {
   async getEvents(params?: {
     page?: number;
     limit?: number;
-    status?: 'upcoming' | 'past';
     search?: string;
   }): Promise<PaginatedResponse<Event>> {
     const response = await axiosClient.get<any>('/events', { params });

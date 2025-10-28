@@ -70,12 +70,25 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
   }, [activeTab]);
 
   const loadEvents = () => {
-    dispatch(fetchEventsThunk({ status: activeTab, search: searchQuery }));
+    // Ne pas envoyer le status au backend, on filtrera côté frontend
+    dispatch(fetchEventsThunk({ search: searchQuery }));
   };
 
   const handleEventPress = (event: Event) => {
     navigation.navigate('EventInner', { eventId: event.id, eventName: event.name });
   };
+
+  // Filtrer les événements selon l'onglet actif
+  const filteredEvents = events.filter((event) => {
+    const eventDate = new Date(event.startDate);
+    const now = new Date();
+    
+    if (activeTab === 'upcoming') {
+      return eventDate >= now;
+    } else {
+      return eventDate < now;
+    }
+  });
 
   const renderEventCard = ({ item }: { item: Event }) => (
     <TouchableOpacity onPress={() => handleEventPress(item)} activeOpacity={0.7}>
@@ -231,7 +244,7 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
             </View>
           ) : (
             <FlatList
-              data={activeTab === 'upcoming' ? events : []}
+              data={filteredEvents}
               renderItem={renderEventCard}
               keyExtractor={(item) => item.id}
               contentContainerStyle={{ padding: theme.spacing.lg }}
@@ -256,7 +269,7 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
             </View>
           ) : (
             <FlatList
-              data={activeTab === 'past' ? events : []}
+              data={filteredEvents}
               renderItem={renderEventCard}
               keyExtractor={(item) => item.id}
               contentContainerStyle={{ padding: theme.spacing.lg }}

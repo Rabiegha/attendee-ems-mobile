@@ -37,7 +37,7 @@ const initialState: EventsState = {
 // Thunks
 export const fetchEventsThunk = createAsyncThunk(
   'events/fetchEvents',
-  async (params?: { page?: number; limit?: number; status?: 'upcoming' | 'past'; search?: string }) => {
+  async (params?: { page?: number; limit?: number; search?: string }) => {
     const response = await eventsService.getEvents(params);
     return response;
   }
