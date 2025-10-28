@@ -18,6 +18,7 @@ import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { loginThunk } from '../../store/auth.slice';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
+import { translateError } from '../../utils/errorTranslations';
 
 export const LoginScreen: React.FC = () => {
   const { t } = useTranslation();
@@ -55,10 +56,12 @@ export const LoginScreen: React.FC = () => {
       await dispatch(loginThunk({ email, password })).unwrap();
       // Navigation sera gérée automatiquement par le navigator
     } catch (err: any) {
-      // Afficher le message d'erreur détaillé du serveur
-      const errorMessage = typeof err === 'string' ? err : err?.message || t('auth.loginError');
-      Alert.alert('Erreur de connexion', errorMessage);
-      console.log('Erreur de connexion détaillée:', err);
+      // Extraire et traduire le message d'erreur
+      const rawErrorMessage = typeof err === 'string' ? err : err?.message || t('auth.loginError');
+      const translatedError = translateError(rawErrorMessage);
+      
+      Alert.alert('Erreur de connexion', translatedError);
+      console.log('Erreur de connexion:', { raw: rawErrorMessage, translated: translatedError });
     }
   };
 
