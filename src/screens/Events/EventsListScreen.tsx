@@ -90,76 +90,85 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
     }
   });
 
-  const renderEventCard = ({ item }: { item: Event }) => (
-    <TouchableOpacity onPress={() => handleEventPress(item)} activeOpacity={0.7}>
-      <Card style={{ marginBottom: theme.spacing.md }}>
-        <View style={styles.eventCard}>
-          {/* Colonne de gauche : Date et heure */}
-          <View style={styles.dateColumn}>
-            <Text
-              style={{
-                fontSize: theme.fontSize.xs,
-                color: theme.colors.text.tertiary,
-                textAlign: 'center',
-              }}
-            >
-              {formatDate(item.startDate)}
-            </Text>
-            <Text
-              style={{
-                fontSize: theme.fontSize.sm,
-                color: theme.colors.text.primary,
-                fontWeight: theme.fontWeight.semibold,
-                textAlign: 'center',
-                marginTop: 4,
-              }}
-            >
-              {formatTime(item.startDate)}
-            </Text>
-            <Text
-              style={{
-                fontSize: theme.fontSize.xs,
-                color: theme.colors.text.tertiary,
-                textAlign: 'center',
-                marginTop: 4,
-              }}
-            >
-              {item.location || 'En ligne'}
-            </Text>
-          </View>
+  const renderEventCard = ({ item }: { item: Event }) => {
+    console.log('[EventCard] Rendering:', { 
+      id: item.id, 
+      name: item.name, 
+      hasName: !!item.name,
+      description: item.description?.substring(0, 50),
+    });
 
-          {/* Colonne de droite : Infos */}
-          <View style={styles.eventInfo}>
-            {/* Titre */}
-            <Text
-              style={{
-                fontSize: theme.fontSize.lg,
-                fontWeight: theme.fontWeight.bold,
-                color: theme.colors.text.primary,
-              }}
-            >
-              {item.name}
-            </Text>
-
-            {/* Description */}
-            {item.description && (
+    return (
+      <TouchableOpacity onPress={() => handleEventPress(item)} activeOpacity={0.7}>
+        <Card style={{ marginBottom: theme.spacing.md }}>
+          <View style={styles.eventCard}>
+            {/* Colonne de gauche : Date et heure */}
+            <View style={styles.dateColumn}>
+              <Text
+                style={{
+                  fontSize: theme.fontSize.xs,
+                  color: theme.colors.text.tertiary,
+                  textAlign: 'center',
+                }}
+              >
+                {formatDate(item.startDate)}
+              </Text>
               <Text
                 style={{
                   fontSize: theme.fontSize.sm,
-                  color: theme.colors.text.secondary,
+                  color: theme.colors.text.primary,
+                  fontWeight: theme.fontWeight.semibold,
+                  textAlign: 'center',
                   marginTop: 4,
-                  lineHeight: 18,
                 }}
-                numberOfLines={2}
               >
-                {item.description}
+                {formatTime(item.startDate)}
               </Text>
-            )}
+              <Text
+                style={{
+                  fontSize: theme.fontSize.xs,
+                  color: theme.colors.text.tertiary,
+                  textAlign: 'center',
+                  marginTop: 4,
+                }}
+              >
+                {item.location || 'En ligne'}
+              </Text>
+            </View>
+
+            {/* Colonne de droite : Infos */}
+            <View style={styles.eventInfo}>
+              {/* Titre - TOUJOURS affiché */}
+              <Text
+                style={{
+                  fontSize: theme.fontSize.lg,
+                  fontWeight: theme.fontWeight.bold,
+                  color: theme.colors.text.primary,
+                  marginBottom: theme.spacing.xs,
+                }}
+              >
+                {item.name || 'Événement sans titre'}
+              </Text>
+
+              {/* Description */}
+              {item.description && (
+                <Text
+                  style={{
+                    fontSize: theme.fontSize.sm,
+                    color: theme.colors.text.secondary,
+                    lineHeight: 18,
+                  }}
+                  numberOfLines={2}
+                >
+                  {item.description}
+                </Text>
+              )}
+            </View>
           </View>
-        </View>
-      </Card>
-    </TouchableOpacity>
-  );
+        </Card>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
