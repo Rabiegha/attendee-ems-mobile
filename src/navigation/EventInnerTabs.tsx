@@ -67,7 +67,7 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
         options={{
           tabBarLabel: t('navigation.participants'),
           tabBarIcon: ({ color, size }) => (
-            <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ alignItems: 'center' as const, justifyContent: 'center' as const }}>
               <Text style={{ color, fontSize: 20 }}>👥</Text>
             </View>
           ),
@@ -81,7 +81,7 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
         options={{
           tabBarLabel: t('navigation.add'),
           tabBarIcon: ({ color, size }) => (
-            <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ alignItems: 'center' as const, justifyContent: 'center' as const }}>
               <Text style={{ color, fontSize: 20 }}>➕</Text>
             </View>
           ),
@@ -118,7 +118,7 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
         options={{
           tabBarLabel: t('navigation.print'),
           tabBarIcon: ({ color, size }) => (
-            <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ alignItems: 'center' as const, justifyContent: 'center' as const }}>
               <Text style={{ color, fontSize: 20 }}>🖨️</Text>
             </View>
           ),
@@ -131,7 +131,7 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
         options={{
           tabBarLabel: t('navigation.menu'),
           tabBarIcon: ({ color, size }) => (
-            <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ alignItems: 'center' as const, justifyContent: 'center' as const }}>
               <Text style={{ color, fontSize: 20 }}>☰</Text>
             </View>
           ),

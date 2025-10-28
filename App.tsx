@@ -18,7 +18,7 @@ import './src/i18n';
 
 // Test progressif pour identifier le problème
 export default function App() {
-  // Étape 5 : Test sans StatusBar
+  // Étape 8 : Test avec NavigationContainer seulement
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
