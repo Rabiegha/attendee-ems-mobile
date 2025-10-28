@@ -4,10 +4,11 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../theme/ThemeProvider';
+import Icons from '../assets/icons';
 import { EventDashboardScreen } from '../screens/EventDashboard/EventDashboardScreen';
 import { AttendeesListScreen } from '../screens/Attendees/AttendeesListScreen';
 import { ScanScreen } from '../screens/Scan/ScanScreen';
@@ -43,15 +44,19 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
           left: 20,
           right: 20,
           height: 70,
-          backgroundColor: theme.colors.neutral[900],
+          backgroundColor: theme.colors.surface,
           borderRadius: theme.radius.xl,
           borderTopWidth: 0,
           paddingBottom: 10,
           paddingTop: 10,
-          // ...theme.shadows.lg,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
+          elevation: 8,
         },
-        tabBarActiveTintColor: theme.colors.success[600],
-        tabBarInactiveTintColor: theme.colors.neutral[400],
+        tabBarActiveTintColor: theme.colors.brand[600],
+        tabBarInactiveTintColor: theme.colors.text.tertiary,
         tabBarLabelStyle: {
           fontSize: theme.fontSize.xs,
           fontWeight: theme.fontWeight.medium,
@@ -63,10 +68,12 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
         component={EventDashboardScreen}
         options={{
           tabBarLabel: t('navigation.participants'),
-          tabBarIcon: ({ color, size }) => (
-            <View style={{ alignItems: 'center' as const, justifyContent: 'center' as const }}>
-              <Text style={{ color, fontSize: 20 }}>👥</Text>
-            </View>
+          tabBarIcon: ({ color }) => (
+            <Image 
+              source={Icons.Participant} 
+              style={{ width: 24, height: 24 }}
+              tintColor={color}
+            />
           ),
         }}
       />
@@ -77,10 +84,12 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
         initialParams={{ eventId }}
         options={{
           tabBarLabel: t('navigation.add'),
-          tabBarIcon: ({ color, size }) => (
-            <View style={{ alignItems: 'center' as const, justifyContent: 'center' as const }}>
-              <Text style={{ color, fontSize: 20 }}>➕</Text>
-            </View>
+          tabBarIcon: ({ color }) => (
+            <Image 
+              source={Icons.Ajouts} 
+              style={{ width: 24, height: 24 }}
+              tintColor={color}
+            />
           ),
         }}
       />
@@ -96,14 +105,22 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
                 width: 60,
                 height: 60,
                 borderRadius: 30,
-                backgroundColor: theme.colors.success[600],
+                backgroundColor: theme.colors.brand[600],
                 justifyContent: 'center' as const,
                 alignItems: 'center' as const,
                 marginTop: -30,
-                // ...theme.shadows.lg,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3,
+                shadowRadius: 8,
+                elevation: 8,
               }}
             >
-              <Text style={{ fontSize: 28 }}>📷</Text>
+              <Image 
+                source={Icons.ScanCamera} 
+                style={{ width: 32, height: 32 }}
+                tintColor="#FFFFFF"
+              />
             </View>
           ),
         }}
@@ -114,10 +131,12 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
         component={PrintSettingsScreen}
         options={{
           tabBarLabel: t('navigation.print'),
-          tabBarIcon: ({ color, size }) => (
-            <View style={{ alignItems: 'center' as const, justifyContent: 'center' as const }}>
-              <Text style={{ color, fontSize: 20 }}>🖨️</Text>
-            </View>
+          tabBarIcon: ({ color }) => (
+            <Image 
+              source={Icons.Print} 
+              style={{ width: 24, height: 24 }}
+              tintColor={color}
+            />
           ),
         }}
       />
@@ -127,10 +146,12 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
         component={SettingsScreen}
         options={{
           tabBarLabel: t('navigation.menu'),
-          tabBarIcon: ({ color, size }) => (
-            <View style={{ alignItems: 'center' as const, justifyContent: 'center' as const }}>
-              <Text style={{ color, fontSize: 20 }}>☰</Text>
-            </View>
+          tabBarIcon: ({ color }) => (
+            <Image 
+              source={Icons.Outils} 
+              style={{ width: 24, height: 24 }}
+              tintColor={color}
+            />
           ),
         }}
       />
