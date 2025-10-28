@@ -22,6 +22,8 @@ export const authService = {
     console.log('[authService.login] Response data:', {
       hasAccessToken: !!access_token,
       hasRefreshToken: !!refresh_token,
+      refreshTokenType: typeof refresh_token,
+      refreshTokenValue: refresh_token,
       expiresIn: expires_in,
     });
 
@@ -29,11 +31,21 @@ export const authService = {
       throw new Error('No refresh token received from server');
     }
 
+    // S'assurer que le refresh_token est une string
+    const refreshTokenString = typeof refresh_token === 'string' 
+      ? refresh_token 
+      : JSON.stringify(refresh_token);
+
     // Stocker les tokens
     setAuthTokens(access_token, expires_in);
-    await secureStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refresh_token);
-
-    console.log('[authService.login] Tokens stored successfully');
+    
+    try {
+      await secureStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshTokenString);
+      console.log('[authService.login] Tokens stored successfully');
+    } catch (error) {
+      console.error('[authService.login] Erreur lors de la sauvegarde sécurisée de refresh_token:', error);
+      throw error;
+    }
 
     return response.data;
   },
@@ -48,9 +60,20 @@ export const authService = {
     
     const { access_token, refresh_token: newRefreshToken, expires_in } = response.data;
 
+    console.log('[authService.refresh] New tokens:', {
+      hasAccessToken: !!access_token,
+      hasRefreshToken: !!newRefreshToken,
+      refreshTokenType: typeof newRefreshToken,
+    });
+
+    // S'assurer que le refresh_token est une string
+    const refreshTokenString = typeof newRefreshToken === 'string' 
+      ? newRefreshToken 
+      : JSON.stringify(newRefreshToken);
+
     // Mettre à jour les tokens
     setAuthTokens(access_token, expires_in);
-    await secureStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken);
+    await secureStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshTokenString);
 
     return response.data;
   },
