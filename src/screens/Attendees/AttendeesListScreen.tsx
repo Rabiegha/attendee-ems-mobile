@@ -178,16 +178,16 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   attendeeItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    position: 'relative',
-    overflow: 'hidden',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    position: 'relative' as const,
+    overflow: 'hidden' as const,
   },
   attendeeContent: {
     flex: 1,
   },
   corner: {
-    position: 'absolute',
+    position: 'absolute' as const,
     right: 0,
     top: 0,
     width: 40,

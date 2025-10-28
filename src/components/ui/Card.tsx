@@ -24,8 +24,8 @@ export const Card: React.FC<CardProps> = ({ children, style }) => {
           padding: theme.spacing.lg,
           borderWidth: 1,
           borderColor: theme.colors.border,
-          ...theme.shadows.sm,
         },
+        theme.shadows.sm,
         style,
       ]}
     >

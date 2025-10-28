@@ -38,7 +38,7 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          position: 'absolute',
+          position: 'absolute' as const,
           bottom: 20,
           left: 20,
           right: 20,
@@ -46,9 +46,9 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
           backgroundColor: theme.colors.neutral[900],
           borderRadius: theme.radius.xl,
           borderTopWidth: 0,
-          ...theme.shadows.lg,
           paddingBottom: 10,
           paddingTop: 10,
+          ...theme.shadows.lg,
         },
         tabBarActiveTintColor: theme.colors.success[600],
         tabBarInactiveTintColor: theme.colors.neutral[400],
