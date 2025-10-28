@@ -106,7 +106,6 @@ export const LoginScreen: React.FC = () => {
               placeholder="exemple@email.com"
               keyboardType="email-address"
               autoCapitalize="none"
-              autoComplete="email"
               error={errors.email}
             />
 
@@ -115,9 +114,8 @@ export const LoginScreen: React.FC = () => {
               value={password}
               onChangeText={setPassword}
               placeholder="••••••••"
-              secureTextEntry
+              secureTextEntry={true}
               autoCapitalize="none"
-              autoComplete="password"
               error={errors.password}
             />
 

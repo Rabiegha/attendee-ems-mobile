@@ -13,7 +13,7 @@ import { AppNavigator } from './src/navigation/AppNavigator';
 import { buildAbilityFor, defaultAbility } from './src/permissions/ability';
 import { AbilityProvider } from './src/permissions/AbilityProvider';
 import './src/i18n';
-import './global.css';
+// import './global.css';
 
 export default function App() {
   return (
