@@ -94,13 +94,13 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
     <TouchableOpacity onPress={() => handleEventPress(item)} activeOpacity={0.7}>
       <Card style={{ marginBottom: theme.spacing.md }}>
         <View style={styles.eventCard}>
-          {/* Date et heure */}
-          <View style={styles.dateContainer}>
+          {/* Colonne de gauche : Date et heure */}
+          <View style={[styles.dateColumn, { backgroundColor: theme.colors.neutral[100] }]}>
             <Text
               style={{
                 fontSize: theme.fontSize.xs,
                 color: theme.colors.text.tertiary,
-                marginBottom: theme.spacing.xs,
+                textAlign: 'center',
               }}
             >
               {formatDate(item.startDate)}
@@ -108,7 +108,10 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
             <Text
               style={{
                 fontSize: theme.fontSize.sm,
-                color: theme.colors.text.secondary,
+                color: theme.colors.text.primary,
+                fontWeight: theme.fontWeight.semibold,
+                textAlign: 'center',
+                marginTop: 4,
               }}
             >
               {formatTime(item.startDate)}
@@ -117,30 +120,35 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
               style={{
                 fontSize: theme.fontSize.xs,
                 color: theme.colors.text.tertiary,
-                marginTop: theme.spacing.xs,
+                textAlign: 'center',
+                marginTop: 4,
               }}
             >
-              {item.location || 'Autre'}
+              {item.location || 'En ligne'}
             </Text>
           </View>
 
-          {/* Titre */}
+          {/* Colonne de droite : Infos */}
           <View style={styles.eventInfo}>
+            {/* Titre */}
             <Text
               style={{
                 fontSize: theme.fontSize.lg,
-                fontWeight: theme.fontWeight.semibold,
+                fontWeight: theme.fontWeight.bold,
                 color: theme.colors.text.primary,
+                marginBottom: theme.spacing.xs,
               }}
             >
               {item.name}
             </Text>
+
+            {/* Description */}
             {item.description && (
               <Text
                 style={{
                   fontSize: theme.fontSize.sm,
                   color: theme.colors.text.secondary,
-                  marginTop: theme.spacing.xs,
+                  lineHeight: 18,
                 }}
                 numberOfLines={2}
               >
@@ -314,14 +322,18 @@ const styles = StyleSheet.create({
   eventCard: {
     flexDirection: 'row' as const,
   },
-  dateContainer: {
+  dateColumn: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
     marginRight: 16,
-    alignItems: 'center' as const,
+    minWidth: 90,
     justifyContent: 'center' as const,
-    minWidth: 80,
+    alignItems: 'center' as const,
   },
   eventInfo: {
     flex: 1,
+    justifyContent: 'center' as const,
   },
   loadingContainer: {
     flex: 1,
