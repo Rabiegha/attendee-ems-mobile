@@ -146,23 +146,23 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
                   color: theme.colors.text.primary,
                   marginBottom: theme.spacing.xs,
                 }}
+                numberOfLines={1}
               >
                 {item.name || 'Événement sans titre'}
               </Text>
 
-              {/* Description */}
-              {item.description && (
-                <Text
-                  style={{
-                    fontSize: theme.fontSize.sm,
-                    color: theme.colors.text.secondary,
-                    lineHeight: 18,
-                  }}
-                  numberOfLines={2}
-                >
-                  {item.description}
-                </Text>
-              )}
+              {/* Description - TOUJOURS 2 lignes pour cohérence */}
+              <Text
+                style={{
+                  fontSize: theme.fontSize.sm,
+                  color: theme.colors.text.secondary,
+                  lineHeight: 18,
+                  height: 36, // 2 lignes * 18 de lineHeight
+                }}
+                numberOfLines={2}
+              >
+                {item.description || ' '}
+              </Text>
             </View>
           </View>
         </Card>
