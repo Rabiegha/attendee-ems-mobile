@@ -136,6 +136,11 @@ axiosClient.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
+    // Ne pas essayer de refresh sur les routes d'authentification
+    if (originalRequest.url?.includes('/auth/login') || originalRequest.url?.includes('/auth/refresh')) {
+      return Promise.reject(error);
+    }
+
     // Si erreur 401 et pas déjà en train de retry
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
