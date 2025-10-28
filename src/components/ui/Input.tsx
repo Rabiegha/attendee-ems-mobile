@@ -3,8 +3,9 @@
  */
 
 import React, { useState } from 'react';
-import { View, TextInput, Text, StyleSheet, TextInputProps, ViewStyle, TouchableOpacity } from 'react-native';
+import { View, TextInput, Text, StyleSheet, TextInputProps, ViewStyle, TouchableOpacity, Image } from 'react-native';
 import { useTheme } from '../../theme/ThemeProvider';
+import Icons from '../../assets/icons';
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -79,9 +80,11 @@ export const Input: React.FC<InputProps> = ({
             onPress={togglePasswordVisibility}
             style={styles.toggleButton}
           >
-            <Text style={{ fontSize: 20 }}>
-              {isPasswordVisible ? '👁️' : '👁️‍🗨️'}
-            </Text>
+            <Image 
+              source={isPasswordVisible ? Icons.Vu : Icons.PasVu} 
+              style={{ width: 20, height: 20 }}
+              resizeMode="contain"
+            />
           </TouchableOpacity>
         )}
       </View>

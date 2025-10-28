@@ -2,7 +2,7 @@
  * Écran de liste des événements
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,9 @@ import {
   StyleSheet,
   TextInput,
   ActivityIndicator,
+  ScrollView,
+  Dimensions,
+  Image,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -19,6 +22,9 @@ import { fetchEventsThunk } from '../../store/events.slice';
 import { Event } from '../../types/event';
 import { formatDate, formatTime } from '../../utils/format';
 import { Card } from '../../components/ui/Card';
+import Icons from '../../assets/icons';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface EventsListScreenProps {
   navigation: any;
@@ -32,9 +38,31 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
 
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
   const [searchQuery, setSearchQuery] = useState('');
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  // Configurer le header avec le bouton paramètres
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Settings')}
+          style={{ marginRight: 16 }}
+        >
+          <Image source={Icons.Outils} style={{ width: 24, height: 24 }} />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
 
   useEffect(() => {
     loadEvents();
+    // Scroll vers la bonne page quand on change d'onglet
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({
+        x: activeTab === 'upcoming' ? 0 : SCREEN_WIDTH,
+        animated: true,
+      });
+    }
   }, [activeTab]);
 
   const loadEvents = () => {
@@ -138,7 +166,7 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
             styles.tab,
             activeTab === 'upcoming' && {
               borderBottomWidth: 2,
-              borderBottomColor: theme.colors.success[600],
+              borderBottomColor: theme.colors.brand[600],
             },
           ]}
           onPress={() => setActiveTab('upcoming')}
@@ -147,7 +175,7 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
             style={{
               fontSize: theme.fontSize.base,
               fontWeight: activeTab === 'upcoming' ? theme.fontWeight.semibold : theme.fontWeight.normal,
-              color: activeTab === 'upcoming' ? theme.colors.success[600] : theme.colors.text.secondary,
+              color: activeTab === 'upcoming' ? theme.colors.brand[600] : theme.colors.text.secondary,
             }}
           >
             {t('events.upcoming')}
@@ -159,7 +187,7 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
             styles.tab,
             activeTab === 'past' && {
               borderBottomWidth: 2,
-              borderBottomColor: theme.colors.success[600],
+              borderBottomColor: theme.colors.brand[600],
             },
           ]}
           onPress={() => setActiveTab('past')}
@@ -168,7 +196,7 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
             style={{
               fontSize: theme.fontSize.base,
               fontWeight: activeTab === 'past' ? theme.fontWeight.semibold : theme.fontWeight.normal,
-              color: activeTab === 'past' ? theme.colors.success[600] : theme.colors.text.secondary,
+              color: activeTab === 'past' ? theme.colors.brand[600] : theme.colors.text.secondary,
             }}
           >
             {t('events.past')}
@@ -176,28 +204,71 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
         </TouchableOpacity>
       </View>
 
-      {/* Liste des événements */}
-      {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.brand[600]} />
-        </View>
-      ) : (
-        <FlatList
-          data={events}
-          renderItem={renderEventCard}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={{ padding: theme.spacing.lg }}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={{ color: theme.colors.text.secondary, fontSize: theme.fontSize.base }}>
-                {t('events.noEvents')}
-              </Text>
-            </View>
+      {/* Liste des événements avec swipe horizontal */}
+      <ScrollView
+        ref={scrollViewRef}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onMomentumScrollEnd={(event) => {
+          const offsetX = event.nativeEvent.contentOffset.x;
+          const newTab = offsetX > SCREEN_WIDTH / 2 ? 'past' : 'upcoming';
+          if (newTab !== activeTab) {
+            setActiveTab(newTab);
           }
-          refreshing={isLoading}
-          onRefresh={loadEvents}
-        />
-      )}
+        }}
+      >
+        {/* Page À venir */}
+        <View style={{ width: SCREEN_WIDTH }}>
+          {isLoading && activeTab === 'upcoming' ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={theme.colors.brand[600]} />
+            </View>
+          ) : (
+            <FlatList
+              data={activeTab === 'upcoming' ? events : []}
+              renderItem={renderEventCard}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={{ padding: theme.spacing.lg }}
+              ListEmptyComponent={
+                <View style={styles.emptyContainer}>
+                  <Text style={{ color: theme.colors.text.secondary, fontSize: theme.fontSize.base }}>
+                    {t('events.noEvents')}
+                  </Text>
+                </View>
+              }
+              refreshing={isLoading}
+              onRefresh={loadEvents}
+            />
+          )}
+        </View>
+
+        {/* Page Passés */}
+        <View style={{ width: SCREEN_WIDTH }}>
+          {isLoading && activeTab === 'past' ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={theme.colors.brand[600]} />
+            </View>
+          ) : (
+            <FlatList
+              data={activeTab === 'past' ? events : []}
+              renderItem={renderEventCard}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={{ padding: theme.spacing.lg }}
+              ListEmptyComponent={
+                <View style={styles.emptyContainer}>
+                  <Text style={{ color: theme.colors.text.secondary, fontSize: theme.fontSize.base }}>
+                    {t('events.noEvents')}
+                  </Text>
+                </View>
+              }
+              refreshing={isLoading}
+              onRefresh={loadEvents}
+            />
+          )}
+        </View>
+      </ScrollView>
     </View>
   );
 };
