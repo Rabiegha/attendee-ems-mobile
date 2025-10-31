@@ -3,7 +3,7 @@
  */
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { eventsService } from '../api/events.service';
+import { eventsService } from '../api/backend/events.service';
 import { Event, EventStats } from '../types/event';
 
 interface EventsState {

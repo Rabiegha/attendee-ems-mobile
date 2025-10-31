@@ -3,7 +3,7 @@
  */
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { attendeesService } from '../api/attendees.service';
+import { attendeesService } from '../api/backend/attendees.service';
 import { Attendee, CreateAttendeeDto, UpdateAttendeeDto } from '../types/attendee';
 
 interface AttendeesState {

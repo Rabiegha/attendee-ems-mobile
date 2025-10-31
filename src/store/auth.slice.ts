@@ -3,8 +3,8 @@
  */
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { authService } from '../api/auth.service';
-import { setAuthTokens, clearAuthTokens } from '../api/axiosClient';
+import { authService } from '../api/backend/auth.service';
+import { setAuthTokens, clearAuthTokens } from '../api/backend/axiosClient';
 import { LoginCredentials, User, Organization } from '../types/auth';
 import { secureStorage, STORAGE_KEYS } from '../utils/storage';
 

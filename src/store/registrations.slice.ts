@@ -3,7 +3,7 @@
  */
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { registrationsService } from '../api/registrations.service';
+import { registrationsService } from '../api/backend/registrations.service';
 import { Registration } from '../types/attendee';
 
 interface RegistrationsState {
