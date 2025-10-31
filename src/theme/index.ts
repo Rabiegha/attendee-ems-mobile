@@ -12,6 +12,8 @@ export const theme = {
       background: '#FFFFFF',
       surface: '#FFFFFF',
       card: colors.neutral[100], // Fond des cartes en mode light
+      cardHover: colors.neutral[200], // Fond des cartes au hover/sélection
+      brandLight: colors.brand[100], // Accent clair pour sélections
       tabBar: colors.neutral[900], // Tab bar foncée en mode light
       tabBarText: '#FFFFFF', // Texte clair sur tab bar foncée
       text: {
@@ -35,6 +37,8 @@ export const theme = {
       background: colors.neutral[900],
       surface: colors.neutral[800],
       card: colors.neutral[800], // Fond des cartes en mode dark
+      cardHover: colors.neutral[700], // Fond des cartes au hover/sélection
+      brandLight: colors.brand[700], // Accent pour sélections en dark (plus foncé)
       tabBar: '#FFFFFF', // Tab bar claire en mode dark
       tabBarText: colors.neutral[900], // Texte foncé sur tab bar claire
       text: {

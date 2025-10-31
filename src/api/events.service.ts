@@ -38,56 +38,122 @@ export const eventsService = {
     limit?: number;
     search?: string;
   }): Promise<PaginatedResponse<Event>> {
-    const response = await axiosClient.get<any>('/events', { params });
-    
-    console.log('[eventsService.getEvents] Response:', {
-      total: response.data.meta?.total,
-      count: response.data.data?.length,
-      firstEvent: response.data.data?.[0],
-    });
-    
-    return {
-      data: response.data.data.map(mapEventFromBackend),
-      meta: response.data.meta,
-    };
+    try {
+      console.log('[EventsService] Fetching events with params:', params);
+      const response = await axiosClient.get<any>('/events', { params });
+      
+      console.log('[EventsService] Events fetched successfully:', {
+        total: response.data.meta?.total,
+        count: response.data.data?.length,
+        firstEvent: response.data.data?.[0]?.name,
+      });
+      
+      return {
+        data: response.data.data.map(mapEventFromBackend),
+        meta: response.data.meta,
+      };
+    } catch (error: any) {
+      console.error('[EventsService] Error fetching events:', {
+        params,
+        error: error.response?.data || error.message,
+        status: error.response?.status,
+      });
+      throw error;
+    }
   },
 
   /**
    * Récupérer un événement par ID
    */
   async getEventById(id: string): Promise<Event> {
-    const response = await axiosClient.get<any>(`/events/${id}`);
-    return mapEventFromBackend(response.data);
+    try {
+      console.log('[EventsService] Fetching event by ID:', id);
+      const response = await axiosClient.get<any>(`/events/${id}`);
+      console.log('[EventsService] Event fetched successfully:', response.data.name);
+      return mapEventFromBackend(response.data);
+    } catch (error: any) {
+      console.error('[EventsService] Error fetching event by ID:', {
+        id,
+        error: error.response?.data || error.message,
+        status: error.response?.status,
+      });
+      throw error;
+    }
   },
 
   /**
    * Récupérer les statistiques d'un événement
    */
   async getEventStats(id: string): Promise<EventStats> {
-    const response = await axiosClient.get<EventStats>(`/events/${id}/stats`);
-    return response.data;
+    try {
+      console.log('[EventsService] Fetching event stats for ID:', id);
+      const response = await axiosClient.get<EventStats>(`/events/${id}/stats`);
+      console.log('[EventsService] Event stats fetched successfully:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('[EventsService] Error fetching event stats:', {
+        id,
+        error: error.response?.data || error.message,
+        status: error.response?.status,
+      });
+      throw error;
+    }
   },
 
   /**
    * Créer un événement
    */
   async createEvent(data: Partial<Event>): Promise<Event> {
-    const response = await axiosClient.post<Event>('/events', data);
-    return response.data;
+    try {
+      console.log('[EventsService] Creating event:', data.name);
+      const response = await axiosClient.post<Event>('/events', data);
+      console.log('[EventsService] Event created successfully:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('[EventsService] Error creating event:', {
+        data,
+        error: error.response?.data || error.message,
+        status: error.response?.status,
+      });
+      throw error;
+    }
   },
 
   /**
    * Mettre à jour un événement
    */
   async updateEvent(id: string, data: Partial<Event>): Promise<Event> {
-    const response = await axiosClient.patch<Event>(`/events/${id}`, data);
-    return response.data;
+    try {
+      console.log('[EventsService] Updating event:', id);
+      const response = await axiosClient.patch<Event>(`/events/${id}`, data);
+      console.log('[EventsService] Event updated successfully');
+      return response.data;
+    } catch (error: any) {
+      console.error('[EventsService] Error updating event:', {
+        id,
+        data,
+        error: error.response?.data || error.message,
+        status: error.response?.status,
+      });
+      throw error;
+    }
   },
 
   /**
    * Supprimer un événement
    */
   async deleteEvent(id: string): Promise<void> {
-    await axiosClient.delete(`/events/${id}`);
+    try {
+      console.log('[EventsService] Deleting event:', id);
+      await axiosClient.delete(`/events/${id}`);
+      console.log('[EventsService] Event deleted successfully');
+    } catch (error: any) {
+      console.error('[EventsService] Error deleting event:', {
+        id,
+        error: error.response?.data || error.message,
+        status: error.response?.status,
+      });
+      throw error;
+    }
   },
 };

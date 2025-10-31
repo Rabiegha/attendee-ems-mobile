@@ -29,7 +29,9 @@ export const loginThunk = createAsyncThunk(
   'auth/login',
   async (credentials: LoginCredentials, { rejectWithValue }) => {
     try {
+      console.log('[AuthSlice] loginThunk - Starting login for:', credentials.email);
       const response = await authService.login(credentials);
+      console.log('[AuthSlice] loginThunk - Login successful');
       return response;
     } catch (error: any) {
       // Extraire le message d'erreur du serveur
@@ -39,7 +41,7 @@ export const loginThunk = createAsyncThunk(
         error.message ||
         'Erreur de connexion';
       
-      console.error('Erreur de login:', {
+      console.error('[AuthSlice] loginThunk - Login failed:', {
         status: error.response?.status,
         data: error.response?.data,
         message: errorMessage,
@@ -50,16 +52,31 @@ export const loginThunk = createAsyncThunk(
   }
 );
 
-export const logoutThunk = createAsyncThunk('auth/logout', async () => {
-  await authService.logout();
+export const logoutThunk = createAsyncThunk('auth/logout', async (_, { rejectWithValue }) => {
+  try {
+    console.log('[AuthSlice] logoutThunk - Starting logout');
+    await authService.logout();
+    console.log('[AuthSlice] logoutThunk - Logout successful');
+  } catch (error: any) {
+    console.error('[AuthSlice] logoutThunk - Logout failed:', error);
+    return rejectWithValue(error.message);
+  }
 });
 
-export const checkAuthThunk = createAsyncThunk('auth/checkAuth', async () => {
-  const isAuth = await authService.isAuthenticated();
-  if (!isAuth) {
-    throw new Error('Not authenticated');
+export const checkAuthThunk = createAsyncThunk('auth/checkAuth', async (_, { rejectWithValue }) => {
+  try {
+    console.log('[AuthSlice] checkAuthThunk - Checking authentication');
+    const isAuth = await authService.isAuthenticated();
+    if (!isAuth) {
+      console.log('[AuthSlice] checkAuthThunk - Not authenticated');
+      throw new Error('Not authenticated');
+    }
+    console.log('[AuthSlice] checkAuthThunk - User is authenticated');
+    return isAuth;
+  } catch (error: any) {
+    console.error('[AuthSlice] checkAuthThunk - Error:', error);
+    return rejectWithValue(error.message);
   }
-  return isAuth;
 });
 
 // Slice
@@ -88,10 +105,12 @@ const authSlice = createSlice({
     // Login
     builder
       .addCase(loginThunk.pending, (state) => {
+        console.log('[AuthSlice] loginThunk.pending');
         state.isLoading = true;
         state.error = null;
       })
       .addCase(loginThunk.fulfilled, (state, action) => {
+        console.log('[AuthSlice] loginThunk.fulfilled - User:', action.payload.user.email);
         state.isLoading = false;
         state.user = action.payload.user;
         state.organization = action.payload.organization;
@@ -99,6 +118,7 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(loginThunk.rejected, (state, action) => {
+        console.error('[AuthSlice] loginThunk.rejected:', action.payload);
         state.isLoading = false;
         state.error = action.payload as string;
         state.isAuthenticated = false;
@@ -107,9 +127,11 @@ const authSlice = createSlice({
     // Logout
     builder
       .addCase(logoutThunk.pending, (state) => {
+        console.log('[AuthSlice] logoutThunk.pending');
         state.isLoading = true;
       })
       .addCase(logoutThunk.fulfilled, (state) => {
+        console.log('[AuthSlice] logoutThunk.fulfilled');
         state.isLoading = false;
         state.user = null;
         state.organization = null;
@@ -117,6 +139,7 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(logoutThunk.rejected, (state) => {
+        console.warn('[AuthSlice] logoutThunk.rejected - Forcing logout anyway');
         state.isLoading = false;
         // Même en cas d'erreur, on déconnecte l'utilisateur
         state.user = null;
@@ -127,9 +150,11 @@ const authSlice = createSlice({
     // Check auth
     builder
       .addCase(checkAuthThunk.fulfilled, (state) => {
+        console.log('[AuthSlice] checkAuthThunk.fulfilled');
         state.isAuthenticated = true;
       })
       .addCase(checkAuthThunk.rejected, (state) => {
+        console.log('[AuthSlice] checkAuthThunk.rejected');
         state.isAuthenticated = false;
         state.user = null;
         state.organization = null;

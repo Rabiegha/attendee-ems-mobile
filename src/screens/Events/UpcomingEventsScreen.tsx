@@ -116,7 +116,7 @@ export const UpcomingEventsScreen: React.FC<UpcomingEventsScreenProps> = ({
 
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
         <ActivityIndicator size="large" color={theme.colors.brand[600]} />
       </View>
     );

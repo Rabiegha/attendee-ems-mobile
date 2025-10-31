@@ -20,6 +20,7 @@ import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchRegistrationsThunk } from '../../store/registrations.slice';
 import { Registration } from '../../types/attendee';
 import { SearchBar } from '../../components/ui/SearchBar';
+import { Header } from '../../components/ui/Header';
 import { Swipeable } from 'react-native-gesture-handler';
 import Icons from '../../assets/icons';
 
@@ -165,22 +166,11 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
       style={[styles.container, { backgroundColor: theme.colors.background }]}
       edges={['top', 'left', 'right']}
     >
-      {/* Header personnalisé */}
-      <View style={[styles.header, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.divider }]}>
-        <TouchableOpacity 
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-        >
-          <Image 
-            source={Icons.Retour} 
-            style={{ width: 24, height: 24 }}
-            tintColor={theme.colors.brand[600]}
-          />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.colors.text.primary }]}>
-          {t('Liste des participants')}
-        </Text>
-      </View>
+      {/* Header */}
+      <Header
+        title={t('Liste des participants')}
+        onBack={() => navigation.goBack()}
+      />
 
       {/* Barre de recherche */}
       <View style={[styles.searchContainer, { paddingHorizontal: theme.spacing.lg }]}>
@@ -257,22 +247,6 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  backButton: {
-    padding: 8,
-    marginRight: 8,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
     flex: 1,
   },
   searchContainer: {

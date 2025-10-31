@@ -4,14 +4,20 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useTranslation } from 'react-i18next';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { logoutThunk } from '../../store/auth.slice';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
+import { Header } from '../../components/ui/Header';
 
-export const SettingsScreen: React.FC = () => {
+interface SettingsScreenProps {
+  navigation: any;
+}
+
+export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
   const { theme, themeMode, setThemeMode } = useTheme();
   const { t } = useTranslation();
   const dispatch = useAppDispatch();
@@ -28,8 +34,16 @@ export const SettingsScreen: React.FC = () => {
   ];
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <View style={{ padding: theme.spacing.lg }}>
+    <SafeAreaView 
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      edges={['top', 'left', 'right']}
+    >
+      <Header
+        title={t('settings.title')}
+        onBack={() => navigation.goBack()}
+      />
+      <ScrollView style={{ flex: 1 }}>
+        <View style={{ padding: theme.spacing.lg }}>
         {/* Compte */}
         <Card style={{ marginBottom: theme.spacing.lg }}>
           <Text
@@ -80,7 +94,7 @@ export const SettingsScreen: React.FC = () => {
                   styles.themeOption,
                   {
                     backgroundColor:
-                      themeMode === mode.value ? theme.colors.brand[100] : theme.colors.neutral[100],
+                      themeMode === mode.value ? theme.colors.brandLight : theme.colors.card,
                     borderRadius: theme.radius.md,
                     padding: theme.spacing.md,
                     marginBottom: theme.spacing.sm,
@@ -90,7 +104,7 @@ export const SettingsScreen: React.FC = () => {
               >
                 <Text
                   style={{
-                    color: themeMode === mode.value ? theme.colors.brand[600] : theme.colors.text.primary,
+                    color: theme.colors.text.primary,
                     fontWeight: themeMode === mode.value ? theme.fontWeight.semibold : theme.fontWeight.normal,
                   }}
                 >
@@ -103,8 +117,9 @@ export const SettingsScreen: React.FC = () => {
 
         {/* Déconnexion */}
         <Button title={t('auth.logout')} onPress={handleLogout} variant="destructive" />
-      </View>
-    </ScrollView>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 

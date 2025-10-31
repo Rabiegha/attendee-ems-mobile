@@ -12,8 +12,7 @@ import { SessionsScreen } from './SessionsScreen';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { fetchEventByIdThunk } from '../../store/events.slice';
-import Icons from '../../assets/icons';
-import { Image } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 const Tab = createMaterialTopTabNavigator();
 
@@ -68,9 +67,6 @@ export const EventDashboardScreen: React.FC<EventDashboardScreenProps> = ({ rout
       <View 
         style={[
           styles.header, 
-          { 
-            backgroundColor: theme.colors.surface,
-          }
         ]}
       >
         <View style={styles.headerLeft}>
@@ -79,10 +75,10 @@ export const EventDashboardScreen: React.FC<EventDashboardScreenProps> = ({ rout
             style={[styles.backButton, { backgroundColor: theme.colors.background }]}
             activeOpacity={0.7}
           >
-            <Image 
-              source={Icons.Retour} 
-              style={styles.backIcon}
-              tintColor={theme.colors.brand[600]}
+            <Ionicons 
+              name="chevron-back" 
+              size={34} 
+              color={theme.colors.brand[600]} 
             />
           </TouchableOpacity>
         </View>
@@ -174,11 +170,6 @@ export const EventDashboardScreen: React.FC<EventDashboardScreenProps> = ({ rout
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
   },
   headerLeft: {
     width: 48,

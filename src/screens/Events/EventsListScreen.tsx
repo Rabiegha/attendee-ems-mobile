@@ -47,7 +47,7 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
       edges={['top', 'bottom', 'left', 'right']}
     >
       {/* Header personnalisé */}
-      <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
+      <View style={[styles.header, ]}>
         <Text style={[styles.headerTitle, { color: theme.colors.text.primary }]}>
           {t('events.title')}
         </Text>
@@ -131,8 +131,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
   },
   headerTitle: {
     fontSize: 20,

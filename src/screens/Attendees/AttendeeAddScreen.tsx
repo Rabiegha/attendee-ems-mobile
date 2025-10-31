@@ -10,10 +10,12 @@ import {
   ScrollView,
   TextInput,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { Header } from '../../components/ui/Header';
 
 interface AttendeeAddScreenProps {
   navigation: any;
@@ -38,19 +40,17 @@ export const AttendeeAddScreen: React.FC<AttendeeAddScreenProps> = ({ navigation
   };
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <View style={{ padding: theme.spacing.lg }}>
-        <Card>
-          <Text
-            style={{
-              fontSize: theme.fontSize.lg,
-              fontWeight: theme.fontWeight.semibold,
-              color: theme.colors.text.primary,
-              marginBottom: theme.spacing.lg,
-            }}
-          >
-            Ajouter un participant
-          </Text>
+    <SafeAreaView 
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      edges={['top', 'left', 'right']}
+    >
+      <Header
+        title="Ajouter un participant"
+        onBack={() => navigation.goBack()}
+      />
+      <ScrollView style={{ flex: 1 }}>
+        <View style={{ padding: theme.spacing.lg }}>
+          <Card>
 
           {/* Prénom */}
           <View style={{ marginBottom: theme.spacing.md }}>
@@ -235,8 +235,9 @@ export const AttendeeAddScreen: React.FC<AttendeeAddScreenProps> = ({ navigation
             onPress={handleSubmit}
           />
         </Card>
-      </View>
-    </ScrollView>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 

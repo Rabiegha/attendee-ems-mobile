@@ -35,17 +35,40 @@ const initialState: EventsState = {
 // Thunks
 export const fetchEventsThunk = createAsyncThunk(
   'events/fetchEvents',
-  async (params?: { page?: number; limit?: number; search?: string }) => {
-    const response = await eventsService.getEvents(params);
-    return response;
+  async (params: { page?: number; limit?: number; search?: string } | undefined, { rejectWithValue }) => {
+    try {
+      console.log('[EventsSlice] fetchEventsThunk - Starting with params:', params);
+      const response = await eventsService.getEvents(params);
+      console.log('[EventsSlice] fetchEventsThunk - Success:', response.meta);
+      return response;
+    } catch (error: any) {
+      console.error('[EventsSlice] fetchEventsThunk - Error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      return rejectWithValue(error.response?.data || error.message);
+    }
   }
 );
 
 export const fetchEventByIdThunk = createAsyncThunk(
   'events/fetchEventById',
-  async (id: string) => {
-    const response = await eventsService.getEventById(id);
-    return response;
+  async (id: string, { rejectWithValue }) => {
+    try {
+      console.log('[EventsSlice] fetchEventByIdThunk - Starting for ID:', id);
+      const response = await eventsService.getEventById(id);
+      console.log('[EventsSlice] fetchEventByIdThunk - Success:', response.name);
+      return response;
+    } catch (error: any) {
+      console.error('[EventsSlice] fetchEventByIdThunk - Error:', {
+        id,
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      return rejectWithValue(error.response?.data || error.message);
+    }
   }
 );
 
@@ -70,32 +93,38 @@ const eventsSlice = createSlice({
     // Fetch events
     builder
       .addCase(fetchEventsThunk.pending, (state) => {
+        console.log('[EventsSlice] fetchEventsThunk.pending');
         state.isLoading = true;
         state.error = null;
       })
       .addCase(fetchEventsThunk.fulfilled, (state, action) => {
+        console.log('[EventsSlice] fetchEventsThunk.fulfilled - Loaded', action.payload.data.length, 'events');
         state.isLoading = false;
         state.events = action.payload.data;
         state.pagination = action.payload.meta;
       })
       .addCase(fetchEventsThunk.rejected, (state, action) => {
+        console.error('[EventsSlice] fetchEventsThunk.rejected:', action.payload || action.error);
         state.isLoading = false;
-        state.error = action.error.message || 'Erreur lors du chargement des événements';
+        state.error = (action.payload as any)?.detail || action.error.message || 'Erreur lors du chargement des événements';
       });
 
     // Fetch event by ID
     builder
       .addCase(fetchEventByIdThunk.pending, (state) => {
+        console.log('[EventsSlice] fetchEventByIdThunk.pending');
         state.isLoading = true;
         state.error = null;
       })
       .addCase(fetchEventByIdThunk.fulfilled, (state, action) => {
+        console.log('[EventsSlice] fetchEventByIdThunk.fulfilled - Event:', action.payload.name);
         state.isLoading = false;
         state.currentEvent = action.payload;
       })
       .addCase(fetchEventByIdThunk.rejected, (state, action) => {
+        console.error('[EventsSlice] fetchEventByIdThunk.rejected:', action.payload || action.error);
         state.isLoading = false;
-        state.error = action.error.message || 'Erreur lors du chargement de l\'événement';
+        state.error = (action.payload as any)?.detail || action.error.message || 'Erreur lors du chargement de l\'événement';
       });
   },
 });

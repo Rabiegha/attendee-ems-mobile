@@ -41,33 +41,81 @@ export const fetchRegistrationsThunk = createAsyncThunk(
     limit?: number;
     search?: string;
     status?: string;
-  }) => {
-    const response = await registrationsService.getRegistrations(params.eventId, params);
-    return response;
+  }, { rejectWithValue }) => {
+    try {
+      console.log('[RegistrationsSlice] fetchRegistrationsThunk - Starting with params:', params);
+      
+      // Extraire eventId et garder seulement les query params
+      const { eventId, ...queryParams } = params;
+      
+      const response = await registrationsService.getRegistrations(eventId, queryParams);
+      console.log('[RegistrationsSlice] fetchRegistrationsThunk - Success:', response.meta);
+      return response;
+    } catch (error: any) {
+      console.error('[RegistrationsSlice] fetchRegistrationsThunk - Error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      return rejectWithValue(error.response?.data || error.message);
+    }
   }
 );
 
 export const fetchRegistrationByIdThunk = createAsyncThunk(
   'registrations/fetchRegistrationById',
-  async (params: { eventId: string; registrationId: string }) => {
-    const response = await registrationsService.getRegistrationById(params.eventId, params.registrationId);
-    return response;
+  async (params: { eventId: string; registrationId: string }, { rejectWithValue }) => {
+    try {
+      console.log('[RegistrationsSlice] fetchRegistrationByIdThunk - Starting:', params);
+      const response = await registrationsService.getRegistrationById(params.eventId, params.registrationId);
+      console.log('[RegistrationsSlice] fetchRegistrationByIdThunk - Success:', response.id);
+      return response;
+    } catch (error: any) {
+      console.error('[RegistrationsSlice] fetchRegistrationByIdThunk - Error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      return rejectWithValue(error.response?.data || error.message);
+    }
   }
 );
 
 export const checkInRegistrationThunk = createAsyncThunk(
   'registrations/checkInRegistration',
-  async (params: { eventId: string; registrationId: string }) => {
-    const response = await registrationsService.checkInRegistration(params.eventId, params.registrationId);
-    return response;
+  async (params: { eventId: string; registrationId: string }, { rejectWithValue }) => {
+    try {
+      console.log('[RegistrationsSlice] checkInRegistrationThunk - Starting:', params);
+      const response = await registrationsService.checkInRegistration(params.eventId, params.registrationId);
+      console.log('[RegistrationsSlice] checkInRegistrationThunk - Success:', response.status);
+      return response;
+    } catch (error: any) {
+      console.error('[RegistrationsSlice] checkInRegistrationThunk - Error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      return rejectWithValue(error.response?.data || error.message);
+    }
   }
 );
 
 export const markBadgePrintedThunk = createAsyncThunk(
   'registrations/markBadgePrinted',
-  async (params: { eventId: string; registrationId: string }) => {
-    const response = await registrationsService.markBadgePrinted(params.eventId, params.registrationId);
-    return response;
+  async (params: { eventId: string; registrationId: string }, { rejectWithValue }) => {
+    try {
+      console.log('[RegistrationsSlice] markBadgePrintedThunk - Starting:', params);
+      const response = await registrationsService.markBadgePrinted(params.eventId, params.registrationId);
+      console.log('[RegistrationsSlice] markBadgePrintedThunk - Success');
+      return response;
+    } catch (error: any) {
+      console.error('[RegistrationsSlice] markBadgePrintedThunk - Error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      return rejectWithValue(error.response?.data || error.message);
+    }
   }
 );
 
@@ -92,56 +140,82 @@ const registrationsSlice = createSlice({
     // Fetch registrations
     builder
       .addCase(fetchRegistrationsThunk.pending, (state) => {
+        console.log('[RegistrationsSlice] fetchRegistrationsThunk.pending');
         state.isLoading = true;
         state.error = null;
       })
       .addCase(fetchRegistrationsThunk.fulfilled, (state, action) => {
+        console.log('[RegistrationsSlice] fetchRegistrationsThunk.fulfilled - Loaded', action.payload.data.length, 'registrations');
         state.isLoading = false;
         state.registrations = action.payload.data;
         state.pagination = action.payload.meta;
       })
       .addCase(fetchRegistrationsThunk.rejected, (state, action) => {
+        console.error('[RegistrationsSlice] fetchRegistrationsThunk.rejected:', action.payload || action.error);
         state.isLoading = false;
-        state.error = action.error.message || 'Erreur lors du chargement des inscriptions';
+        state.error = (action.payload as any)?.detail || action.error.message || 'Erreur lors du chargement des inscriptions';
       });
 
     // Fetch registration by ID
     builder
       .addCase(fetchRegistrationByIdThunk.pending, (state) => {
+        console.log('[RegistrationsSlice] fetchRegistrationByIdThunk.pending');
         state.isLoading = true;
         state.error = null;
       })
       .addCase(fetchRegistrationByIdThunk.fulfilled, (state, action) => {
+        console.log('[RegistrationsSlice] fetchRegistrationByIdThunk.fulfilled - Registration:', action.payload.id);
         state.isLoading = false;
         state.currentRegistration = action.payload;
       })
       .addCase(fetchRegistrationByIdThunk.rejected, (state, action) => {
+        console.error('[RegistrationsSlice] fetchRegistrationByIdThunk.rejected:', action.payload || action.error);
         state.isLoading = false;
-        state.error = action.error.message || 'Erreur lors du chargement de l\'inscription';
+        state.error = (action.payload as any)?.detail || action.error.message || 'Erreur lors du chargement de l\'inscription';
       });
 
     // Check-in
     builder
+      .addCase(checkInRegistrationThunk.pending, (state) => {
+        console.log('[RegistrationsSlice] checkInRegistrationThunk.pending');
+      })
       .addCase(checkInRegistrationThunk.fulfilled, (state, action) => {
+        console.log('[RegistrationsSlice] checkInRegistrationThunk.fulfilled - Registration checked in:', action.payload.id);
         const index = state.registrations.findIndex((r) => r.id === action.payload.id);
         if (index !== -1) {
           state.registrations[index] = action.payload;
+          console.log('[RegistrationsSlice] Updated registration in list at index:', index);
         }
         if (state.currentRegistration?.id === action.payload.id) {
           state.currentRegistration = action.payload;
+          console.log('[RegistrationsSlice] Updated current registration');
         }
+      })
+      .addCase(checkInRegistrationThunk.rejected, (state, action) => {
+        console.error('[RegistrationsSlice] checkInRegistrationThunk.rejected:', action.payload || action.error);
+        state.error = (action.payload as any)?.detail || action.error.message || 'Erreur lors du check-in';
       });
 
     // Mark badge printed
     builder
+      .addCase(markBadgePrintedThunk.pending, (state) => {
+        console.log('[RegistrationsSlice] markBadgePrintedThunk.pending');
+      })
       .addCase(markBadgePrintedThunk.fulfilled, (state, action) => {
+        console.log('[RegistrationsSlice] markBadgePrintedThunk.fulfilled - Badge printed for:', action.payload.id);
         const index = state.registrations.findIndex((r) => r.id === action.payload.id);
         if (index !== -1) {
           state.registrations[index] = action.payload;
+          console.log('[RegistrationsSlice] Updated registration in list at index:', index);
         }
         if (state.currentRegistration?.id === action.payload.id) {
           state.currentRegistration = action.payload;
+          console.log('[RegistrationsSlice] Updated current registration');
         }
+      })
+      .addCase(markBadgePrintedThunk.rejected, (state, action) => {
+        console.error('[RegistrationsSlice] markBadgePrintedThunk.rejected:', action.payload || action.error);
+        state.error = (action.payload as any)?.detail || action.error.message || 'Erreur lors de l\'impression du badge';
       });
   },
 });

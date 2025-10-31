@@ -4,18 +4,21 @@
 
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchRegistrationByIdThunk } from '../../store/registrations.slice';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { Header } from '../../components/ui/Header';
 
 interface AttendeeDetailsScreenProps {
+  navigation: any;
   route: any;
 }
 
-export const AttendeeDetailsScreen: React.FC<AttendeeDetailsScreenProps> = ({ route }) => {
+export const AttendeeDetailsScreen: React.FC<AttendeeDetailsScreenProps> = ({ navigation, route }) => {
   const { t } = useTranslation();
   const { theme } = useTheme();
   const dispatch = useAppDispatch();
@@ -33,9 +36,18 @@ export const AttendeeDetailsScreen: React.FC<AttendeeDetailsScreenProps> = ({ ro
 
   if (isLoading || !currentRegistration) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <ActivityIndicator size="large" color={theme.colors.brand[600]} />
-      </View>
+      <SafeAreaView 
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
+        edges={['top', 'left', 'right']}
+      >
+        <Header
+          title={t('attendees.details')}
+          onBack={() => navigation.goBack()}
+        />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={theme.colors.brand[600]} />
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -72,8 +84,16 @@ export const AttendeeDetailsScreen: React.FC<AttendeeDetailsScreenProps> = ({ ro
   };
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <View style={{ padding: theme.spacing.lg }}>
+    <SafeAreaView 
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      edges={['top', 'left', 'right']}
+    >
+      <Header
+        title={t('attendees.details')}
+        onBack={() => navigation.goBack()}
+      />
+      <ScrollView style={{ flex: 1 }}>
+        <View style={{ padding: theme.spacing.lg }}>
         {/* Avatar / Nom */}
         <Card style={{ alignItems: 'center', marginBottom: theme.spacing.lg }}>
           <View
@@ -240,8 +260,9 @@ export const AttendeeDetailsScreen: React.FC<AttendeeDetailsScreenProps> = ({ ro
             </Text>
           </View>
         </Card>
-      </View>
-    </ScrollView>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
