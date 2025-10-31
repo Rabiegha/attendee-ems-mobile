@@ -21,7 +21,16 @@ export const GuestListScreen: React.FC<GuestListScreenProps> = ({ navigation, ro
   const { currentEvent } = useAppSelector((state) => state.events);
 
   const eventId = route.params?.eventId || currentEvent?.id;
-  const checkedInCount = registrations.filter((r) => r.status === 'checked-in').length;
+  
+  // Utiliser les stats depuis l'événement au lieu de calculer manuellement
+  const stats = currentEvent?.stats || {
+    totalRegistrations: 0,
+    checkedIn: 0,
+    approved: 0,
+    pending: 0,
+    cancelled: 0,
+    checkedInPercentage: 0,
+  };
 
   useEffect(() => {
     if (eventId) {
@@ -58,7 +67,7 @@ export const GuestListScreen: React.FC<GuestListScreenProps> = ({ navigation, ro
                 color: theme.colors.text.secondary,
               }}
             >
-              {pagination.total} Total | {checkedInCount} Enregistrés
+              {stats.totalRegistrations} Total | {stats.checkedIn} Enregistrés
             </Text>
           </Card>
         </TouchableOpacity>

@@ -9,7 +9,6 @@ import { Event, EventStats } from '../types/event';
 interface EventsState {
   events: Event[];
   currentEvent: Event | null;
-  currentEventStats: EventStats | null;
   isLoading: boolean;
   error: string | null;
   pagination: {
@@ -23,7 +22,6 @@ interface EventsState {
 const initialState: EventsState = {
   events: [],
   currentEvent: null,
-  currentEventStats: null,
   isLoading: false,
   error: null,
   pagination: {
@@ -51,14 +49,6 @@ export const fetchEventByIdThunk = createAsyncThunk(
   }
 );
 
-export const fetchEventStatsThunk = createAsyncThunk(
-  'events/fetchEventStats',
-  async (id: string) => {
-    const response = await eventsService.getEventStats(id);
-    return response;
-  }
-);
-
 // Slice
 const eventsSlice = createSlice({
   name: 'events',
@@ -70,7 +60,6 @@ const eventsSlice = createSlice({
     clearEvents: (state) => {
       state.events = [];
       state.currentEvent = null;
-      state.currentEventStats = null;
       state.error = null;
     },
     clearError: (state) => {
@@ -107,18 +96,6 @@ const eventsSlice = createSlice({
       .addCase(fetchEventByIdThunk.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.error.message || 'Erreur lors du chargement de l\'événement';
-      });
-
-    // Fetch event stats
-    builder
-      .addCase(fetchEventStatsThunk.pending, (state) => {
-        state.error = null;
-      })
-      .addCase(fetchEventStatsThunk.fulfilled, (state, action) => {
-        state.currentEventStats = action.payload;
-      })
-      .addCase(fetchEventStatsThunk.rejected, (state, action) => {
-        state.error = action.error.message || 'Erreur lors du chargement des statistiques';
       });
   },
 });

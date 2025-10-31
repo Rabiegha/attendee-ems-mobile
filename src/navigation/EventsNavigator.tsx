@@ -4,6 +4,7 @@
 
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EventsListScreen } from '../screens/Events/EventsListScreen';
 import { SettingsScreen } from '../screens/Settings/SettingsScreen';
 import { useTranslation } from 'react-i18next';
@@ -19,28 +20,35 @@ const Stack = createNativeStackNavigator<EventsStackParamList>();
 export const EventsNavigator: React.FC = () => {
   const { t } = useTranslation();
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <Stack.Navigator
       screenOptions={{
-        headerStyle: {
-          backgroundColor: theme.colors.surface,
-        },
-        headerTintColor: theme.colors.text.primary,
-        headerTitleStyle: {
-          fontWeight: '600',
+        headerShown: false,
+        contentStyle: {
+          paddingTop: 0,
         },
       }}
     >
       <Stack.Screen
         name="EventsList"
         component={EventsListScreen}
-        options={{ title: t('events.title') }}
       />
       <Stack.Screen
         name="Settings"
         component={SettingsScreen}
-        options={{ title: t('settings.title') }}
+        options={{ 
+          headerShown: true,
+          title: t('settings.title'),
+          headerStyle: {
+            backgroundColor: theme.colors.surface,
+          },
+          headerTintColor: theme.colors.text.primary,
+          headerTitleStyle: {
+            fontWeight: '600',
+          },
+        }}
       />
     </Stack.Navigator>
   );

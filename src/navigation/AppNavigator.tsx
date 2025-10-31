@@ -57,24 +57,27 @@ export const AppNavigator: React.FC = () => {
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
+          contentStyle: { backgroundColor: theme.colors.background },
         }}
       >
         {!isAuthenticated ? (
           <Stack.Screen name="Auth" component={AuthNavigator} />
         ) : (
           <>
-            <Stack.Screen name="Events" component={EventsNavigator} />
+            <Stack.Screen 
+              name="Events" 
+              component={EventsNavigator}
+              options={{
+                headerShown: false,
+                statusBarStyle: 'auto',
+              }}
+            />
             <Stack.Screen
               name="EventInner"
               component={EventInnerTabs}
-              options={({ route }) => ({
-                headerShown: true,
-                title: route.params?.eventName || 'Événement',
-                headerStyle: {
-                  backgroundColor: theme.colors.surface,
-                },
-                headerTintColor: theme.colors.text.primary,
-              })}
+              options={{
+                headerShown: false,
+              }}
             />
             <Stack.Screen
               name="AttendeeDetails"

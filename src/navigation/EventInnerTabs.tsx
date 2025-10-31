@@ -6,6 +6,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../theme/ThemeProvider';
 import Icons from '../assets/icons';
@@ -16,7 +17,7 @@ import { PrintSettingsScreen } from '../screens/Print/PrintSettingsScreen';
 import { SettingsScreen } from '../screens/Settings/SettingsScreen';
 
 export type EventInnerTabsParamList = {
-  Dashboard: undefined;
+  Dashboard: { eventId: string };
   Attendees: { eventId: string };
   Scan: undefined;
   Print: undefined;
@@ -32,6 +33,7 @@ interface EventInnerTabsProps {
 export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
   const { t } = useTranslation();
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
   const eventId = route.params?.eventId;
 
   return (
@@ -40,7 +42,7 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
         headerShown: false,
         tabBarStyle: {
           position: 'absolute' as const,
-          bottom: 40,
+          bottom: Math.max(insets.bottom, 20),
           marginHorizontal: 16, // Même padding que searchContainer et cards
           height: 70,
           backgroundColor: theme.colors.tabBar,

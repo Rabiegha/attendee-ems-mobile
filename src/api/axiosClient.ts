@@ -65,6 +65,11 @@ const refreshAccessToken = async (): Promise<string | null> => {
 
     const response = await axios.post(`${API_URL}/auth/refresh`, {
       refresh_token: refreshToken,
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'x-client-type': 'mobile',
+      },
     });
 
     const { access_token, refresh_token: newRefreshToken, expires_in } = response.data;

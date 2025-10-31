@@ -38,12 +38,7 @@ export const EventDashboardNavigator: React.FC<EventDashboardNavigatorProps> = (
         name="AttendeesList"
         component={AttendeesListScreen}
         options={{
-          headerShown: true,
-          title: 'Liste des participants',
-          headerStyle: {
-            backgroundColor: theme.colors.surface,
-          },
-          headerTintColor: theme.colors.text.primary,
+          headerShown: false,
         }}
       />
     </Stack.Navigator>

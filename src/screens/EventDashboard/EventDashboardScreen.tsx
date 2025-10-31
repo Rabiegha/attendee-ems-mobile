@@ -2,70 +2,122 @@
  * Écran Dashboard de l'événement avec Material Top Tabs
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { useTheme } from '../../theme/ThemeProvider';
 import { GuestListScreen } from './GuestListScreen';
 import { SessionsScreen } from './SessionsScreen';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { useAppSelector, useAppDispatch } from '../../store/hooks';
+import { fetchEventByIdThunk } from '../../store/events.slice';
 import Icons from '../../assets/icons';
 import { Image } from 'react-native';
 
 const Tab = createMaterialTopTabNavigator();
 
-export const EventDashboardScreen: React.FC = () => {
+interface EventDashboardScreenProps {
+  route?: any;
+}
+
+export const EventDashboardScreen: React.FC<EventDashboardScreenProps> = ({ route: screenRoute }) => {
   const { theme } = useTheme();
   const navigation = useNavigation();
+  const route = useRoute();
+  const dispatch = useAppDispatch();
+  const { currentEvent } = useAppSelector((state) => state.events);
+  
+  // Récupérer l'eventId depuis les params de la route
+  const routeParams = (route.params || screenRoute?.params) as any;
+  const eventId = routeParams?.eventId;
+  
+  console.log('[EventDashboardScreen] eventId:', eventId);
+  console.log('[EventDashboardScreen] currentEvent:', currentEvent?.name);
+  console.log('[EventDashboardScreen] stats:', currentEvent?.stats);
+  
+  // Charger l'événement si on a un ID (les stats sont incluses)
+  useEffect(() => {
+    if (eventId && (!currentEvent || currentEvent.id !== eventId)) {
+      console.log('[EventDashboardScreen] Loading event with stats:', eventId);
+      dispatch(fetchEventByIdThunk(eventId));
+    }
+  }, [eventId, dispatch]);
+  
+  const event = currentEvent;
+  
+  // Formater la date
+  const formatEventDate = (dateString?: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).replace(',', ' •');
+  };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView 
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      edges={['top', 'left', 'right']}
+    >
       {/* Header avec titre et bouton retour */}
       <View 
         style={[
           styles.header, 
           { 
-            backgroundColor: theme.colors.background,
-            borderBottomColor: theme.colors.divider,
+            backgroundColor: theme.colors.surface,
           }
         ]}
       >
-        <TouchableOpacity 
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-        >
-          <Image 
-            source={Icons.Retour} 
-            style={styles.backIcon}
-            tintColor={theme.colors.brand[600]}
-          />
-        </TouchableOpacity>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity 
+            onPress={() => navigation.goBack()}
+            style={[styles.backButton, { backgroundColor: theme.colors.background }]}
+            activeOpacity={0.7}
+          >
+            <Image 
+              source={Icons.Retour} 
+              style={styles.backIcon}
+              tintColor={theme.colors.brand[600]}
+            />
+          </TouchableOpacity>
+        </View>
         
-        <View style={styles.headerContent}>
+        <View style={styles.headerCenter}>
           <Text 
             style={[
               styles.eventTitle, 
               { 
                 color: theme.colors.text.primary,
                 fontSize: theme.fontSize.lg,
-                fontWeight: theme.fontWeight.semibold,
+                fontWeight: theme.fontWeight.bold,
               }
             ]}
+            numberOfLines={1}
           >
-            cionet-bt-cisco_2025
+            {event?.name || 'Événement'}
           </Text>
-          <Text 
-            style={[
-              styles.eventDate, 
-              { 
-                color: theme.colors.brand[600],
-                fontSize: theme.fontSize.sm,
-              }
-            ]}
-          >
-            04/11/2025 06:30 PM
-          </Text>
+          <View style={styles.dateContainer}>
+            <Text 
+              style={[
+                styles.eventDate, 
+                { 
+                  color: theme.colors.brand[600],
+                  fontSize: theme.fontSize.sm,
+                  fontWeight: theme.fontWeight.medium,
+                }
+              ]}
+            >
+              📅 {formatEventDate(event?.startDate)}
+            </Text>
+          </View>
         </View>
+
+        <View style={styles.headerRight} />
       </View>
 
       {/* Material Top Tabs */}
@@ -106,15 +158,13 @@ export const EventDashboardScreen: React.FC = () => {
           name="Sessions" 
           component={SessionsScreen}
           options={{
-            tabBarLabel: 'Sessions',
-          }}
-        />
+          tabBarLabel: 'Sessions',
+        }}
+      />
       </Tab.Navigator>
-    </View>
+    </SafeAreaView>
   );
-};
-
-const styles = StyleSheet.create({
+};const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -122,23 +172,50 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 60,
+    paddingTop: 12,
     paddingBottom: 16,
-    borderBottomWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  headerLeft: {
+    width: 48,
+    alignItems: 'flex-start',
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerRight: {
+    width: 48,
   },
   backButton: {
-    padding: 8,
-    marginRight: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
   },
   backIcon: {
-    width: 24,
-    height: 24,
-  },
-  headerContent: {
-    flex: 1,
+    width: 20,
+    height: 20,
   },
   eventTitle: {
     marginBottom: 4,
+    textAlign: 'center',
+  },
+  dateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   eventDate: {
   },

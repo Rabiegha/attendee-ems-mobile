@@ -11,7 +11,9 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Animated,
+  Image,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
@@ -19,6 +21,7 @@ import { fetchRegistrationsThunk } from '../../store/registrations.slice';
 import { Registration } from '../../types/attendee';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { Swipeable } from 'react-native-gesture-handler';
+import Icons from '../../assets/icons';
 
 interface AttendeesListScreenProps {
   navigation: any;
@@ -158,7 +161,27 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
   const progressPercentage = pagination.total > 0 ? (checkedInCount / pagination.total) * 100 : 0;
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView 
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      edges={['top', 'left', 'right']}
+    >
+      {/* Header personnalisé */}
+      <View style={[styles.header, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.divider }]}>
+        <TouchableOpacity 
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+        >
+          <Image 
+            source={Icons.Retour} 
+            style={{ width: 24, height: 24 }}
+            tintColor={theme.colors.brand[600]}
+          />
+        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: theme.colors.text.primary }]}>
+          {t('Liste des participants')}
+        </Text>
+      </View>
+
       {/* Barre de recherche */}
       <View style={[styles.searchContainer, { paddingHorizontal: theme.spacing.lg }]}>
         <SearchBar
@@ -228,12 +251,28 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
           onRefresh={loadRegistrations}
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 8,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '600',
     flex: 1,
   },
   searchContainer: {

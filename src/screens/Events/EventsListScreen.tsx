@@ -8,8 +8,9 @@ import {
   TouchableOpacity,
   StyleSheet,
   Image,
-  SafeAreaView,
+  Text,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -32,24 +33,6 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
   const dispatch = useAppDispatch();
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Configurer le header avec le bouton paramètres
-  useEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <TouchableOpacity
-          onPress={() => navigation.navigate('Settings')}
-          style={{ marginRight: 16 }}
-        >
-          <Image 
-            source={Icons.Outils} 
-            style={{ width: 24, height: 24 }} 
-            tintColor={theme.colors.brand[600]}
-          />
-        </TouchableOpacity>
-      ),
-    });
-  }, [navigation, theme]);
-
   useEffect(() => {
     loadEvents();
   }, []);
@@ -59,7 +42,27 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView 
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      edges={['top', 'bottom', 'left', 'right']}
+    >
+      {/* Header personnalisé */}
+      <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
+        <Text style={[styles.headerTitle, { color: theme.colors.text.primary }]}>
+          {t('events.title')}
+        </Text>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Settings')}
+          style={styles.headerButton}
+        >
+          <Image 
+            source={Icons.Outils} 
+            style={{ width: 24, height: 24 }} 
+            tintColor={theme.colors.brand[600]}
+          />
+        </TouchableOpacity>
+      </View>
+
       {/* Barre de recherche */}
       <View style={styles.searchContainer}>
         <SearchBar
@@ -121,6 +124,22 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+  },
+  headerButton: {
+    padding: 4,
   },
   searchContainer: {
     paddingHorizontal: 16,

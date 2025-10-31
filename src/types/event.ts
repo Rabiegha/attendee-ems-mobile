@@ -15,11 +15,14 @@ export interface Event {
   updatedAt: string;
   attendeesCount?: number;
   checkedInCount?: number;
+  stats?: EventStats;
 }
 
 export interface EventStats {
-  totalAttendees: number;
+  totalRegistrations: number;
   checkedIn: number;
-  notCheckedIn: number;
-  percentage: number;
+  approved: number;
+  pending: number;
+  cancelled: number;
+  checkedInPercentage: number;
 }

@@ -25,6 +25,7 @@ const mapEventFromBackend = (backendEvent: any): Event => {
     organizationId: backendEvent.org_id,
     createdAt: backendEvent.created_at,
     updatedAt: backendEvent.updated_at,
+    stats: backendEvent.stats, // Inclure les stats si présentes
   };
 };
 
