@@ -4,8 +4,7 @@
  */
 
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
-import { secureStorage, STORAGE_KEYS } from '../utils/storage';
-import { isTokenExpiringSoon } from '../utils/auth';
+import { secureStorage, STORAGE_KEYS } from '../../utils/storage';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 const TOKEN_REFRESH_THRESHOLD = Number(process.env.TOKEN_EXP_SOFT_REFRESH_SECONDS) || 60;

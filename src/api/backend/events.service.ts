@@ -3,8 +3,8 @@
  */
 
 import axiosClient from './axiosClient';
-import { Event, EventStats } from '../types/event';
-import { PaginatedResponse } from '../types/api';
+import { Event, EventStats } from '../../types/event';
+import { PaginatedResponse } from '../../types/api';
 
 // Mapper les données du backend vers le format frontend
 const mapEventFromBackend = (backendEvent: any): Event => {

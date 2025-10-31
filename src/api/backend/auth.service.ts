@@ -3,8 +3,8 @@
  */
 
 import axiosClient, { setAuthTokens, clearAuthTokens } from './axiosClient';
-import { secureStorage, STORAGE_KEYS } from '../utils/storage';
-import { LoginCredentials, LoginResponse, RefreshTokenResponse } from '../types/auth';
+import { secureStorage, STORAGE_KEYS } from '../../utils/storage';
+import { LoginCredentials, LoginResponse, RefreshTokenResponse } from '../../types/auth';
 
 export const authService = {
   /**

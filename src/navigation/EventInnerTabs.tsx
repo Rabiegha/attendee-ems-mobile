@@ -13,7 +13,7 @@ import Icons from '../assets/icons';
 import { EventDashboardNavigator } from './EventDashboardNavigator';
 import { AttendeeAddScreen } from '../screens/Attendees/AttendeeAddScreen';
 import { ScanScreen } from '../screens/Scan/ScanScreen';
-import { PrintSettingsScreen } from '../screens/Print/PrintSettingsScreen';
+import { PrintNavigator } from './PrintNavigator';
 import { SettingsScreen } from '../screens/Settings/SettingsScreen';
 
 export type EventInnerTabsParamList = {
@@ -130,7 +130,7 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
 
       <Tab.Screen
         name="Print"
-        component={PrintSettingsScreen}
+        component={PrintNavigator}
         options={{
           tabBarLabel: t('navigation.print'),
           tabBarIcon: ({ color }) => (

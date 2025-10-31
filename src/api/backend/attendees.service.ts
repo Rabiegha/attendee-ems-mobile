@@ -3,8 +3,8 @@
  */
 
 import axiosClient from './axiosClient';
-import { Attendee, CreateAttendeeDto, UpdateAttendeeDto } from '../types/attendee';
-import { PaginatedResponse } from '../types/api';
+import { Attendee, CreateAttendeeDto, UpdateAttendeeDto } from '../../types/attendee';
+import { PaginatedResponse } from '../../types/api';
 
 export const attendeesService = {
   /**

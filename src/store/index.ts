@@ -7,6 +7,7 @@ import authReducer from './auth.slice';
 import eventsReducer from './events.slice';
 import attendeesReducer from './attendees.slice';
 import registrationsReducer from './registrations.slice';
+import printersReducer from './printers.slice';
 
 export const store = configureStore({
   reducer: {
@@ -14,6 +15,7 @@ export const store = configureStore({
     events: eventsReducer,
     attendees: attendeesReducer,
     registrations: registrationsReducer,
+    printers: printersReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
