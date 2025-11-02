@@ -6,9 +6,13 @@ import React from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { useTheme } from './theme/ThemeProvider';
 import { AppNavigator } from './navigation/AppNavigator';
+import { useTokenRestoration } from './hooks/useTokenRestoration';
 
 export const AppContent: React.FC = () => {
   const { themeMode } = useTheme();
+  
+  // Restaurer le token au démarrage
+  useTokenRestoration();
   
   // Déterminer le style de la StatusBar selon le mode
   // light = texte foncé (pour fond clair)

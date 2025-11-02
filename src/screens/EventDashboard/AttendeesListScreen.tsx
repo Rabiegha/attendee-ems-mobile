@@ -13,7 +13,7 @@ import {
   Animated,
   Image,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
@@ -35,6 +35,7 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
   const dispatch = useAppDispatch();
   const { registrations, isLoading, pagination } = useAppSelector((state) => state.registrations);
   const { currentEvent } = useAppSelector((state) => state.events);
+  const insets = useSafeAreaInsets();
 
   const [searchQuery, setSearchQuery] = useState('');
   const eventId = route.params?.eventId || currentEvent?.id;
@@ -162,9 +163,14 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
   const progressPercentage = pagination.total > 0 ? (checkedInCount / pagination.total) * 100 : 0;
 
   return (
-    <SafeAreaView 
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
-      edges={['top', 'left', 'right']}
+    <View 
+      style={[
+        styles.container, 
+        { 
+          backgroundColor: theme.colors.background,
+          paddingTop: insets.top,
+        }
+      ]}
     >
       {/* Header */}
       <Header
@@ -241,7 +247,7 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
           onRefresh={loadRegistrations}
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 };
 

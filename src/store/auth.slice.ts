@@ -7,6 +7,7 @@ import { authService } from '../api/backend/auth.service';
 import { setAuthTokens, clearAuthTokens } from '../api/backend/axiosClient';
 import { LoginCredentials, User, Organization } from '../types/auth';
 import { secureStorage, STORAGE_KEYS } from '../utils/storage';
+import axiosClient from '../api/backend/axiosClient';
 
 interface AuthState {
   user: User | null;
@@ -65,19 +66,36 @@ export const logoutThunk = createAsyncThunk('auth/logout', async (_, { rejectWit
 
 export const checkAuthThunk = createAsyncThunk('auth/checkAuth', async (_, { rejectWithValue }) => {
   try {
-    console.log('[AuthSlice] checkAuthThunk - Checking authentication');
     const isAuth = await authService.isAuthenticated();
     if (!isAuth) {
-      console.log('[AuthSlice] checkAuthThunk - Not authenticated');
+      // Pas d'erreur, c'est normal de ne pas être authentifié au premier lancement
       throw new Error('Not authenticated');
     }
-    console.log('[AuthSlice] checkAuthThunk - User is authenticated');
+    console.log('[AuthSlice] ✓ User is authenticated');
     return isAuth;
   } catch (error: any) {
-    console.error('[AuthSlice] checkAuthThunk - Error:', error);
+    // Silent fail - c'est normal de ne pas être authentifié au démarrage
     return rejectWithValue(error.message);
   }
 });
+
+export const fetchUserProfileThunk = createAsyncThunk(
+  'auth/fetchUserProfile',
+  async (_, { rejectWithValue }) => {
+    try {
+      console.log('[AuthSlice] fetchUserProfileThunk - Fetching user profile...');
+      const response = await axiosClient.get('/users/me');
+      console.log('[AuthSlice] fetchUserProfileThunk - Profile fetched:', response.data.email);
+      return response.data;
+    } catch (error: any) {
+      console.error('[AuthSlice] fetchUserProfileThunk - Error:', {
+        message: error.message,
+        status: error.response?.status,
+      });
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
 
 // Slice
 const authSlice = createSlice({
@@ -150,11 +168,31 @@ const authSlice = createSlice({
     // Check auth
     builder
       .addCase(checkAuthThunk.fulfilled, (state) => {
-        console.log('[AuthSlice] checkAuthThunk.fulfilled');
         state.isAuthenticated = true;
       })
       .addCase(checkAuthThunk.rejected, (state) => {
-        console.log('[AuthSlice] checkAuthThunk.rejected');
+        // Silent - pas d'erreur affichée, c'est normal de ne pas être authentifié
+        state.isAuthenticated = false;
+        state.user = null;
+        state.organization = null;
+      });
+
+    // Fetch user profile
+    builder
+      .addCase(fetchUserProfileThunk.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(fetchUserProfileThunk.fulfilled, (state, action) => {
+        console.log('[AuthSlice] fetchUserProfileThunk.fulfilled - User:', action.payload.email);
+        state.isLoading = false;
+        state.user = action.payload;
+        state.organization = action.payload.organization;
+        state.isAuthenticated = true;
+        state.error = null;
+      })
+      .addCase(fetchUserProfileThunk.rejected, (state, action) => {
+        console.error('[AuthSlice] fetchUserProfileThunk.rejected:', action.payload);
+        state.isLoading = false;
         state.isAuthenticated = false;
         state.user = null;
         state.organization = null;

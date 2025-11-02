@@ -56,12 +56,17 @@ export const clearAuthTokens = () => {
 // Fonction de refresh du token
 const refreshAccessToken = async (): Promise<string | null> => {
   try {
+    console.log('[axiosClient] 🔄 refreshAccessToken - Starting...');
     const refreshToken = await secureStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
     
+    console.log('[axiosClient] refreshAccessToken - Refresh token from storage:', refreshToken ? 'EXISTS' : 'NULL');
+    
     if (!refreshToken) {
+      console.error('[axiosClient] ❌ No refresh token available');
       throw new Error('No refresh token available');
     }
 
+    console.log('[axiosClient] 📡 Calling /auth/refresh endpoint...');
     const response = await axios.post(`${API_URL}/auth/refresh`, {
       refresh_token: refreshToken,
     }, {
@@ -71,15 +76,26 @@ const refreshAccessToken = async (): Promise<string | null> => {
       },
     });
 
+    console.log('[axiosClient] ✅ Refresh response received:', {
+      status: response.status,
+      hasAccessToken: !!response.data.access_token,
+      hasRefreshToken: !!response.data.refresh_token,
+    });
+
     const { access_token, refresh_token: newRefreshToken, expires_in } = response.data;
 
     // Mettre à jour les tokens
     setAuthTokens(access_token, expires_in);
     await secureStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken);
 
+    console.log('[axiosClient] ✅ Tokens updated successfully');
     return access_token;
-  } catch (error) {
-    console.error('Erreur lors du refresh du token:', error);
+  } catch (error: any) {
+    console.error('[axiosClient] ❌ refreshAccessToken failed:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+    });
     // Nettoyer les tokens en cas d'échec
     clearAuthTokens();
     await secureStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
@@ -93,6 +109,43 @@ axiosClient.interceptors.request.use(
     // Ne pas ajouter de token pour les routes publiques
     if (config.url?.includes('/auth/login') || config.url?.includes('/auth/refresh')) {
       return config;
+    }
+
+    // Restaurer le token au premier appel si nécessaire
+    // On vérifie si on n'a pas de token en mémoire mais qu'on a un refresh token en storage
+    if (!accessToken) {
+      try {
+        const refreshToken = await secureStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+        if (refreshToken && !isRefreshing) {
+          console.log('[axiosClient] 🔄 No access token in memory, attempting restoration from refresh token...');
+          isRefreshing = true;
+          
+          // Timeout de sécurité pour éviter que isRefreshing reste bloqué
+          const refreshTimeout = setTimeout(() => {
+            console.warn('[axiosClient] ⚠️ Refresh timeout, resetting flag');
+            isRefreshing = false;
+          }, 10000); // 10 secondes max
+          
+          try {
+            const newToken = await refreshAccessToken();
+            clearTimeout(refreshTimeout);
+            if (newToken) {
+              accessToken = newToken;
+              console.log('[axiosClient] ✅ Access token restored successfully');
+            }
+          } catch (error) {
+            clearTimeout(refreshTimeout);
+            console.warn('[axiosClient] ⚠️ Could not restore access token:', error);
+            // Si la restauration échoue, continuer sans token (401 sera géré par l'intercepteur de réponse)
+          } finally {
+            isRefreshing = false;
+          }
+        } else if (isRefreshing) {
+          console.log('[axiosClient] ⏳ Refresh already in progress, waiting...');
+        }
+      } catch (error) {
+        console.warn('[axiosClient] Error checking refresh token:', error);
+      }
     }
 
     // Vérifier si le token expire bientôt
@@ -140,14 +193,24 @@ axiosClient.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
+    console.log('[axiosClient] ⚠️ Response error:', {
+      status: error.response?.status,
+      url: originalRequest.url,
+      retry: originalRequest._retry,
+    });
+
     // Ne pas essayer de refresh sur les routes d'authentification
     if (originalRequest.url?.includes('/auth/login') || originalRequest.url?.includes('/auth/refresh')) {
+      console.log('[axiosClient] Auth endpoint error, not retrying');
       return Promise.reject(error);
     }
 
     // Si erreur 401 et pas déjà en train de retry
     if (error.response?.status === 401 && !originalRequest._retry) {
+      console.log('[axiosClient] 401 Unauthorized - Attempting token refresh...');
+      
       if (isRefreshing) {
+        console.log('[axiosClient] Refresh already in progress, queuing request...');
         // Si un refresh est déjà en cours, mettre en queue
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
@@ -167,9 +230,11 @@ axiosClient.interceptors.response.use(
       isRefreshing = true;
 
       try {
+        console.log('[axiosClient] Starting token refresh...');
         const newToken = await refreshAccessToken();
         
         if (newToken) {
+          console.log('[axiosClient] ✅ Token refreshed, retrying original request');
           processQueue(null, newToken);
           
           if (originalRequest.headers) {
@@ -178,7 +243,8 @@ axiosClient.interceptors.response.use(
           
           return axiosClient(originalRequest);
         }
-      } catch (refreshError) {
+      } catch (refreshError: any) {
+        console.error('[axiosClient] ❌ Token refresh failed:', refreshError.message);
         processQueue(refreshError, null);
         // Rediriger vers login (sera géré par Redux)
         return Promise.reject(refreshError);

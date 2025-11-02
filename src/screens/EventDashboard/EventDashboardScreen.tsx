@@ -4,7 +4,7 @@
 
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { useTheme } from '../../theme/ThemeProvider';
 import { GuestListScreen } from './GuestListScreen';
@@ -26,6 +26,7 @@ export const EventDashboardScreen: React.FC<EventDashboardScreenProps> = ({ rout
   const route = useRoute();
   const dispatch = useAppDispatch();
   const { currentEvent } = useAppSelector((state) => state.events);
+  const insets = useSafeAreaInsets();
   
   // Récupérer l'eventId depuis les params de la route
   const routeParams = (route.params || screenRoute?.params) as any;
@@ -59,9 +60,14 @@ export const EventDashboardScreen: React.FC<EventDashboardScreenProps> = ({ rout
   };
 
   return (
-    <SafeAreaView 
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
-      edges={['top', 'left', 'right']}
+    <View 
+      style={[
+        styles.container, 
+        { 
+          backgroundColor: theme.colors.background,
+          paddingTop: insets.top,
+        }
+      ]}
     >
       {/* Header avec titre et bouton retour */}
       <View 
@@ -158,7 +164,7 @@ export const EventDashboardScreen: React.FC<EventDashboardScreenProps> = ({ rout
         }}
       />
       </Tab.Navigator>
-    </SafeAreaView>
+    </View>
   );
 };const styles = StyleSheet.create({
   container: {

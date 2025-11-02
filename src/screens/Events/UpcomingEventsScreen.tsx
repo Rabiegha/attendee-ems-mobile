@@ -13,7 +13,8 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
-import { useAppSelector } from '../../store/hooks';
+import { useAppSelector, useAppDispatch } from '../../store/hooks';
+import { fetchMoreEventsThunk } from '../../store/events.slice';
 import { Event } from '../../types/event';
 import { formatDate, formatTime } from '../../utils/format';
 import { Card } from '../../components/ui/Card';
@@ -29,7 +30,8 @@ export const UpcomingEventsScreen: React.FC<UpcomingEventsScreenProps> = ({
 }) => {
   const { t } = useTranslation();
   const { theme } = useTheme();
-  const { events, isLoading } = useAppSelector((state) => state.events);
+  const dispatch = useAppDispatch();
+  const { events, isLoading, isLoadingMore, hasMore } = useAppSelector((state) => state.events);
 
   // Filtrer les événements à venir
   const upcomingEvents = events.filter((event) => {
@@ -40,6 +42,27 @@ export const UpcomingEventsScreen: React.FC<UpcomingEventsScreenProps> = ({
 
   const handleEventPress = (event: Event) => {
     navigation.navigate('EventInner', { eventId: event.id, eventName: event.name });
+  };
+
+  const handleLoadMore = () => {
+    // Charger plus seulement si pas déjà en chargement et s'il y a plus de pages
+    if (!isLoadingMore && hasMore) {
+      console.log('[UpcomingEventsScreen] Loading more events...');
+      dispatch(fetchMoreEventsThunk({}));
+    }
+  };
+
+  const renderFooter = () => {
+    if (!isLoadingMore) return null;
+    
+    return (
+      <View style={styles.footerLoader}>
+        <ActivityIndicator size="small" color={theme.colors.brand[600]} />
+        <Text style={{ color: theme.colors.text.secondary, marginLeft: 8 }}>
+          Chargement...
+        </Text>
+      </View>
+    );
   };
 
   const renderEventCard = ({ item }: { item: Event }) => {
@@ -136,6 +159,9 @@ export const UpcomingEventsScreen: React.FC<UpcomingEventsScreenProps> = ({
             </Text>
           </View>
         }
+        ListFooterComponent={renderFooter}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.5}
         refreshing={isLoading}
         onRefresh={onRefresh}
       />
@@ -170,5 +196,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 48,
+  },
+  footerLoader: {
+    paddingVertical: 20,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

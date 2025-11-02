@@ -10,12 +10,12 @@ import {
   Image,
   Text,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useAppDispatch } from '../../store/hooks';
-import { fetchEventsThunk } from '../../store/events.slice';
+import { fetchEventsThunk, resetPagination } from '../../store/events.slice';
 import { SearchBar } from '../../components/ui/SearchBar';
 import Icons from '../../assets/icons';
 import { UpcomingEventsScreen } from './UpcomingEventsScreen';
@@ -32,19 +32,28 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
   const { theme } = useTheme();
   const dispatch = useAppDispatch();
   const [searchQuery, setSearchQuery] = useState('');
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     loadEvents();
   }, []);
 
   const loadEvents = () => {
+    // Réinitialiser la pagination avant de charger
+    dispatch(resetPagination());
     dispatch(fetchEventsThunk({ search: searchQuery }));
   };
 
   return (
-    <SafeAreaView 
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
-      edges={['top', 'bottom', 'left', 'right']}
+    <View 
+      style={[
+        styles.container, 
+        { 
+          backgroundColor: theme.colors.background,
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+        }
+      ]}
     >
       {/* Header personnalisé */}
       <View style={[styles.header, ]}>
@@ -117,7 +126,7 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
           {() => <PastEventsScreen navigation={navigation} onRefresh={loadEvents} />}
         </Tab.Screen>
       </Tab.Navigator>
-    </SafeAreaView>
+    </View>
   );
 };
 
