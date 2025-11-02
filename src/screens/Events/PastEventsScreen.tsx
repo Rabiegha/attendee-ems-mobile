@@ -2,7 +2,7 @@
  * Écran des événements passés
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
-import { fetchMoreEventsThunk } from '../../store/events.slice';
+import { fetchPastEventsThunk, fetchMorePastEventsThunk } from '../../store/events.slice';
 import { Event } from '../../types/event';
 import { formatDate, formatTime } from '../../utils/format';
 import { Card } from '../../components/ui/Card';
@@ -31,14 +31,17 @@ export const PastEventsScreen: React.FC<PastEventsScreenProps> = ({
   const { t } = useTranslation();
   const { theme } = useTheme();
   const dispatch = useAppDispatch();
-  const { events, isLoading, isLoadingMore, hasMore } = useAppSelector((state) => state.events);
+  
+  // Utiliser le state past
+  const { events, isLoading, isLoadingMore, hasMore } = useAppSelector((state) => state.events.past);
 
-  // Filtrer les événements passés
-  const pastEvents = events.filter((event) => {
-    const eventDate = new Date(event.startDate);
-    const now = new Date();
-    return eventDate < now;
-  });
+  // Charger les événements au montage UNIQUEMENT
+  useEffect(() => {
+    if (events.length === 0) {
+      console.log('[PastEventsScreen] Initial load - Loading past events');
+      dispatch(fetchPastEventsThunk({}));
+    }
+  }, []); // Dépendances vides = une seule fois
 
   const handleEventPress = (event: Event) => {
     navigation.navigate('EventInner', { eventId: event.id, eventName: event.name });
@@ -47,8 +50,13 @@ export const PastEventsScreen: React.FC<PastEventsScreenProps> = ({
   const handleLoadMore = () => {
     if (!isLoadingMore && hasMore) {
       console.log('[PastEventsScreen] Loading more events...');
-      dispatch(fetchMoreEventsThunk({}));
+      dispatch(fetchMorePastEventsThunk({}));
     }
+  };
+
+  const handleRefresh = () => {
+    console.log('[PastEventsScreen] Refreshing events...');
+    dispatch(fetchPastEventsThunk({}));
   };
 
   const renderFooter = () => {
@@ -147,9 +155,9 @@ export const PastEventsScreen: React.FC<PastEventsScreenProps> = ({
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <FlatList
-        data={pastEvents}
+        data={events}
         renderItem={renderEventCard}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item, index) => item.id || `event-${index}`}
         contentContainerStyle={{ padding: theme.spacing.lg }}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
@@ -162,7 +170,7 @@ export const PastEventsScreen: React.FC<PastEventsScreenProps> = ({
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.5}
         refreshing={isLoading}
-        onRefresh={onRefresh}
+        onRefresh={handleRefresh}
       />
     </View>
   );

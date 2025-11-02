@@ -37,6 +37,8 @@ export const eventsService = {
     page?: number;
     limit?: number;
     search?: string;
+    startAfter?: string;
+    startBefore?: string;
   }): Promise<PaginatedResponse<Event>> {
     try {
       console.log('[EventsService] Fetching events with params:', params);

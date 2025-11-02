@@ -2,7 +2,7 @@
  * Écran de liste des événements avec Material Top Tabs
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -14,8 +14,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
-import { useAppDispatch } from '../../store/hooks';
-import { fetchEventsThunk, resetPagination } from '../../store/events.slice';
 import { SearchBar } from '../../components/ui/SearchBar';
 import Icons from '../../assets/icons';
 import { UpcomingEventsScreen } from './UpcomingEventsScreen';
@@ -30,18 +28,12 @@ interface EventsListScreenProps {
 export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }) => {
   const { t } = useTranslation();
   const { theme } = useTheme();
-  const dispatch = useAppDispatch();
   const [searchQuery, setSearchQuery] = useState('');
   const insets = useSafeAreaInsets();
 
-  useEffect(() => {
-    loadEvents();
-  }, []);
-
-  const loadEvents = () => {
-    // Réinitialiser la pagination avant de charger
-    dispatch(resetPagination());
-    dispatch(fetchEventsThunk({ search: searchQuery }));
+  const handleSearch = () => {
+    // TODO: Implémenter la recherche
+    console.log('[EventsListScreen] Search:', searchQuery);
   };
 
   return (
@@ -78,7 +70,7 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
           placeholder={t('common.search')}
           value={searchQuery}
           onChangeText={setSearchQuery}
-          onSearch={loadEvents}
+          onSearch={handleSearch}
         />
       </View>
 
@@ -115,7 +107,7 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
             tabBarLabel: t('events.upcoming'),
           }}
         >
-          {() => <UpcomingEventsScreen navigation={navigation} onRefresh={loadEvents} />}
+          {() => <UpcomingEventsScreen navigation={navigation} onRefresh={() => {}} />}
         </Tab.Screen>
         <Tab.Screen 
           name="Past"
@@ -123,7 +115,7 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
             tabBarLabel: t('events.past'),
           }}
         >
-          {() => <PastEventsScreen navigation={navigation} onRefresh={loadEvents} />}
+          {() => <PastEventsScreen navigation={navigation} onRefresh={() => {}} />}
         </Tab.Screen>
       </Tab.Navigator>
     </View>
