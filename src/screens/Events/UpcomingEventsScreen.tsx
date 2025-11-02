@@ -56,7 +56,7 @@ export const UpcomingEventsScreen: React.FC<UpcomingEventsScreenProps> = ({
 
   const handleRefresh = () => {
     console.log('[UpcomingEventsScreen] Refreshing events...');
-    dispatch(fetchUpcomingEventsThunk({}));
+    dispatch(fetchUpcomingEventsThunk({ page: 1 }));
   };
 
   const renderFooter = () => {
@@ -73,17 +73,42 @@ export const UpcomingEventsScreen: React.FC<UpcomingEventsScreenProps> = ({
   };
 
   const renderEventCard = ({ item }: { item: Event }) => {
+    // Détecter si l'événement est aujourd'hui
+    const today = new Date();
+    const eventDate = new Date(item.startDate);
+    const isToday = 
+      eventDate.getDate() === today.getDate() &&
+      eventDate.getMonth() === today.getMonth() &&
+      eventDate.getFullYear() === today.getFullYear();
+
     return (
       <TouchableOpacity onPress={() => handleEventPress(item)} activeOpacity={0.7}>
-        <Card style={{ marginBottom: theme.spacing.md }}>
+        <Card 
+          style={[
+            { marginBottom: theme.spacing.md },
+            ...(isToday ? [{
+              backgroundColor: theme.colors.brand[50],
+              borderLeftWidth: 4,
+              borderLeftColor: theme.colors.brand[600],
+            }] : [])
+          ]}
+        >
           <View style={styles.eventCard}>
             {/* Colonne de gauche : Date et heure */}
             <View style={styles.dateColumn}>
+              {isToday && (
+                <View style={[styles.todayBadge, { backgroundColor: theme.colors.brand[600] }]}>
+                  <Text style={[styles.todayBadgeText, { color: '#FFFFFF' }]}>
+                    AUJOURD'HUI
+                  </Text>
+                </View>
+              )}
               <Text
                 style={{
                   fontSize: theme.fontSize.xs,
-                  color: theme.colors.text.tertiary,
+                  color: isToday ? theme.colors.brand[700] : theme.colors.text.tertiary,
                   textAlign: 'center',
+                  fontWeight: isToday ? theme.fontWeight.semibold : theme.fontWeight.normal,
                 }}
               >
                 {formatDate(item.startDate)}
@@ -91,7 +116,7 @@ export const UpcomingEventsScreen: React.FC<UpcomingEventsScreenProps> = ({
               <Text
                 style={{
                   fontSize: theme.fontSize.sm,
-                  color: theme.colors.text.primary,
+                  color: isToday ? theme.colors.brand[700] : theme.colors.text.primary,
                   fontWeight: theme.fontWeight.semibold,
                   textAlign: 'center',
                   marginTop: 4,
@@ -102,7 +127,7 @@ export const UpcomingEventsScreen: React.FC<UpcomingEventsScreenProps> = ({
               <Text
                 style={{
                   fontSize: theme.fontSize.xs,
-                  color: theme.colors.text.tertiary,
+                  color: isToday ? theme.colors.brand[600] : theme.colors.text.tertiary,
                   textAlign: 'center',
                   marginTop: 4,
                 }}
@@ -117,7 +142,7 @@ export const UpcomingEventsScreen: React.FC<UpcomingEventsScreenProps> = ({
                 style={{
                   fontSize: theme.fontSize.lg,
                   fontWeight: theme.fontWeight.bold,
-                  color: theme.colors.text.primary,
+                  color: isToday ? theme.colors.brand[700] : theme.colors.text.primary,
                   marginBottom: theme.spacing.xs,
                 }}
                 numberOfLines={2}
@@ -129,7 +154,7 @@ export const UpcomingEventsScreen: React.FC<UpcomingEventsScreenProps> = ({
               <Text
                 style={{
                   fontSize: theme.fontSize.sm,
-                  color: theme.colors.text.secondary,
+                  color: isToday ? theme.colors.brand[600] : theme.colors.text.secondary,
                   lineHeight: 18,
                   height: 36,
                 }}
@@ -209,5 +234,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  todayBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  todayBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
 });

@@ -67,7 +67,7 @@ export const GuestListScreen: React.FC<GuestListScreenProps> = ({ navigation, ro
                 color: theme.colors.text.secondary,
               }}
             >
-              {stats.totalRegistrations} Total | {stats.checkedIn} Enregistrés
+              {stats.approved} Total | {stats.checkedIn} Enregistrés
             </Text>
           </Card>
         </TouchableOpacity>

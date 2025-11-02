@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { fetchRegistrationsThunk } from '../../store/registrations.slice';
+import { fetchRegistrationsThunk, fetchMoreRegistrationsThunk } from '../../store/registrations.slice';
 import { Registration } from '../../types/attendee';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { Header } from '../../components/ui/Header';
@@ -33,12 +33,24 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
   const { t } = useTranslation();
   const { theme } = useTheme();
   const dispatch = useAppDispatch();
-  const { registrations, isLoading, pagination } = useAppSelector((state) => state.registrations);
+  const { registrations, isLoading, isLoadingMore, hasMore, pagination } = useAppSelector((state) => state.registrations);
   const { currentEvent } = useAppSelector((state) => state.events);
   const insets = useSafeAreaInsets();
 
   const [searchQuery, setSearchQuery] = useState('');
   const eventId = route.params?.eventId || currentEvent?.id;
+  
+  // Référence pour garder trace du swipeable ouvert
+  const openSwipeableRef = React.useRef<Swipeable | null>(null);
+
+  console.log('[AttendeesListScreen] Render with state:', {
+    registrationsCount: registrations.length,
+    isLoading,
+    isLoadingMore,
+    hasMore,
+    pagination,
+    eventId,
+  });
 
   useEffect(() => {
     if (eventId) {
@@ -48,7 +60,40 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
 
   const loadRegistrations = () => {
     if (eventId) {
-      dispatch(fetchRegistrationsThunk({ eventId, search: searchQuery }));
+      console.log('[AttendeesListScreen] Loading registrations for eventId:', eventId);
+      dispatch(fetchRegistrationsThunk({ 
+        eventId, 
+        page: 1, 
+        search: searchQuery,
+        status: 'approved' // Charger uniquement les participants approuvés
+      }));
+    } else {
+      console.warn('[AttendeesListScreen] No eventId available!');
+    }
+  };
+
+  const handleLoadMore = () => {
+    console.log('[AttendeesListScreen] handleLoadMore called', {
+      isLoadingMore,
+      hasMore,
+      eventId,
+      currentPage: pagination.page,
+      totalPages: pagination.totalPages,
+    });
+    
+    if (!isLoadingMore && hasMore && eventId) {
+      console.log('[AttendeesListScreen] Loading more registrations...');
+      dispatch(fetchMoreRegistrationsThunk({ 
+        eventId, 
+        search: searchQuery,
+        status: 'approved' // Charger uniquement les participants approuvés
+      }));
+    } else {
+      console.log('[AttendeesListScreen] Skipping load more:', {
+        isLoadingMore,
+        hasMore,
+        eventId,
+      });
     }
   };
 
@@ -78,17 +123,30 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
           styles.actionsContainer,
           {
             transform: [{ translateX }],
+            marginBottom: theme.spacing.sm,
           },
         ]}
       >
         <TouchableOpacity
-          style={[styles.actionButton, { backgroundColor: theme.colors.neutral[800] }]}
+          style={[
+            styles.actionButton, 
+            { 
+              backgroundColor: theme.colors.neutral[950],
+              borderRadius: theme.radius.lg,
+            }
+          ]}
           onPress={() => handlePrint(registration)}
         >
           <Text style={[styles.actionText, { color: '#FFFFFF' }]}>Print</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.actionButton, { backgroundColor: theme.colors.success[600] }]}
+          style={[
+            styles.actionButton, 
+            { 
+              backgroundColor: theme.colors.success[600],
+              borderRadius: theme.radius.lg,
+            }
+          ]}
           onPress={() => handleCheckIn(registration)}
         >
           <Text style={[styles.actionText, { color: '#FFFFFF' }]}>Check</Text>
@@ -97,70 +155,94 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
     );
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'checked-in':
-        return theme.colors.warning[500]; // Yellow
-      case 'approved':
-        return theme.colors.neutral[300]; // Gray
-      default:
-        return theme.colors.neutral[300];
-    }
+  const getAttendeeTypeColor = (registration: Registration) => {
+    // Utiliser la couleur qui vient du backend
+    return registration.eventAttendeeType?.attendeeType?.color_hex || 
+           theme.colors.neutral[400];
   };
 
-  const renderRegistrationItem = ({ item }: { item: Registration }) => (
-    <Swipeable
-      renderRightActions={(progress) => renderRightActions(item, progress)}
-      overshootRight={false}
-    >
-      <TouchableOpacity
-        style={[
-          styles.registrationItem,
-          {
-            backgroundColor: theme.colors.card,
-            borderRadius: theme.radius.lg,
-            marginBottom: theme.spacing.sm,
-          },
-        ]}
-        onPress={() => handleRegistrationPress(item)}
-        activeOpacity={0.7}
+  const renderRegistrationItem = ({ item }: { item: Registration }) => {
+    let swipeableRef: Swipeable | null = null;
+
+    const handleSwipeableWillOpen = () => {
+      // Fermer le swipeable précédemment ouvert dès qu'on commence à swiper un nouveau
+      if (openSwipeableRef.current && openSwipeableRef.current !== swipeableRef) {
+        openSwipeableRef.current.close();
+      }
+      // Garder la référence du nouveau swipeable en cours d'ouverture
+      openSwipeableRef.current = swipeableRef;
+    };
+
+    return (
+      <Swipeable
+        ref={(ref) => (swipeableRef = ref)}
+        renderRightActions={(progress) => renderRightActions(item, progress)}
+        overshootRight={false}
+        onSwipeableWillOpen={handleSwipeableWillOpen}
       >
-        <View style={styles.registrationContent}>
-          <Text
-            style={{
-              fontSize: theme.fontSize.base,
-              fontWeight: theme.fontWeight.medium,
-              color: theme.colors.text.primary,
-            }}
-          >
-            {item.attendee.first_name} {item.attendee.last_name}
-          </Text>
-          {item.attendee.company && (
+        <TouchableOpacity
+          style={[
+            styles.registrationItem,
+            {
+              backgroundColor: theme.colors.card,
+              borderRadius: theme.radius.lg,
+              marginBottom: theme.spacing.sm,
+            },
+          ]}
+          onPress={() => handleRegistrationPress(item)}
+          activeOpacity={0.7}
+        >
+          {/* Barre colorée inclinée sur le côté gauche */}
+          <View
+            style={[
+              styles.colorStripe,
+              { backgroundColor: getAttendeeTypeColor(item) },
+            ]}
+          />
+          
+          <View style={styles.registrationContent}>
             <Text
               style={{
-                fontSize: theme.fontSize.sm,
-                color: theme.colors.text.secondary,
-                marginTop: 2,
+                fontSize: theme.fontSize.base,
+                fontWeight: theme.fontWeight.medium,
+                color: theme.colors.text.primary,
               }}
             >
-              {item.attendee.company}
+              {item.attendee.first_name} {item.attendee.last_name}
             </Text>
-          )}
-        </View>
-        
-        {/* Coin coloré incliné */}
-        <View
-          style={[
-            styles.corner,
-            { backgroundColor: getStatusColor(item.status) },
-          ]}
-        />
-      </TouchableOpacity>
-    </Swipeable>
-  );
+            {item.attendee.company && (
+              <Text
+                style={{
+                  fontSize: theme.fontSize.sm,
+                  color: theme.colors.text.secondary,
+                  marginTop: 2,
+                }}
+              >
+                {item.attendee.company}
+              </Text>
+            )}
+          </View>
+          
+        </TouchableOpacity>
+      </Swipeable>
+    );
+  };
 
   const checkedInCount = registrations.filter((r) => r.status === 'checked-in').length;
   const progressPercentage = pagination.total > 0 ? (checkedInCount / pagination.total) * 100 : 0;
+
+  const renderFooter = () => {
+    if (!isLoadingMore) return null;
+    
+    return (
+      <View style={styles.footerLoader}>
+        <ActivityIndicator size="small" color={theme.colors.brand[600]} />
+        <Text style={{ color: theme.colors.text.secondary, marginLeft: 8 }}>
+          Chargement...
+        </Text>
+      </View>
+    );
+  };
 
   return (
     <View 
@@ -235,7 +317,10 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
           data={registrations}
           renderItem={renderRegistrationItem}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={{ padding: theme.spacing.lg }}
+          contentContainerStyle={{ 
+            padding: theme.spacing.lg,
+            paddingBottom: 100, // Espace pour la bottom tab bar
+          }}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={{ color: theme.colors.text.secondary, fontSize: theme.fontSize.base }}>
@@ -243,6 +328,9 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
               </Text>
             </View>
           }
+          ListFooterComponent={renderFooter}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.5}
           refreshing={isLoading}
           onRefresh={loadRegistrations}
         />
@@ -277,8 +365,17 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 16,
   },
+  colorStripe: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 6,
+    transform: [{ skewY: '-5deg' }],
+  },
   registrationContent: {
     flex: 1,
+    marginLeft: 12, // Espace après la barre colorée
   },
   corner: {
     position: 'absolute',
@@ -293,15 +390,14 @@ const styles = StyleSheet.create({
   },
   actionsContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'stretch',
   },
   actionButton: {
     justifyContent: 'center',
     alignItems: 'center',
     width: 80,
-    height: '100%',
+    alignSelf: 'stretch',
     marginLeft: 4,
-    borderRadius: 12,
   },
   actionText: {
     fontSize: 14,
@@ -317,5 +413,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 48,
+  },
+  footerLoader: {
+    paddingVertical: 20,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

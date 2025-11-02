@@ -83,12 +83,7 @@ export const AppNavigator: React.FC = () => {
               name="AttendeeDetails"
               component={AttendeeDetailsScreen}
               options={{
-                headerShown: true,
-                title: 'Détails du participant',
-                headerStyle: {
-                  backgroundColor: theme.colors.surface,
-                },
-                headerTintColor: theme.colors.text.primary,
+                headerShown: false,
               }}
             />
           </>

@@ -8,7 +8,7 @@ import { useTheme } from '../../theme/ThemeProvider';
 
 interface CardProps {
   children: ReactNode;
-  style?: ViewStyle;
+  style?: ViewStyle | ViewStyle[];
   onPress?: () => void;
 }
 

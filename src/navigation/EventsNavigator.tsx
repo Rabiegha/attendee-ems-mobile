@@ -39,15 +39,7 @@ export const EventsNavigator: React.FC = () => {
         name="Settings"
         component={SettingsScreen}
         options={{ 
-          headerShown: true,
-          title: t('settings.title'),
-          headerStyle: {
-            backgroundColor: theme.colors.surface,
-          },
-          headerTintColor: theme.colors.text.primary,
-          headerTitleStyle: {
-            fontWeight: '600',
-          },
+          headerShown: false, // Pas de header, il est géré par SettingsScreen lui-même
         }}
       />
     </Stack.Navigator>

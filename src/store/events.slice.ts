@@ -59,11 +59,15 @@ export const fetchUpcomingEventsThunk = createAsyncThunk(
       const limit = params?.limit ?? state.events.upcoming.pagination.limit;
       const search = params?.search;
       
+      // Événements à partir d'aujourd'hui 00:00 (inclus aujourd'hui)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
       const requestParams: any = { 
         page, 
         limit, 
         search,
-        startAfter: new Date().toISOString() // Événements futurs
+        startAfter: today.toISOString() // Événements futurs (aujourd'hui et après)
       };
       
       console.log('[EventsSlice] fetchUpcomingEventsThunk - Starting with params:', requestParams);
@@ -87,11 +91,15 @@ export const fetchPastEventsThunk = createAsyncThunk(
       const limit = params?.limit ?? state.events.past.pagination.limit;
       const search = params?.search;
       
+      // Événements jusqu'à hier (pas aujourd'hui)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
       const requestParams: any = { 
         page, 
         limit, 
         search,
-        startBefore: new Date().toISOString() // Événements passés
+        startBefore: today.toISOString() // Événements passés (hier et avant)
       };
       
       console.log('[EventsSlice] fetchPastEventsThunk - Starting with params:', requestParams);
@@ -115,11 +123,15 @@ export const fetchMoreUpcomingEventsThunk = createAsyncThunk(
       const limit = state.events.upcoming.pagination.limit;
       const search = params?.search;
       
+      // Événements à partir d'aujourd'hui 00:00 (inclus aujourd'hui)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
       const requestParams: any = { 
         page: nextPage, 
         limit, 
         search,
-        startAfter: new Date().toISOString()
+        startAfter: today.toISOString()
       };
       
       console.log('[EventsSlice] fetchMoreUpcomingEventsThunk - Loading page', nextPage);
@@ -143,11 +155,15 @@ export const fetchMorePastEventsThunk = createAsyncThunk(
       const limit = state.events.past.pagination.limit;
       const search = params?.search;
       
+      // Événements jusqu'à hier (pas aujourd'hui)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
       const requestParams: any = { 
         page: nextPage, 
         limit, 
         search,
-        startBefore: new Date().toISOString()
+        startBefore: today.toISOString()
       };
       
       console.log('[EventsSlice] fetchMorePastEventsThunk - Loading page', nextPage);

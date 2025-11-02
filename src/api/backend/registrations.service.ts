@@ -20,7 +20,7 @@ export const registrationsService = {
   ): Promise<RegistrationsResponse> => {
     try {
       console.log('[RegistrationsService] Fetching registrations for event:', eventId, 'with params:', params);
-      const response = await axiosClient.get(`/registrations/events/${eventId}/registrations`, { params });
+      const response = await axiosClient.get(`/events/${eventId}/registrations`, { params });
       console.log('[RegistrationsService] Registrations fetched successfully:', response.data.meta);
       return response.data;
     } catch (error: any) {
@@ -40,7 +40,7 @@ export const registrationsService = {
   getRegistrationById: async (eventId: string, registrationId: string): Promise<Registration> => {
     try {
       console.log('[RegistrationsService] Fetching registration:', { eventId, registrationId });
-      const response = await axiosClient.get(`/registrations/events/${eventId}/registrations/${registrationId}`);
+      const response = await axiosClient.get(`/events/${eventId}/registrations/${registrationId}`);
       console.log('[RegistrationsService] Registration fetched successfully:', response.data.id);
       return response.data;
     } catch (error: any) {
@@ -60,7 +60,7 @@ export const registrationsService = {
   checkInRegistration: async (eventId: string, registrationId: string): Promise<Registration> => {
     try {
       console.log('[RegistrationsService] Checking in registration:', { eventId, registrationId });
-      const response = await axiosClient.post(`/registrations/events/${eventId}/registrations/${registrationId}/check-in`);
+      const response = await axiosClient.post(`/events/${eventId}/registrations/${registrationId}/check-in`);
       console.log('[RegistrationsService] Registration checked in successfully:', response.data.status);
       return response.data;
     } catch (error: any) {
@@ -80,7 +80,7 @@ export const registrationsService = {
   markBadgePrinted: async (eventId: string, registrationId: string): Promise<Registration> => {
     try {
       console.log('[RegistrationsService] Marking badge as printed:', { eventId, registrationId });
-      const response = await axiosClient.post(`/registrations/events/${eventId}/registrations/${registrationId}/print-badge`);
+      const response = await axiosClient.post(`/events/${eventId}/registrations/${registrationId}/print-badge`);
       console.log('[RegistrationsService] Badge marked as printed successfully');
       return response.data;
     } catch (error: any) {

@@ -3,7 +3,7 @@
  */
 
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -12,6 +12,7 @@ import { fetchRegistrationByIdThunk } from '../../store/registrations.slice';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Header } from '../../components/ui/Header';
+import useNodePrint from '../../printing/hooks/useNodePrint';
 
 interface AttendeeDetailsScreenProps {
   navigation: any;
@@ -28,6 +29,8 @@ export const AttendeeDetailsScreen: React.FC<AttendeeDetailsScreenProps> = ({ na
   const registrationId = route.params?.registrationId;
   const eventId = route.params?.eventId || currentEvent?.id;
 
+  const { printBadge, isPrinting } = useNodePrint();
+
   useEffect(() => {
     if (registrationId && eventId) {
       dispatch(fetchRegistrationByIdThunk({ eventId, registrationId }));
@@ -40,10 +43,6 @@ export const AttendeeDetailsScreen: React.FC<AttendeeDetailsScreenProps> = ({ na
         style={[styles.container, { backgroundColor: theme.colors.background }]}
         edges={['top', 'left', 'right']}
       >
-        <Header
-          title={t('attendees.details')}
-          onBack={() => navigation.goBack()}
-        />
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator size="large" color={theme.colors.brand[600]} />
         </View>
@@ -52,6 +51,21 @@ export const AttendeeDetailsScreen: React.FC<AttendeeDetailsScreenProps> = ({ na
   }
 
   const attendee = currentRegistration.attendee;
+
+  const getAttendeeTypeColor = () => {
+    return currentRegistration.eventAttendeeType?.attendeeType?.text_color_hex || 
+           currentRegistration.eventAttendeeType?.attendeeType?.color_hex || 
+           theme.colors.brand[600];
+  };
+
+  const getAttendeeTypeColorLight = () => {
+    const color = currentRegistration.eventAttendeeType?.attendeeType?.color_hex || theme.colors.brand[100];
+    // Si la couleur est en format hex, ajouter de l'opacité
+    if (color.startsWith('#')) {
+      return color + '20'; // 20% d'opacité
+    }
+    return color;
+  };
 
   const getStatusLabel = (status: string) => {
     switch (status) {
@@ -101,7 +115,7 @@ export const AttendeeDetailsScreen: React.FC<AttendeeDetailsScreenProps> = ({ na
               width: 80,
               height: 80,
               borderRadius: 40,
-              backgroundColor: theme.colors.brand[100],
+              backgroundColor: getAttendeeTypeColorLight(),
               justifyContent: 'center',
               alignItems: 'center',
               marginBottom: theme.spacing.md,
@@ -111,7 +125,7 @@ export const AttendeeDetailsScreen: React.FC<AttendeeDetailsScreenProps> = ({ na
               style={{
                 fontSize: theme.fontSize['2xl'],
                 fontWeight: theme.fontWeight.bold,
-                color: theme.colors.brand[600],
+                color: getAttendeeTypeColor(),
               }}
             >
               {attendee.first_name[0]}
@@ -133,8 +147,17 @@ export const AttendeeDetailsScreen: React.FC<AttendeeDetailsScreenProps> = ({ na
         <View style={styles.actionsContainer}>
           <Button
             title={t('attendees.print')}
-            onPress={() => {}}
+            onPress={async () => {
+              try {
+                await printBadge(currentRegistration);
+                Alert.alert(t('attendees.print'), t('attendees.printSent'));
+              } catch (err: any) {
+                console.warn('Print failed', err);
+                Alert.alert(t('attendees.print'), err?.message || t('common.error'));
+              }
+            }}
             variant="secondary"
+            loading={isPrinting}
             style={{ flex: 1, marginRight: theme.spacing.sm }}
           />
           <Button

@@ -10,6 +10,8 @@ interface RegistrationsState {
   registrations: Registration[];
   currentRegistration: Registration | null;
   isLoading: boolean;
+  isLoadingMore: boolean;
+  hasMore: boolean;
   error: string | null;
   pagination: {
     page: number;
@@ -23,6 +25,8 @@ const initialState: RegistrationsState = {
   registrations: [],
   currentRegistration: null,
   isLoading: false,
+  isLoadingMore: false,
+  hasMore: true,
   error: null,
   pagination: {
     page: 1,
@@ -53,6 +57,41 @@ export const fetchRegistrationsThunk = createAsyncThunk(
       return response;
     } catch (error: any) {
       console.error('[RegistrationsSlice] fetchRegistrationsThunk - Error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
+export const fetchMoreRegistrationsThunk = createAsyncThunk(
+  'registrations/fetchMoreRegistrations',
+  async (params: {
+    eventId: string;
+    search?: string;
+    status?: string;
+  }, { rejectWithValue, getState }) => {
+    try {
+      const state = getState() as { registrations: RegistrationsState };
+      
+      const nextPage = state.registrations.pagination.page + 1;
+      const limit = state.registrations.pagination.limit;
+      
+      const queryParams: any = {
+        page: nextPage,
+        limit,
+        search: params.search,
+        status: params.status,
+      };
+      
+      console.log('[RegistrationsSlice] fetchMoreRegistrationsThunk - Loading page', nextPage);
+      const response = await registrationsService.getRegistrations(params.eventId, queryParams);
+      console.log('[RegistrationsSlice] fetchMoreRegistrationsThunk - Success:', response.meta);
+      return response;
+    } catch (error: any) {
+      console.error('[RegistrationsSlice] fetchMoreRegistrationsThunk - Error:', {
         message: error.message,
         response: error.response?.data,
         status: error.response?.status,
@@ -149,11 +188,37 @@ const registrationsSlice = createSlice({
         state.isLoading = false;
         state.registrations = action.payload.data;
         state.pagination = action.payload.meta;
+        state.hasMore = action.payload.meta.page < action.payload.meta.totalPages;
       })
       .addCase(fetchRegistrationsThunk.rejected, (state, action) => {
         console.error('[RegistrationsSlice] fetchRegistrationsThunk.rejected:', action.payload || action.error);
         state.isLoading = false;
         state.error = (action.payload as any)?.detail || action.error.message || 'Erreur lors du chargement des inscriptions';
+      });
+
+    // Fetch more registrations (pagination)
+    builder
+      .addCase(fetchMoreRegistrationsThunk.pending, (state) => {
+        console.log('[RegistrationsSlice] fetchMoreRegistrationsThunk.pending');
+        state.isLoadingMore = true;
+        state.error = null;
+      })
+      .addCase(fetchMoreRegistrationsThunk.fulfilled, (state, action) => {
+        console.log('[RegistrationsSlice] fetchMoreRegistrationsThunk.fulfilled - Loaded', action.payload.data.length, 'more registrations');
+        state.isLoadingMore = false;
+        
+        // Déduplication
+        const existingIds = new Set(state.registrations.map((r: Registration) => r.id));
+        const newRegistrations = action.payload.data.filter((r: Registration) => !existingIds.has(r.id));
+        state.registrations = [...state.registrations, ...newRegistrations];
+        
+        state.pagination = action.payload.meta;
+        state.hasMore = action.payload.meta.page < action.payload.meta.totalPages;
+      })
+      .addCase(fetchMoreRegistrationsThunk.rejected, (state, action) => {
+        console.error('[RegistrationsSlice] fetchMoreRegistrationsThunk.rejected:', action.payload || action.error);
+        state.isLoadingMore = false;
+        state.error = (action.payload as any)?.detail || action.error.message || 'Erreur lors du chargement';
       });
 
     // Fetch registration by ID

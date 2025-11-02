@@ -56,7 +56,7 @@ export const PastEventsScreen: React.FC<PastEventsScreenProps> = ({
 
   const handleRefresh = () => {
     console.log('[PastEventsScreen] Refreshing events...');
-    dispatch(fetchPastEventsThunk({}));
+    dispatch(fetchPastEventsThunk({ page: 1 }));
   };
 
   const renderFooter = () => {

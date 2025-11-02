@@ -42,6 +42,8 @@ export interface Registration {
   confirmed_at: string | null;
   created_at: string;
   updated_at: string;
+  badge_pdf_url: string | null;
+  badge_image_url: string | null;
   attendee: Attendee;
   eventAttendeeType: any;
 }
