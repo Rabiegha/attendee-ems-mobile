@@ -120,21 +120,35 @@ export const fetchRegistrationByIdThunk = createAsyncThunk(
   }
 );
 
+/**
+ * Thunk pour check-in via QR Code scan
+ */
 export const checkInRegistrationThunk = createAsyncThunk(
   'registrations/checkInRegistration',
-  async (params: { eventId: string; registrationId: string }, { rejectWithValue }) => {
+  async (params: { 
+    registrationId: string; 
+    eventId: string;
+    location?: { lat: number; lng: number };
+  }, { rejectWithValue }) => {
     try {
       console.log('[RegistrationsSlice] checkInRegistrationThunk - Starting:', params);
-      const response = await registrationsService.checkInRegistration(params.eventId, params.registrationId);
-      console.log('[RegistrationsSlice] checkInRegistrationThunk - Success:', response.status);
-      return response;
+      const response = await registrationsService.checkIn(
+        params.registrationId,
+        params.eventId,
+        params.location
+      );
+      console.log('[RegistrationsSlice] checkInRegistrationThunk - Success:', response.message);
+      return response.registration;
     } catch (error: any) {
       console.error('[RegistrationsSlice] checkInRegistrationThunk - Error:', {
         message: error.message,
         response: error.response?.data,
         status: error.response?.status,
       });
-      return rejectWithValue(error.response?.data || error.message);
+      
+      // Extraire le message d'erreur depuis la réponse
+      const errorMessage = error.response?.data?.message || error.message || 'Erreur lors du check-in';
+      return rejectWithValue(errorMessage);
     }
   }
 );
@@ -243,6 +257,7 @@ const registrationsSlice = createSlice({
     builder
       .addCase(checkInRegistrationThunk.pending, (state) => {
         console.log('[RegistrationsSlice] checkInRegistrationThunk.pending');
+        state.error = null;
       })
       .addCase(checkInRegistrationThunk.fulfilled, (state, action) => {
         console.log('[RegistrationsSlice] checkInRegistrationThunk.fulfilled - Registration checked in:', action.payload.id);
@@ -255,10 +270,11 @@ const registrationsSlice = createSlice({
           state.currentRegistration = action.payload;
           console.log('[RegistrationsSlice] Updated current registration');
         }
+        state.error = null;
       })
       .addCase(checkInRegistrationThunk.rejected, (state, action) => {
         console.error('[RegistrationsSlice] checkInRegistrationThunk.rejected:', action.payload || action.error);
-        state.error = (action.payload as any)?.detail || action.error.message || 'Erreur lors du check-in';
+        state.error = (action.payload as string) || action.error.message || 'Erreur lors du check-in';
       });
 
     // Mark badge printed

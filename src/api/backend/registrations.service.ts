@@ -55,18 +55,34 @@ export const registrationsService = {
   },
 
   /**
-   * Check-in d'une registration
+   * Check-in d'une registration via QR Code
+   * @param registrationId - UUID scanné depuis le QR Code
+   * @param eventId - ID de l'événement (validation croisée obligatoire)
+   * @param location - Coordonnées GPS optionnelles
    */
-  checkInRegistration: async (eventId: string, registrationId: string): Promise<Registration> => {
+  checkIn: async (
+    registrationId: string,
+    eventId: string,
+    location?: { lat: number; lng: number }
+  ): Promise<{ success: boolean; message: string; registration: Registration }> => {
     try {
-      console.log('[RegistrationsService] Checking in registration:', { eventId, registrationId });
-      const response = await axiosClient.post(`/events/${eventId}/registrations/${registrationId}/check-in`);
-      console.log('[RegistrationsService] Registration checked in successfully:', response.data.status);
+      console.log('[RegistrationsService] Checking in registration:', { 
+        registrationId, 
+        eventId,
+        hasLocation: !!location 
+      });
+      
+      const response = await axiosClient.post(`/registrations/${registrationId}/check-in`, {
+        eventId,
+        checkinLocation: location,
+      });
+      
+      console.log('[RegistrationsService] Check-in successful:', response.data.message);
       return response.data;
     } catch (error: any) {
-      console.error('[RegistrationsService] Error checking in registration:', {
-        eventId,
+      console.error('[RegistrationsService] Check-in failed:', {
         registrationId,
+        eventId,
         error: error.response?.data || error.message,
         status: error.response?.status,
       });

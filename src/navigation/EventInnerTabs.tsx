@@ -19,7 +19,7 @@ import { SettingsScreen } from '../screens/Settings/SettingsScreen';
 export type EventInnerTabsParamList = {
   Dashboard: { eventId: string };
   Attendees: { eventId: string };
-  Scan: undefined;
+  Scan: { eventId: string };
   Print: undefined;
   Settings: undefined;
 };
@@ -99,6 +99,7 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
       <Tab.Screen
         name="Scan"
         component={ScanScreen}
+        initialParams={{ eventId }}
         options={{
           tabBarLabel: '',
           tabBarIcon: ({ focused }) => (
