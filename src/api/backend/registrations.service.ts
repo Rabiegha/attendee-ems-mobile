@@ -91,6 +91,38 @@ export const registrationsService = {
   },
 
   /**
+   * Annuler le check-in d'une registration
+   * @param registrationId - UUID de la registration
+   * @param eventId - ID de l'événement (validation croisée obligatoire)
+   */
+  undoCheckIn: async (
+    registrationId: string,
+    eventId: string
+  ): Promise<{ success: boolean; message: string; registration: Registration }> => {
+    try {
+      console.log('[RegistrationsService] Undoing check-in for registration:', { 
+        registrationId, 
+        eventId
+      });
+      
+      const response = await axiosClient.post(`/registrations/${registrationId}/undo-check-in`, {
+        eventId,
+      });
+      
+      console.log('[RegistrationsService] Undo check-in successful:', response.data.message);
+      return response.data;
+    } catch (error: any) {
+      console.error('[RegistrationsService] Undo check-in failed:', {
+        registrationId,
+        eventId,
+        error: error.response?.data || error.message,
+        status: error.response?.status,
+      });
+      throw error;
+    }
+  },
+
+  /**
    * Marquer le badge comme imprimé
    */
   markBadgePrinted: async (eventId: string, registrationId: string): Promise<Registration> => {

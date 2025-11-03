@@ -25,6 +25,8 @@ import { Swipeable } from 'react-native-gesture-handler';
 import { APP_CONFIG } from '../../config/app.config';
 import { useCheckIn } from '../../hooks/useCheckIn';
 import { CheckInModal } from '../../components/modals/CheckInModal';
+import { Image } from 'react-native';
+import Icons from '../../assets/icons';
 
 interface AttendeesListScreenProps {
   navigation: any;
@@ -218,11 +220,19 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
     checkIn.checkInOnly(registration);
   };
 
+  const handleUndoCheckIn = (registration: Registration) => {
+    console.log('Undo check in:', registration.attendee.first_name);
+    checkIn.undoCheckIn(registration);
+  };
+
   const renderRightActions = (registration: Registration, progress: Animated.AnimatedInterpolation<number>) => {
     const translateX = progress.interpolate({
       inputRange: [0, 1],
       outputRange: [200, 0],
     });
+
+    // Vérifier si le participant est déjà enregistré
+    const isCheckedIn = registration.status === 'checked-in' || registration.checked_in_at;
 
     return (
       <Animated.View
@@ -250,13 +260,17 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
           style={[
             styles.actionButton, 
             { 
-              backgroundColor: theme.colors.success[600],
+              backgroundColor: isCheckedIn 
+                ? theme.colors.error[600] 
+                : theme.colors.success[600],
               borderRadius: theme.radius.lg,
             }
           ]}
-          onPress={() => handleCheckIn(registration)}
+          onPress={() => isCheckedIn ? handleUndoCheckIn(registration) : handleCheckIn(registration)}
         >
-          <Text style={[styles.actionText, { color: '#FFFFFF' }]}>Check</Text>
+          <Text style={[styles.actionText, { color: '#FFFFFF' }]}>
+            {isCheckedIn ? 'Undo' : 'Check'}
+          </Text>
         </TouchableOpacity>
       </Animated.View>
     );
@@ -341,6 +355,17 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
               />
             )}
           </View>
+
+          {/* Icône checked-in */}
+          {(item.status === 'checked-in' || item.checked_in_at) && (
+            <View style={styles.checkedInIconContainer}>
+              <Image
+                source={Icons.Accepted}
+                style={styles.checkedInIcon}
+                resizeMode="contain"
+              />
+            </View>
+          )}
           
         </TouchableOpacity>
       </Swipeable>
@@ -585,5 +610,14 @@ const styles = StyleSheet.create({
   searchWaitText: {
     fontSize: 12,
     fontStyle: 'italic',
+  },
+  checkedInIconContainer: {
+    marginLeft: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkedInIcon: {
+    width: 20,
+    height: 20,
   },
 });

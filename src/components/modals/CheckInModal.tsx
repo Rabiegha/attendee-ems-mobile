@@ -43,37 +43,36 @@ export const CheckInModal: React.FC<CheckInModalProps> = ({
     switch (status) {
       case 'printing':
         return {
-          animation: require('../../assets/animations/Printing.json'),
           title: 'Impression en cours...',
           subtitle: `Badge de ${attendee.attendee.first_name} ${attendee.attendee.last_name}`,
-          loop: true,
           showProgress: true,
         };
 
       case 'checkin':
         return {
-          animation: require('../../assets/animations/Printing.json'), // TODO: Utiliser une animation de check-in
           title: 'Check-in en cours...',
           subtitle: `Enregistrement de ${attendee.attendee.first_name} ${attendee.attendee.last_name}`,
-          loop: true,
+          showProgress: false,
+        };
+
+      case 'undoing':
+        return {
+          title: 'Annulation en cours...',
+          subtitle: `Annulation du check-in de ${attendee.attendee.first_name} ${attendee.attendee.last_name}`,
           showProgress: false,
         };
 
       case 'success':
         return {
-          animation: require('../../assets/animations/Accepted.json'),
           title: 'Succès !',
           subtitle: `${attendee.attendee.first_name} ${attendee.attendee.last_name} traité avec succès`,
-          loop: false,
           showProgress: false,
         };
 
       case 'error':
         return {
-          animation: require('../../assets/animations/Rejected.json'),
           title: 'Erreur',
           subtitle: errorMessage || 'Une erreur est survenue',
-          loop: false,
           showProgress: false,
         };
 
@@ -108,7 +107,7 @@ export const CheckInModal: React.FC<CheckInModalProps> = ({
             >
               {content.title}
             </Text>
-            {status !== 'printing' && status !== 'checkin' && (
+            {status !== 'printing' && status !== 'checkin' && status !== 'undoing' && (
               <TouchableOpacity onPress={onClose} style={styles.closeButton}>
                 <Text style={[styles.closeButtonText, { color: theme.colors.text.secondary }]}>
                   ✕
@@ -119,15 +118,62 @@ export const CheckInModal: React.FC<CheckInModalProps> = ({
 
           {/* Animation */}
           <View style={[styles.animationSection, { backgroundColor: theme.colors.card }]}>
-            <View style={[styles.animationContainer, { backgroundColor: theme.colors.card }]}>
-              <LottieView
-                source={content.animation}
-                autoPlay
-                loop={content.loop}
-                style={[styles.animationView, { backgroundColor: theme.colors.card }]}
-                renderMode="AUTOMATIC"
-              />
-            </View>
+            {/* Forcer le remontage complet du composant pour chaque animation */}
+            {status === 'printing' && (
+              <View style={[styles.animationContainer, { backgroundColor: theme.colors.card }]}>
+                <LottieView
+                  source={require('../../assets/animations/Printing.json')}
+                  autoPlay
+                  loop={true}
+                  style={[styles.animationView, { backgroundColor: theme.colors.card }]}
+                  renderMode="AUTOMATIC"
+                />
+              </View>
+            )}
+            {status === 'checkin' && (
+              <View style={[styles.animationContainer, { backgroundColor: theme.colors.card }]}>
+                <LottieView
+                  source={require('../../assets/animations/Accepted.json')}
+                  autoPlay
+                  loop={true}
+                  style={[styles.animationView, { backgroundColor: theme.colors.card }]}
+                  renderMode="AUTOMATIC"
+                />
+              </View>
+            )}
+            {status === 'undoing' && (
+              <View style={[styles.animationContainer, { backgroundColor: theme.colors.card }]}>
+                <LottieView
+                  source={require('../../assets/animations/Error.json')}
+                  autoPlay
+                  loop={true}
+                  style={[styles.animationView, { backgroundColor: theme.colors.card }]}
+                  renderMode="AUTOMATIC"
+                />
+              </View>
+            )}
+            {status === 'success' && (
+              <View style={[styles.animationContainer, { backgroundColor: theme.colors.card }]}>
+                <LottieView
+                  source={require('../../assets/animations/Accepted.json')}
+                  autoPlay
+                  loop={false}
+                  style={[styles.animationView, { backgroundColor: theme.colors.card }]}
+                  renderMode="AUTOMATIC"
+                />
+              </View>
+            )}
+            {status === 'error' && (
+              <View style={[styles.animationContainer, { backgroundColor: theme.colors.card }]}>
+                <LottieView
+                  source={require('../../assets/animations/Rejected.json')}
+                  autoPlay
+                  loop={false}
+                  style={[styles.animationView, { backgroundColor: theme.colors.card }]}
+                  renderMode="AUTOMATIC"
+                />
+              </View>
+            )}
 
             {/* Barre de progression pour l'impression */}
             {content.showProgress && (

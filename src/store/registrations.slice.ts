@@ -188,6 +188,14 @@ const registrationsSlice = createSlice({
     clearError: (state) => {
       state.error = null;
     },
+    updateRegistration: (state, action: PayloadAction<Registration>) => {
+      const updatedRegistration = action.payload;
+      const index = state.registrations.findIndex(reg => reg.id === updatedRegistration.id);
+      if (index !== -1) {
+        state.registrations[index] = updatedRegistration;
+        console.log('[RegistrationsSlice] Registration updated in store:', updatedRegistration.id);
+      }
+    },
   },
   extraReducers: (builder) => {
     // Fetch registrations
@@ -301,5 +309,5 @@ const registrationsSlice = createSlice({
   },
 });
 
-export const { setCurrentRegistration, clearRegistrations, clearError } = registrationsSlice.actions;
+export const { setCurrentRegistration, clearRegistrations, clearError, updateRegistration } = registrationsSlice.actions;
 export default registrationsSlice.reducer;
