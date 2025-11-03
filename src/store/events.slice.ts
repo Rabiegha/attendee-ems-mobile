@@ -26,6 +26,8 @@ interface EventsState {
   upcoming: EventsListState;
   past: EventsListState;
   currentEvent: Event | null;
+  currentEventAttendeeTypes: any[];
+  isLoadingAttendeeTypes: boolean;
 }
 
 const initialListState: EventsListState = {
@@ -46,6 +48,8 @@ const initialState: EventsState = {
   upcoming: { ...initialListState },
   past: { ...initialListState },
   currentEvent: null,
+  currentEventAttendeeTypes: [],
+  isLoadingAttendeeTypes: false,
 };
 
 // Thunks avec protection contre les appels multiples
@@ -284,6 +288,26 @@ export const fetchEventByIdThunk = createAsyncThunk(
   }
 );
 
+export const fetchEventAttendeeTypesThunk = createAsyncThunk(
+  'events/fetchEventAttendeeTypes',
+  async (eventId: string, { rejectWithValue }) => {
+    try {
+      console.log('[EventsSlice] fetchEventAttendeeTypesThunk - Starting for event:', eventId);
+      const response = await eventsService.getEventAttendeeTypes(eventId);
+      console.log('[EventsSlice] fetchEventAttendeeTypesThunk - Success:', response.length, 'types found');
+      return response;
+    } catch (error: any) {
+      console.error('[EventsSlice] fetchEventAttendeeTypesThunk - Error:', {
+        eventId,
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
 // Slice
 const eventsSlice = createSlice({
   name: 'events',
@@ -391,6 +415,23 @@ const eventsSlice = createSlice({
       })
       .addCase(fetchEventByIdThunk.rejected, (state, action) => {
         console.error('[EventsSlice] fetchEventByIdThunk.rejected:', action.payload || action.error);
+      });
+
+    // Fetch event attendee types
+    builder
+      .addCase(fetchEventAttendeeTypesThunk.pending, (state) => {
+        console.log('[EventsSlice] fetchEventAttendeeTypesThunk.pending');
+        state.isLoadingAttendeeTypes = true;
+      })
+      .addCase(fetchEventAttendeeTypesThunk.fulfilled, (state, action) => {
+        console.log('[EventsSlice] fetchEventAttendeeTypesThunk.fulfilled - Types:', action.payload.length);
+        state.isLoadingAttendeeTypes = false;
+        state.currentEventAttendeeTypes = action.payload;
+      })
+      .addCase(fetchEventAttendeeTypesThunk.rejected, (state, action) => {
+        console.error('[EventsSlice] fetchEventAttendeeTypesThunk.rejected:', action.payload || action.error);
+        state.isLoadingAttendeeTypes = false;
+        state.currentEventAttendeeTypes = [];
       });
   },
 });

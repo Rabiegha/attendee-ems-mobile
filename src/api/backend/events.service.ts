@@ -158,4 +158,23 @@ export const eventsService = {
       throw error;
     }
   },
+
+  /**
+   * Récupérer les types d'attendee d'un événement
+   */
+  getEventAttendeeTypes: async (eventId: string) => {
+    try {
+      console.log('[EventsService] Fetching attendee types for event:', eventId);
+      const response = await axiosClient.get(`/events/${eventId}/attendee-types`);
+      console.log('[EventsService] Attendee types fetched successfully:', response.data.length);
+      return response.data;
+    } catch (error: any) {
+      console.error('[EventsService] Error fetching attendee types:', {
+        eventId,
+        error: error.response?.data || error.message,
+        status: error.response?.status,
+      });
+      throw error;
+    }
+  },
 };

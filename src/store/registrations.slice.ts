@@ -11,6 +11,7 @@ interface RegistrationsState {
   currentRegistration: Registration | null;
   isLoading: boolean;
   isLoadingMore: boolean;
+  isCreating: boolean;
   hasMore: boolean;
   error: string | null;
   pagination: {
@@ -26,6 +27,7 @@ const initialState: RegistrationsState = {
   currentRegistration: null,
   isLoading: false,
   isLoadingMore: false,
+  isCreating: false,
   hasMore: true,
   error: null,
   pagination: {
@@ -149,6 +151,41 @@ export const checkInRegistrationThunk = createAsyncThunk(
       // Extraire le message d'erreur depuis la réponse
       const errorMessage = error.response?.data?.message || error.message || 'Erreur lors du check-in';
       return rejectWithValue(errorMessage);
+    }
+  }
+);
+
+export const createRegistrationThunk = createAsyncThunk(
+  'registrations/createRegistration',
+  async (params: {
+    eventId: string;
+    registrationData: {
+      attendee: {
+        email: string;
+        first_name?: string;
+        last_name?: string;
+        phone?: string;
+        company?: string;
+        job_title?: string;
+        country?: string;
+      };
+      attendance_type: 'onsite' | 'online' | 'hybrid';
+      event_attendee_type_id?: string;
+      answers?: any;
+    };
+  }, { rejectWithValue }) => {
+    try {
+      console.log('[RegistrationsSlice] createRegistrationThunk - Starting:', params);
+      const response = await registrationsService.createRegistration(params.eventId, params.registrationData);
+      console.log('[RegistrationsSlice] createRegistrationThunk - Success:', response.id);
+      return response;
+    } catch (error: any) {
+      console.error('[RegistrationsSlice] createRegistrationThunk - Error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      return rejectWithValue(error.response?.data || error.message);
     }
   }
 );
@@ -277,7 +314,27 @@ const registrationsSlice = createSlice({
         state.error = (action.payload as string) || action.error.message || 'Erreur lors du check-in';
       });
 
-    // Mark badge printed
+        // Create registration
+    builder
+      .addCase(createRegistrationThunk.pending, (state) => {
+        console.log('[RegistrationsSlice] createRegistrationThunk.pending');
+        state.isCreating = true;
+        state.error = null;
+      })
+      .addCase(createRegistrationThunk.fulfilled, (state, action) => {
+        console.log('[RegistrationsSlice] createRegistrationThunk.fulfilled - Registration created:', action.payload.id);
+        state.isCreating = false;
+        // Ajouter la nouvelle registration au début de la liste
+        state.registrations = [action.payload, ...state.registrations];
+        state.pagination.total += 1;
+      })
+      .addCase(createRegistrationThunk.rejected, (state, action) => {
+        console.error('[RegistrationsSlice] createRegistrationThunk.rejected:', action.payload || action.error);
+        state.isCreating = false;
+        state.error = (action.payload as any)?.detail || action.error.message || 'Erreur lors de la création de l\'inscription';
+      });
+
+    // Mark badge as printed
     builder
       .addCase(markBadgePrintedThunk.pending, (state) => {
         console.log('[RegistrationsSlice] markBadgePrintedThunk.pending');
