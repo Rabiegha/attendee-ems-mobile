@@ -2,7 +2,7 @@
  * Écran de liste des participants (registrations)
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -21,13 +21,18 @@ import { fetchRegistrationsThunk, fetchMoreRegistrationsThunk } from '../../stor
 import { Registration } from '../../types/attendee';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { Header } from '../../components/ui/Header';
+import { HighlightedText } from '../../components/ui/HighlightedText';
 import { Swipeable } from 'react-native-gesture-handler';
 import Icons from '../../assets/icons';
+import { APP_CONFIG } from '../../config/app.config';
 
 interface AttendeesListScreenProps {
   navigation: any;
   route: any;
 }
+
+// Configuration de la recherche depuis le fichier global
+const SEARCH_DEBOUNCE_DELAY = APP_CONFIG.SEARCH.DEBOUNCE_DELAY;
 
 export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ navigation, route }) => {
   const { t } = useTranslation();
@@ -37,11 +42,80 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
   const { currentEvent } = useAppSelector((state) => state.events);
   const insets = useSafeAreaInsets();
 
-  const [searchQuery, setSearchQuery] = useState('');
   const eventId = route.params?.eventId || currentEvent?.id;
+  
+  // État de recherche local 
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [isWaitingToSearch, setIsWaitingToSearch] = useState(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasUserInteracted = useRef(false);
+  
+  // Fonction de recherche avec debounce manuel
+  const performSearch = useCallback((query: string) => {
+    if (eventId) {
+      console.log('[AttendeesListScreen] Search query changed:', query);
+      setIsSearching(true);  // Démarrer le loading
+      setIsWaitingToSearch(false); // Arrêter l'attente
+      dispatch(fetchRegistrationsThunk({ 
+        eventId, 
+        page: 1, 
+        search: query,
+        status: 'approved'
+      }));
+    }
+  }, [eventId, dispatch]);
+
+  // Handler pour les changements de recherche
+  const handleSearchChange = useCallback((query: string) => {
+    hasUserInteracted.current = true;
+    setSearchQuery(query);
+  }, []);
+
+  // Effet pour déclencher la recherche avec debounce (seulement après interaction utilisateur)
+  useEffect(() => {
+    // Ne pas déclencher de recherche au montage initial
+    if (!hasUserInteracted.current) {
+      return;
+    }
+
+    // Annuler le timeout précédent et réinitialiser les états
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+      setIsWaitingToSearch(false);
+    }
+
+    // Si la recherche est vide, chercher immédiatement
+    if (searchQuery.trim() === '') {
+      setIsWaitingToSearch(false);
+      performSearch('');
+      return;
+    }
+
+    // Déclencher la recherche avec debounce de 2 secondes
+    setIsWaitingToSearch(true); // Indiquer qu'on attend
+    setIsSearching(false); // Pas encore en train de chercher
+    searchTimeoutRef.current = setTimeout(() => {
+      performSearch(searchQuery);
+    }, SEARCH_DEBOUNCE_DELAY);
+    
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+        setIsWaitingToSearch(false);
+      }
+    };
+  }, [searchQuery, performSearch]);
   
   // Référence pour garder trace du swipeable ouvert
   const openSwipeableRef = React.useRef<Swipeable | null>(null);
+
+  // Synchroniser l'état local avec le store
+  useEffect(() => {
+    if (!isLoading) {
+      setIsSearching(false);
+    }
+  }, [isLoading]);
 
   console.log('[AttendeesListScreen] Render with state:', {
     registrationsCount: registrations.length,
@@ -50,27 +124,38 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
     hasMore,
     pagination,
     eventId,
+    searchQuery,
+    isWaitingToSearch,
+    isSearching,
   });
 
+  // Chargement initial seulement si eventId change
   useEffect(() => {
     if (eventId) {
-      loadRegistrations();
-    }
-  }, [eventId]);
-
-  const loadRegistrations = () => {
-    if (eventId) {
-      console.log('[AttendeesListScreen] Loading registrations for eventId:', eventId);
+      console.log('[AttendeesListScreen] Initial load for eventId:', eventId);
+      // Chargement initial sans recherche
       dispatch(fetchRegistrationsThunk({ 
         eventId, 
         page: 1, 
-        search: searchQuery,
-        status: 'approved' // Charger uniquement les participants approuvés
+        search: '', // Pas de recherche au démarrage
+        status: 'approved'
+      }));
+    }
+  }, [eventId, dispatch]);
+
+  const loadRegistrations = useCallback(() => {
+    if (eventId) {
+      console.log('[AttendeesListScreen] Manual reload for eventId:', eventId);
+      dispatch(fetchRegistrationsThunk({ 
+        eventId, 
+        page: 1, 
+        search: searchQuery, // Utiliser la recherche actuelle
+        status: 'approved'
       }));
     } else {
       console.warn('[AttendeesListScreen] No eventId available!');
     }
-  };
+  }, [eventId, searchQuery, dispatch]);
 
   const handleLoadMore = () => {
     console.log('[AttendeesListScreen] handleLoadMore called', {
@@ -175,7 +260,7 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
 
     return (
       <Swipeable
-        ref={(ref) => (swipeableRef = ref)}
+        ref={(ref) => { swipeableRef = ref; }}
         renderRightActions={(progress) => renderRightActions(item, progress)}
         overshootRight={false}
         onSwipeableWillOpen={handleSwipeableWillOpen}
@@ -201,25 +286,37 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
           />
           
           <View style={styles.registrationContent}>
-            <Text
+            <HighlightedText
+              text={`${item.attendee.first_name} ${item.attendee.last_name}`}
+              searchQuery={searchQuery}
               style={{
                 fontSize: theme.fontSize.base,
                 fontWeight: theme.fontWeight.medium,
                 color: theme.colors.text.primary,
               }}
-            >
-              {item.attendee.first_name} {item.attendee.last_name}
-            </Text>
+              highlightColor={theme.colors.brand[100]}
+              highlightStyle={{
+                backgroundColor: theme.colors.brand[100],
+                fontWeight: theme.fontWeight.bold,
+                color: theme.colors.brand[700],
+              }}
+            />
             {item.attendee.company && (
-              <Text
+              <HighlightedText
+                text={item.attendee.company}
+                searchQuery={searchQuery}
                 style={{
                   fontSize: theme.fontSize.sm,
                   color: theme.colors.text.secondary,
                   marginTop: 2,
                 }}
-              >
-                {item.attendee.company}
-              </Text>
+                highlightColor={theme.colors.brand[100]}
+                highlightStyle={{
+                  backgroundColor: theme.colors.brand[100],
+                  fontWeight: theme.fontWeight.bold,
+                  color: theme.colors.brand[700],
+                }}
+              />
             )}
           </View>
           
@@ -265,9 +362,30 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
         <SearchBar
           placeholder={t('common.search')}
           value={searchQuery}
-          onChangeText={setSearchQuery}
-          onSearch={loadRegistrations}
+          onChangeText={handleSearchChange}
+          returnKeyType="search"
+          onSubmitEditing={() => {
+            // Déclencher la recherche immédiatement sur "Entrée"
+            if (searchTimeoutRef.current) {
+              clearTimeout(searchTimeoutRef.current);
+            }
+            setIsWaitingToSearch(false);
+            performSearch(searchQuery);
+          }}
         />
+        {/* Indicateurs d'état de recherche */}
+        {isWaitingToSearch && (
+          <View style={styles.searchingIndicator}>
+            <Text style={[styles.searchWaitText, { color: theme.colors.text.secondary }]}>
+              Recherche...
+            </Text>
+          </View>
+        )}
+        {isSearching && !isWaitingToSearch && (
+          <View style={styles.searchingIndicator}>
+            <ActivityIndicator size="small" color={theme.colors.brand[600]} />
+          </View>
+        )}
       </View>
 
       {/* Compteur et barre de progression */}
@@ -419,5 +537,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  searchingIndicator: {
+    position: 'absolute',
+    right: 12,
+    top: '50%',
+    transform: [{ translateY: -10 }],
+  },
+  searchWaitText: {
+    fontSize: 12,
+    fontStyle: 'italic',
   },
 });
