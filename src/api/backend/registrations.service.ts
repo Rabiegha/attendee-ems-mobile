@@ -166,6 +166,57 @@ export const registrationsService = {
   },
 
   /**
+   * Annuler le check-in d'une registration
+   * @param registrationId - ID de la registration
+   * @param eventId - ID de l'événement (validation croisée obligatoire)
+   */
+  undoCheckIn: async (
+    registrationId: string,
+    eventId: string
+  ): Promise<{ success: boolean; message: string; registration: Registration }> => {
+    try {
+      console.log('[RegistrationsService] Undoing check-in for registration:', { 
+        registrationId, 
+        eventId
+      });
+      
+      const response = await axiosClient.post(`/registrations/${registrationId}/undo-check-in`, {
+        eventId,
+      });
+      
+      console.log('[RegistrationsService] Undo check-in successful:', response.data.message);
+      return response.data;
+    } catch (error: any) {
+      console.error('[RegistrationsService] Undo check-in failed:', {
+        registrationId,
+        eventId,
+        error: error.response?.data || error.message,
+        status: error.response?.status,
+      });
+      throw error;
+    }
+  },
+
+  /**
+   * Créer une nouvelle registration
+   */
+  createRegistration: async (eventId: string, registrationData: any): Promise<Registration> => {
+    try {
+      console.log('[RegistrationsService] Creating registration for event:', eventId);
+      const response = await axiosClient.post(`/events/${eventId}/registrations`, registrationData);
+      console.log('[RegistrationsService] Registration created successfully:', response.data.id);
+      return response.data;
+    } catch (error: any) {
+      console.error('[RegistrationsService] Error creating registration:', {
+        eventId,
+        error: error.response?.data || error.message,
+        status: error.response?.status,
+      });
+      throw error;
+    }
+  },
+
+  /**
    * Générer un badge si nécessaire
    */
   generateBadgeIfNeeded: async (eventId: string, registrationId: string): Promise<Registration> => {
