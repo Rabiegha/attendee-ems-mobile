@@ -12,7 +12,10 @@ import {
   TouchableOpacity,
   Animated,
   Image,
+  Modal,
+  Dimensions,
 } from 'react-native';
+import LottieView from 'lottie-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -50,6 +53,13 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
   const [isWaitingToSearch, setIsWaitingToSearch] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasUserInteracted = useRef(false);
+
+  // État pour le modal d'impression
+  const [isPrintModalVisible, setIsPrintModalVisible] = useState(false);
+  const [printingStatus, setPrintingStatus] = useState<'printing' | 'success'>('printing');
+  const [printedCount, setPrintedCount] = useState(451); // Compteur initial
+  const totalCount = 2540; // Total fixe
+  const [currentPrintingAttendee, setCurrentPrintingAttendee] = useState<Registration | null>(null);
   
   // Fonction de recherche avec debounce manuel
   const performSearch = useCallback((query: string) => {
@@ -188,12 +198,27 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
 
   const handlePrint = (registration: Registration) => {
     console.log('Print badge for:', registration.attendee.first_name);
-    // TODO: Implement print logic
+    setCurrentPrintingAttendee(registration);
+    setPrintingStatus('printing');
+    setIsPrintModalVisible(true);
+    
+    // Simuler l'impression : 4 secondes de printing, puis success
+    setTimeout(() => {
+      setPrintingStatus('success');
+      // Incrémenter le compteur après succès
+      setPrintedCount(prev => prev + 1);
+    }, 4000);
   };
 
   const handleCheckIn = (registration: Registration) => {
     console.log('Check in:', registration.attendee.first_name);
     // TODO: Implement check-in logic
+  };
+
+  const closePrintModal = () => {
+    setIsPrintModalVisible(false);
+    setCurrentPrintingAttendee(null);
+    setPrintingStatus('printing');
   };
 
   const renderRightActions = (registration: Registration, progress: Animated.AnimatedInterpolation<number>) => {
@@ -325,9 +350,6 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
     );
   };
 
-  const checkedInCount = registrations.filter((r) => r.status === 'checked-in').length;
-  const progressPercentage = pagination.total > 0 ? (checkedInCount / pagination.total) * 100 : 0;
-
   const renderFooter = () => {
     if (!isLoadingMore) return null;
     
@@ -388,7 +410,7 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
         )}
       </View>
 
-      {/* Compteur et barre de progression */}
+      {/* Compteur et barre de progression pour badges imprimés */}
       <View style={[styles.progressContainer, { paddingHorizontal: theme.spacing.lg }]}>
         <Text
           style={{
@@ -399,7 +421,7 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
             marginBottom: theme.spacing.sm,
           }}
         >
-          {checkedInCount}/{pagination.total}
+          {printedCount}/{totalCount}
         </Text>
         
         {/* Barre de progression */}
@@ -416,7 +438,7 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
             style={[
               styles.progressBarFill,
               {
-                width: `${progressPercentage}%`,
+                width: `${(printedCount / totalCount) * 100}%`,
                 backgroundColor: theme.colors.brand[600],
                 borderRadius: theme.radius.full,
               },
@@ -453,6 +475,80 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
           onRefresh={loadRegistrations}
         />
       )}
+
+      {/* Modal d'impression */}
+      <Modal
+        visible={isPrintModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={closePrintModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, { backgroundColor: theme.colors.card }]}>
+            {/* Header du modal avec bouton fermer */}
+            <View style={styles.modalHeader}>
+              <Text
+                style={[
+                  styles.modalTitle,
+                  { color: theme.colors.text.primary, fontSize: theme.fontSize.lg, fontWeight: theme.fontWeight.bold }
+                ]}
+              >
+                Impression de badge
+              </Text>
+              <TouchableOpacity onPress={closePrintModal} style={styles.closeButton}>
+                <Text style={[styles.closeButtonText, { color: theme.colors.text.secondary }]}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Animation et contenu */}
+            <View style={[styles.animationSection, { backgroundColor: theme.colors.card }]}>
+              {printingStatus === 'printing' ? (
+                <>
+                  <View style={[styles.animationContainer, { backgroundColor: theme.colors.card }]}>
+                    <LottieView
+                      source={require('../../assets/animations/Printing.json')}
+                      autoPlay
+                      loop
+                      style={[styles.animationView, { backgroundColor: theme.colors.card }]}
+                      renderMode="AUTOMATIC"
+                      colorFilters={[]}
+                    />
+                  </View>
+                  <Text style={[styles.statusText, { color: theme.colors.text.primary }]}>
+                    Impression en cours...
+                  </Text>
+                  {currentPrintingAttendee && (
+                    <Text style={[styles.attendeeText, { color: theme.colors.text.secondary }]}>
+                      {currentPrintingAttendee.attendee.first_name} {currentPrintingAttendee.attendee.last_name}
+                    </Text>
+                  )}
+                </>
+              ) : (
+                <>
+                  <View style={[styles.animationContainer, { backgroundColor: theme.colors.card }]}>
+                    <LottieView
+                      source={require('../../assets/animations/Accepted.json')}
+                      autoPlay
+                      loop={false}
+                      style={[styles.animationView, { backgroundColor: theme.colors.card }]}
+                      renderMode="AUTOMATIC"
+                      colorFilters={[]}
+                    />
+                  </View>
+                  <Text style={[styles.statusText, { color: theme.colors.success[600] }]}>
+                    Impression réussie !
+                  </Text>
+                  {currentPrintingAttendee && (
+                    <Text style={[styles.attendeeText, { color: theme.colors.text.secondary }]}>
+                      Badge de {currentPrintingAttendee.attendee.first_name} {currentPrintingAttendee.attendee.last_name} imprimé
+                    </Text>
+                  )}
+                </>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -547,5 +643,81 @@ const styles = StyleSheet.create({
   searchWaitText: {
     fontSize: 12,
     fontStyle: 'italic',
+  },
+  // Styles pour le modal d'impression
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    width: Dimensions.get('window').width * 0.85,
+    maxWidth: 400,
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    flex: 1,
+    textAlign: 'center',
+  },
+  closeButton: {
+    position: 'absolute',
+    right: 0,
+    top: -5,
+    padding: 5,
+  },
+  closeButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  animationSection: {
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  animationContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 8,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  animationView: {
+    width: 120,
+    height: 120,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  statusText: {
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  attendeeText: {
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  confirmButton: {
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: 8,
+    minWidth: 120,
+  },
+  confirmButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });
