@@ -63,6 +63,19 @@ export const selectPrinterThunk = createAsyncThunk(
   }
 );
 
+// Thunk pour désélectionner l'imprimante
+export const clearSelectedPrinterThunk = createAsyncThunk(
+  'printers/clearSelectedPrinter',
+  async (_, { rejectWithValue }) => {
+    try {
+      await AsyncStorage.removeItem(SELECTED_PRINTER_KEY);
+      return null;
+    } catch (error) {
+      return rejectWithValue('Erreur lors de la désélection de l\'imprimante');
+    }
+  }
+);
+
 const printersSlice = createSlice({
   name: 'printers',
   initialState,
@@ -99,6 +112,13 @@ const printersSlice = createSlice({
         state.selectedPrinter = action.payload;
       })
       .addCase(selectPrinterThunk.rejected, (state, action) => {
+        state.error = action.payload as string;
+      })
+      // Clear selected printer
+      .addCase(clearSelectedPrinterThunk.fulfilled, (state) => {
+        state.selectedPrinter = null;
+      })
+      .addCase(clearSelectedPrinterThunk.rejected, (state, action) => {
         state.error = action.payload as string;
       });
   },

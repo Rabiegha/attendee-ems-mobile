@@ -21,6 +21,7 @@ import {
   fetchPrintersThunk,
   loadSelectedPrinterThunk,
   selectPrinterThunk,
+  clearSelectedPrinterThunk,
   setSearchQuery,
   clearError,
 } from '../../store/printers.slice';
@@ -29,7 +30,7 @@ import { SearchBar } from '../../components/ui/SearchBar';
 import { Header } from '../../components/ui/Header';
 import { Ionicons } from '@expo/vector-icons';
 
-type PrinterStatusFilter = 'all' | 'online' | 'offline';
+type PrinterStatusFilter = 'online' | 'offline';
 
 interface PrintersListScreenProps {
   navigation: any;
@@ -49,7 +50,7 @@ export const PrintersListScreen: React.FC<PrintersListScreenProps> = ({ navigati
   } = useAppSelector((state) => state.printers);
 
   // État pour le filtre de statut
-  const [statusFilter, setStatusFilter] = useState<PrinterStatusFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<PrinterStatusFilter>('online');
 
   useEffect(() => {
     // Charger l'imprimante sélectionnée depuis le stockage
@@ -71,7 +72,12 @@ export const PrintersListScreen: React.FC<PrintersListScreenProps> = ({ navigati
   };
 
   const handlePrinterPress = (printer: Printer) => {
-    dispatch(selectPrinterThunk(printer));
+    // Si l'imprimante est déjà sélectionnée, la désélectionner
+    if (selectedPrinter?.id === printer.id) {
+      dispatch(clearSelectedPrinterThunk());
+    } else {
+      dispatch(selectPrinterThunk(printer));
+    }
   };
 
   const handleSearch = (query: string) => {
@@ -302,6 +308,63 @@ export const PrintersListScreen: React.FC<PrintersListScreenProps> = ({ navigati
         />
       </View>
 
+      {/* Barre d'onglets pour filtrer les imprimantes */}
+      <View style={[styles.tabBar, { backgroundColor: theme.colors.background, borderBottomColor: theme.colors.divider }]}>
+        <TouchableOpacity
+          style={[
+            styles.tab,
+            statusFilter === 'online' && {
+              borderBottomColor: theme.colors.brand[600],
+              borderBottomWidth: 3,
+            },
+          ]}
+          onPress={() => setStatusFilter('online')}
+          activeOpacity={0.7}
+        >
+          <Text
+            style={[
+              styles.tabLabel,
+              {
+                color: statusFilter === 'online' 
+                  ? theme.colors.brand[600] 
+                  : theme.colors.text.tertiary,
+                fontSize: theme.fontSize.base,
+                fontWeight: theme.fontWeight.semibold,
+              },
+            ]}
+          >
+            En ligne ({printerStats.online})
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.tab,
+            statusFilter === 'offline' && {
+              borderBottomColor: theme.colors.brand[600],
+              borderBottomWidth: 3,
+            },
+          ]}
+          onPress={() => setStatusFilter('offline')}
+          activeOpacity={0.7}
+        >
+          <Text
+            style={[
+              styles.tabLabel,
+              {
+                color: statusFilter === 'offline' 
+                  ? theme.colors.brand[600] 
+                  : theme.colors.text.tertiary,
+                fontSize: theme.fontSize.base,
+                fontWeight: theme.fontWeight.semibold,
+              },
+            ]}
+          >
+            Hors ligne ({printerStats.offline})
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Information sur l'imprimante sélectionnée */}
       {selectedPrinter && (
         <View
@@ -352,6 +415,7 @@ export const PrintersListScreen: React.FC<PrintersListScreenProps> = ({ navigati
           contentContainerStyle={{ 
             padding: theme.spacing.lg,
             paddingTop: 0,
+            paddingBottom: theme.spacing.xl * 2, // Espace supplémentaire en bas
           }}
           refreshControl={
             <RefreshControl
@@ -420,6 +484,24 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     paddingVertical: 12,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB', // theme.colors.divider sera appliqué dynamiquement
+    marginBottom: 0,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderBottomWidth: 3,
+    borderBottomColor: 'transparent',
+  },
+  tabLabel: {
+    textTransform: 'none',
   },
   selectedInfo: {
     // Styles dynamiques appliqués inline

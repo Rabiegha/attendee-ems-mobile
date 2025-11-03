@@ -9,10 +9,11 @@ import { registrationsService } from '../api/backend/registrations.service';
 import { sendPrintJob, PrintJob } from '../api/printNode/printers.service';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import { loadSelectedPrinterThunk } from '../store/printers.slice';
+import { updateRegistration } from '../store/registrations.slice';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { debugPrinterStorage } from '../utils/printerDebug';
 
-export type CheckInStatus = 'idle' | 'printing' | 'checkin' | 'success' | 'error';
+export type CheckInStatus = 'idle' | 'printing' | 'checkin' | 'undoing' | 'success' | 'error';
 
 export interface UseCheckInResult {
   // État du processus
@@ -26,6 +27,7 @@ export interface UseCheckInResult {
   printAndCheckIn: (registration: Registration) => Promise<void>;
   printOnly: (registration: Registration) => Promise<void>;
   checkInOnly: (registration: Registration) => Promise<void>;
+  undoCheckIn: (registration: Registration) => Promise<void>;
   closeModal: () => void;
   retryAction: () => Promise<void>;
 
@@ -355,6 +357,12 @@ export const useCheckIn = (): UseCheckInResult => {
         attendeeName: registration.attendee.first_name,
         message: result.message,
       });
+
+      // Mettre à jour la registration dans le store Redux
+      if (result.registration) {
+        console.log('[useCheckIn] 🔄 Updating registration in store...');
+        dispatch(updateRegistration(result.registration));
+      }
       
       // Rafraîchir les statistiques si on a un eventId
       if (registration.event_id) {
@@ -366,6 +374,60 @@ export const useCheckIn = (): UseCheckInResult => {
       const errorMsg = error.message || 'Erreur lors du check-in';
       setErrorMessage(errorMsg);
       console.error('[useCheckIn] ❌ Check-in failed:', {
+        error: error.message,
+        registrationId: registration.id,
+        response: error.response?.data,
+        stack: error.stack,
+      });
+    }
+  }, [initializeModal, refreshStats]);
+
+  // Fonction pour annuler le check-in
+  const undoCheckIn = useCallback(async (registration: Registration) => {
+    console.log('[useCheckIn] ↩️ Starting undo check-in process for:', {
+      registrationId: registration.id,
+      attendeeName: `${registration.attendee.first_name} ${registration.attendee.last_name}`,
+      eventId: registration.event_id,
+      checkedInAt: registration.checked_in_at,
+    });
+
+    initializeModal(registration);
+    setStatus('undoing');
+    setLastAction(() => () => undoCheckIn(registration));
+
+    try {
+      // Vérifier si vraiment check-in
+      if (!registration.checked_in_at && registration.status !== 'checked-in') {
+        console.log('[useCheckIn] ⚠️ Not checked in, cannot undo');
+        throw new Error('Cette personne n\'est pas encore enregistrée');
+      }
+
+      // Appeler l'API d'annulation du check-in
+      console.log('[useCheckIn] 📡 Calling undo check-in API...');
+      const result = await registrationsService.undoCheckIn(registration.id, registration.event_id);
+      
+      setStatus('success');
+      console.log('[useCheckIn] ✅ Undo check-in completed successfully:', {
+        attendeeName: registration.attendee.first_name,
+        message: result.message,
+      });
+
+      // Mettre à jour la registration dans le store Redux
+      if (result.registration) {
+        console.log('[useCheckIn] 🔄 Updating registration in store after undo...');
+        dispatch(updateRegistration(result.registration));
+      }
+      
+      // Rafraîchir les statistiques si on a un eventId
+      if (registration.event_id) {
+        console.log('[useCheckIn] 🔄 Refreshing stats after undo...');
+        await refreshStats(registration.event_id);
+      }
+    } catch (error: any) {
+      setStatus('error');
+      const errorMsg = error.message || 'Erreur lors de l\'annulation du check-in';
+      setErrorMessage(errorMsg);
+      console.error('[useCheckIn] ❌ Undo check-in failed:', {
         error: error.message,
         registrationId: registration.id,
         response: error.response?.data,
@@ -515,6 +577,13 @@ export const useCheckIn = (): UseCheckInResult => {
       
       const checkInResult = await registrationsService.checkIn(registration.id, registration.event_id);
       console.log('[useCheckIn] ✅ Check-in completed:', checkInResult.message);
+      
+      // Mettre à jour la registration dans le store Redux
+      if (checkInResult.registration) {
+        console.log('[useCheckIn] 🔄 Updating registration in store after print & check-in...');
+        dispatch(updateRegistration(checkInResult.registration));
+      }
+      
       setProgress(90);
       
       // Rafraîchir les statistiques
@@ -569,6 +638,7 @@ export const useCheckIn = (): UseCheckInResult => {
     printAndCheckIn,
     printOnly,
     checkInOnly,
+    undoCheckIn,
     closeModal,
     retryAction,
 
@@ -584,6 +654,7 @@ export const useCheckIn = (): UseCheckInResult => {
     printAndCheckIn,
     printOnly,
     checkInOnly,
+    undoCheckIn,
     closeModal,
     retryAction,
     stats,
