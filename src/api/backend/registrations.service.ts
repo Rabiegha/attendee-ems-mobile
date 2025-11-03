@@ -111,7 +111,7 @@ export const registrationsService = {
   },
 
   /**
-   * Récupérer les statistiques d'un événement
+   * Récupérer les statistiques de check-in d'un événement
    */
   getEventStats: async (eventId: string): Promise<{
     total: number;
@@ -119,15 +119,102 @@ export const registrationsService = {
     percentage: number;
   }> => {
     try {
-      console.log('[RegistrationsService] Fetching event stats for:', eventId);
-      const response = await axiosClient.get(`/events/${eventId}/stats`);
-      console.log('[RegistrationsService] Event stats fetched successfully:', response.data);
+      console.log('[RegistrationsService] Fetching event checkin stats for:', eventId);
+      const response = await axiosClient.get(`/events/${eventId}/check-in-stats`);
+      console.log('[RegistrationsService] Event checkin stats fetched successfully:', response.data);
       return response.data;
     } catch (error: any) {
-      console.error('[RegistrationsService] Error fetching event stats:', {
+      console.error('[RegistrationsService] Error fetching event checkin stats:', {
         eventId,
         error: error.response?.data || error.message,
         status: error.response?.status,
+      });
+      throw error;
+    }
+  },
+
+  /**
+   * Vérifier la disponibilité d'un badge
+   */
+  checkBadgeAvailability: async (eventId: string, registrationId: string): Promise<{
+    available: boolean;
+    pdfUrl?: string;
+    imageUrl?: string;
+    needsGeneration: boolean;
+  }> => {
+    try {
+      console.log('[RegistrationsService] Checking badge availability:', { eventId, registrationId });
+      const registration = await registrationsService.getRegistrationById(eventId, registrationId);
+      
+      const result = {
+        available: !!(registration.badge_pdf_url || registration.badge_image_url),
+        pdfUrl: registration.badge_pdf_url || undefined,
+        imageUrl: registration.badge_image_url || undefined,
+        needsGeneration: !registration.badge_pdf_url && !registration.badge_image_url,
+      };
+      
+      console.log('[RegistrationsService] Badge availability check result:', result);
+      return result;
+    } catch (error: any) {
+      console.error('[RegistrationsService] Error checking badge availability:', {
+        eventId,
+        registrationId,
+        error: error.response?.data || error.message,
+      });
+      throw error;
+    }
+  },
+
+  /**
+   * Générer un badge si nécessaire
+   */
+  generateBadgeIfNeeded: async (eventId: string, registrationId: string): Promise<Registration> => {
+    try {
+      console.log('[RegistrationsService] Generating badge if needed:', { eventId, registrationId });
+      
+      // Vérifier d'abord si le badge existe
+      const registration = await registrationsService.getRegistrationById(eventId, registrationId);
+      
+      if (registration.badge_pdf_url || registration.badge_image_url) {
+        console.log('[RegistrationsService] Badge already exists:', {
+          hasPdf: !!registration.badge_pdf_url,
+          hasImage: !!registration.badge_image_url,
+          pdfUrl: registration.badge_pdf_url?.substring(0, 50) + '...',
+          imageUrl: registration.badge_image_url?.substring(0, 50) + '...'
+        });
+        return registration;
+      }
+      
+      // Générer le badge via l'endpoint du backend
+      console.log('[RegistrationsService] 📡 Calling badge generation endpoint...');
+      const response = await axiosClient.post(`/events/${eventId}/registrations/${registrationId}/generate-badge`);
+      console.log('[RegistrationsService] ✅ Badge generation API response:', {
+        status: response.status,
+        data: response.data ? 'received' : 'empty'
+      });
+      
+      // Attendre un peu pour que le badge soit disponible
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Récupérer la registration mise à jour
+      const updatedRegistration = await registrationsService.getRegistrationById(eventId, registrationId);
+      console.log('[RegistrationsService] ✅ Badge generation result:', {
+        hasPdf: !!updatedRegistration.badge_pdf_url,
+        hasImage: !!updatedRegistration.badge_image_url,
+        pdfUrl: updatedRegistration.badge_pdf_url?.substring(0, 50) + '...',
+        imageUrl: updatedRegistration.badge_image_url?.substring(0, 50) + '...'
+      });
+      
+      return updatedRegistration;
+    } catch (error: any) {
+      console.error('[RegistrationsService] ❌ Error generating badge:', {
+        eventId,
+        registrationId,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        error: error.response?.data || error.message,
+        url: error.config?.url,
+        method: error.config?.method
       });
       throw error;
     }

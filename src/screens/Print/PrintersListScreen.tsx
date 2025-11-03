@@ -2,7 +2,7 @@
  * Écran de liste des imprimantes PrintNode
  */
 
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -29,6 +29,8 @@ import { SearchBar } from '../../components/ui/SearchBar';
 import { Header } from '../../components/ui/Header';
 import { Ionicons } from '@expo/vector-icons';
 
+type PrinterStatusFilter = 'all' | 'online' | 'offline';
+
 interface PrintersListScreenProps {
   navigation: any;
 }
@@ -45,6 +47,9 @@ export const PrintersListScreen: React.FC<PrintersListScreenProps> = ({ navigati
     error, 
     searchQuery 
   } = useAppSelector((state) => state.printers);
+
+  // État pour le filtre de statut
+  const [statusFilter, setStatusFilter] = useState<PrinterStatusFilter>('all');
 
   useEffect(() => {
     // Charger l'imprimante sélectionnée depuis le stockage
@@ -73,18 +78,37 @@ export const PrintersListScreen: React.FC<PrintersListScreenProps> = ({ navigati
     dispatch(setSearchQuery(query));
   };
 
-  // Filtrer les imprimantes selon la recherche
+  // Filtrer les imprimantes selon la recherche et le statut
   const filteredPrinters = useMemo(() => {
-    if (!searchQuery.trim()) return printers;
-    
-    const query = searchQuery.toLowerCase();
-    return printers.filter(
-      (printer) =>
-        printer.name.toLowerCase().includes(query) ||
-        printer.computer.name.toLowerCase().includes(query) ||
-        printer.description.toLowerCase().includes(query)
-    );
-  }, [printers, searchQuery]);
+    let filtered = printers;
+
+    // Filtrer par statut
+    if (statusFilter === 'online') {
+      filtered = filtered.filter(printer => printer.state === 'online');
+    } else if (statusFilter === 'offline') {
+      filtered = filtered.filter(printer => printer.state === 'offline' || printer.state === 'error');
+    }
+
+    // Filtrer par recherche
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (printer) =>
+          printer.name.toLowerCase().includes(query) ||
+          printer.computer.name.toLowerCase().includes(query) ||
+          printer.description.toLowerCase().includes(query)
+      );
+    }
+
+    return filtered;
+  }, [printers, searchQuery, statusFilter]);
+
+  // Compter les imprimantes par statut
+  const printerStats = useMemo(() => {
+    const online = printers.filter(p => p.state === 'online').length;
+    const offline = printers.filter(p => p.state === 'offline' || p.state === 'error').length;
+    return { online, offline, total: printers.length };
+  }, [printers]);
 
   const getPrinterIcon = (printer: Printer) => {
     if (printer.capabilities.color) {

@@ -70,7 +70,7 @@ export const CheckInModal: React.FC<CheckInModalProps> = ({
 
       case 'error':
         return {
-          animation: require('../../assets/animations/Accepted.json'), // TODO: Utiliser une animation d'erreur
+          animation: require('../../assets/animations/Rejected.json'),
           title: 'Erreur',
           subtitle: errorMessage || 'Une erreur est survenue',
           loop: false,

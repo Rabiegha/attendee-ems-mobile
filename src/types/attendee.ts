@@ -44,6 +44,9 @@ export interface Registration {
   updated_at: string;
   badge_pdf_url: string | null;
   badge_image_url: string | null;
+  checked_in_at: string | null;
+  checked_in_by: string | null;
+  checkin_location: any | null;
   attendee: Attendee;
   eventAttendeeType: any;
 }
