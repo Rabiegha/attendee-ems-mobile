@@ -2,7 +2,7 @@
  * Écran de liste des participants (registrations)
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,10 @@ import {
   TouchableOpacity,
   Animated,
   Image,
+  Modal,
+  Dimensions,
 } from 'react-native';
+import LottieView from 'lottie-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -21,13 +24,18 @@ import { fetchRegistrationsThunk, fetchMoreRegistrationsThunk } from '../../stor
 import { Registration } from '../../types/attendee';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { Header } from '../../components/ui/Header';
+import { HighlightedText } from '../../components/ui/HighlightedText';
 import { Swipeable } from 'react-native-gesture-handler';
 import Icons from '../../assets/icons';
+import { APP_CONFIG } from '../../config/app.config';
 
 interface AttendeesListScreenProps {
   navigation: any;
   route: any;
 }
+
+// Configuration de la recherche depuis le fichier global
+const SEARCH_DEBOUNCE_DELAY = APP_CONFIG.SEARCH.DEBOUNCE_DELAY;
 
 export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ navigation, route }) => {
   const { t } = useTranslation();
@@ -37,11 +45,87 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
   const { currentEvent } = useAppSelector((state) => state.events);
   const insets = useSafeAreaInsets();
 
-  const [searchQuery, setSearchQuery] = useState('');
   const eventId = route.params?.eventId || currentEvent?.id;
+  
+  // État de recherche local 
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [isWaitingToSearch, setIsWaitingToSearch] = useState(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasUserInteracted = useRef(false);
+
+  // État pour le modal d'impression
+  const [isPrintModalVisible, setIsPrintModalVisible] = useState(false);
+  const [printingStatus, setPrintingStatus] = useState<'printing' | 'success'>('printing');
+  const [printedCount, setPrintedCount] = useState(451); // Compteur initial
+  const totalCount = 2540; // Total fixe
+  const [currentPrintingAttendee, setCurrentPrintingAttendee] = useState<Registration | null>(null);
+  
+  // Fonction de recherche avec debounce manuel
+  const performSearch = useCallback((query: string) => {
+    if (eventId) {
+      console.log('[AttendeesListScreen] Search query changed:', query);
+      setIsSearching(true);  // Démarrer le loading
+      setIsWaitingToSearch(false); // Arrêter l'attente
+      dispatch(fetchRegistrationsThunk({ 
+        eventId, 
+        page: 1, 
+        search: query,
+        status: 'approved'
+      }));
+    }
+  }, [eventId, dispatch]);
+
+  // Handler pour les changements de recherche
+  const handleSearchChange = useCallback((query: string) => {
+    hasUserInteracted.current = true;
+    setSearchQuery(query);
+  }, []);
+
+  // Effet pour déclencher la recherche avec debounce (seulement après interaction utilisateur)
+  useEffect(() => {
+    // Ne pas déclencher de recherche au montage initial
+    if (!hasUserInteracted.current) {
+      return;
+    }
+
+    // Annuler le timeout précédent et réinitialiser les états
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+      setIsWaitingToSearch(false);
+    }
+
+    // Si la recherche est vide, chercher immédiatement
+    if (searchQuery.trim() === '') {
+      setIsWaitingToSearch(false);
+      performSearch('');
+      return;
+    }
+
+    // Déclencher la recherche avec debounce de 2 secondes
+    setIsWaitingToSearch(true); // Indiquer qu'on attend
+    setIsSearching(false); // Pas encore en train de chercher
+    searchTimeoutRef.current = setTimeout(() => {
+      performSearch(searchQuery);
+    }, SEARCH_DEBOUNCE_DELAY);
+    
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+        setIsWaitingToSearch(false);
+      }
+    };
+  }, [searchQuery, performSearch]);
   
   // Référence pour garder trace du swipeable ouvert
   const openSwipeableRef = React.useRef<Swipeable | null>(null);
+
+  // Synchroniser l'état local avec le store
+  useEffect(() => {
+    if (!isLoading) {
+      setIsSearching(false);
+    }
+  }, [isLoading]);
 
   console.log('[AttendeesListScreen] Render with state:', {
     registrationsCount: registrations.length,
@@ -50,27 +134,38 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
     hasMore,
     pagination,
     eventId,
+    searchQuery,
+    isWaitingToSearch,
+    isSearching,
   });
 
+  // Chargement initial seulement si eventId change
   useEffect(() => {
     if (eventId) {
-      loadRegistrations();
-    }
-  }, [eventId]);
-
-  const loadRegistrations = () => {
-    if (eventId) {
-      console.log('[AttendeesListScreen] Loading registrations for eventId:', eventId);
+      console.log('[AttendeesListScreen] Initial load for eventId:', eventId);
+      // Chargement initial sans recherche
       dispatch(fetchRegistrationsThunk({ 
         eventId, 
         page: 1, 
-        search: searchQuery,
-        status: 'approved' // Charger uniquement les participants approuvés
+        search: '', // Pas de recherche au démarrage
+        status: 'approved'
+      }));
+    }
+  }, [eventId, dispatch]);
+
+  const loadRegistrations = useCallback(() => {
+    if (eventId) {
+      console.log('[AttendeesListScreen] Manual reload for eventId:', eventId);
+      dispatch(fetchRegistrationsThunk({ 
+        eventId, 
+        page: 1, 
+        search: searchQuery, // Utiliser la recherche actuelle
+        status: 'approved'
       }));
     } else {
       console.warn('[AttendeesListScreen] No eventId available!');
     }
-  };
+  }, [eventId, searchQuery, dispatch]);
 
   const handleLoadMore = () => {
     console.log('[AttendeesListScreen] handleLoadMore called', {
@@ -103,12 +198,27 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
 
   const handlePrint = (registration: Registration) => {
     console.log('Print badge for:', registration.attendee.first_name);
-    // TODO: Implement print logic
+    setCurrentPrintingAttendee(registration);
+    setPrintingStatus('printing');
+    setIsPrintModalVisible(true);
+    
+    // Simuler l'impression : 4 secondes de printing, puis success
+    setTimeout(() => {
+      setPrintingStatus('success');
+      // Incrémenter le compteur après succès
+      setPrintedCount(prev => prev + 1);
+    }, 4000);
   };
 
   const handleCheckIn = (registration: Registration) => {
     console.log('Check in:', registration.attendee.first_name);
     // TODO: Implement check-in logic
+  };
+
+  const closePrintModal = () => {
+    setIsPrintModalVisible(false);
+    setCurrentPrintingAttendee(null);
+    setPrintingStatus('printing');
   };
 
   const renderRightActions = (registration: Registration, progress: Animated.AnimatedInterpolation<number>) => {
@@ -175,7 +285,7 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
 
     return (
       <Swipeable
-        ref={(ref) => (swipeableRef = ref)}
+        ref={(ref) => { swipeableRef = ref; }}
         renderRightActions={(progress) => renderRightActions(item, progress)}
         overshootRight={false}
         onSwipeableWillOpen={handleSwipeableWillOpen}
@@ -201,25 +311,37 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
           />
           
           <View style={styles.registrationContent}>
-            <Text
+            <HighlightedText
+              text={`${item.attendee.first_name} ${item.attendee.last_name}`}
+              searchQuery={searchQuery}
               style={{
                 fontSize: theme.fontSize.base,
                 fontWeight: theme.fontWeight.medium,
                 color: theme.colors.text.primary,
               }}
-            >
-              {item.attendee.first_name} {item.attendee.last_name}
-            </Text>
+              highlightColor={theme.colors.brand[100]}
+              highlightStyle={{
+                backgroundColor: theme.colors.brand[100],
+                fontWeight: theme.fontWeight.bold,
+                color: theme.colors.brand[700],
+              }}
+            />
             {item.attendee.company && (
-              <Text
+              <HighlightedText
+                text={item.attendee.company}
+                searchQuery={searchQuery}
                 style={{
                   fontSize: theme.fontSize.sm,
                   color: theme.colors.text.secondary,
                   marginTop: 2,
                 }}
-              >
-                {item.attendee.company}
-              </Text>
+                highlightColor={theme.colors.brand[100]}
+                highlightStyle={{
+                  backgroundColor: theme.colors.brand[100],
+                  fontWeight: theme.fontWeight.bold,
+                  color: theme.colors.brand[700],
+                }}
+              />
             )}
           </View>
           
@@ -227,9 +349,6 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
       </Swipeable>
     );
   };
-
-  const checkedInCount = registrations.filter((r) => r.status === 'checked-in').length;
-  const progressPercentage = pagination.total > 0 ? (checkedInCount / pagination.total) * 100 : 0;
 
   const renderFooter = () => {
     if (!isLoadingMore) return null;
@@ -265,12 +384,33 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
         <SearchBar
           placeholder={t('common.search')}
           value={searchQuery}
-          onChangeText={setSearchQuery}
-          onSearch={loadRegistrations}
+          onChangeText={handleSearchChange}
+          returnKeyType="search"
+          onSubmitEditing={() => {
+            // Déclencher la recherche immédiatement sur "Entrée"
+            if (searchTimeoutRef.current) {
+              clearTimeout(searchTimeoutRef.current);
+            }
+            setIsWaitingToSearch(false);
+            performSearch(searchQuery);
+          }}
         />
+        {/* Indicateurs d'état de recherche */}
+        {isWaitingToSearch && (
+          <View style={styles.searchingIndicator}>
+            <Text style={[styles.searchWaitText, { color: theme.colors.text.secondary }]}>
+              Recherche...
+            </Text>
+          </View>
+        )}
+        {isSearching && !isWaitingToSearch && (
+          <View style={styles.searchingIndicator}>
+            <ActivityIndicator size="small" color={theme.colors.brand[600]} />
+          </View>
+        )}
       </View>
 
-      {/* Compteur et barre de progression */}
+      {/* Compteur et barre de progression pour badges imprimés */}
       <View style={[styles.progressContainer, { paddingHorizontal: theme.spacing.lg }]}>
         <Text
           style={{
@@ -281,7 +421,7 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
             marginBottom: theme.spacing.sm,
           }}
         >
-          {checkedInCount}/{pagination.total}
+          {printedCount}/{totalCount}
         </Text>
         
         {/* Barre de progression */}
@@ -298,7 +438,7 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
             style={[
               styles.progressBarFill,
               {
-                width: `${progressPercentage}%`,
+                width: `${(printedCount / totalCount) * 100}%`,
                 backgroundColor: theme.colors.brand[600],
                 borderRadius: theme.radius.full,
               },
@@ -335,6 +475,80 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
           onRefresh={loadRegistrations}
         />
       )}
+
+      {/* Modal d'impression */}
+      <Modal
+        visible={isPrintModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={closePrintModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, { backgroundColor: theme.colors.card }]}>
+            {/* Header du modal avec bouton fermer */}
+            <View style={styles.modalHeader}>
+              <Text
+                style={[
+                  styles.modalTitle,
+                  { color: theme.colors.text.primary, fontSize: theme.fontSize.lg, fontWeight: theme.fontWeight.bold }
+                ]}
+              >
+                Impression de badge
+              </Text>
+              <TouchableOpacity onPress={closePrintModal} style={styles.closeButton}>
+                <Text style={[styles.closeButtonText, { color: theme.colors.text.secondary }]}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Animation et contenu */}
+            <View style={[styles.animationSection, { backgroundColor: theme.colors.card }]}>
+              {printingStatus === 'printing' ? (
+                <>
+                  <View style={[styles.animationContainer, { backgroundColor: theme.colors.card }]}>
+                    <LottieView
+                      source={require('../../assets/animations/Printing.json')}
+                      autoPlay
+                      loop
+                      style={[styles.animationView, { backgroundColor: theme.colors.card }]}
+                      renderMode="AUTOMATIC"
+                      colorFilters={[]}
+                    />
+                  </View>
+                  <Text style={[styles.statusText, { color: theme.colors.text.primary }]}>
+                    Impression en cours...
+                  </Text>
+                  {currentPrintingAttendee && (
+                    <Text style={[styles.attendeeText, { color: theme.colors.text.secondary }]}>
+                      {currentPrintingAttendee.attendee.first_name} {currentPrintingAttendee.attendee.last_name}
+                    </Text>
+                  )}
+                </>
+              ) : (
+                <>
+                  <View style={[styles.animationContainer, { backgroundColor: theme.colors.card }]}>
+                    <LottieView
+                      source={require('../../assets/animations/Accepted.json')}
+                      autoPlay
+                      loop={false}
+                      style={[styles.animationView, { backgroundColor: theme.colors.card }]}
+                      renderMode="AUTOMATIC"
+                      colorFilters={[]}
+                    />
+                  </View>
+                  <Text style={[styles.statusText, { color: theme.colors.success[600] }]}>
+                    Impression réussie !
+                  </Text>
+                  {currentPrintingAttendee && (
+                    <Text style={[styles.attendeeText, { color: theme.colors.text.secondary }]}>
+                      Badge de {currentPrintingAttendee.attendee.first_name} {currentPrintingAttendee.attendee.last_name} imprimé
+                    </Text>
+                  )}
+                </>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -419,5 +633,91 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  searchingIndicator: {
+    position: 'absolute',
+    right: 12,
+    top: '50%',
+    transform: [{ translateY: -10 }],
+  },
+  searchWaitText: {
+    fontSize: 12,
+    fontStyle: 'italic',
+  },
+  // Styles pour le modal d'impression
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    width: Dimensions.get('window').width * 0.85,
+    maxWidth: 400,
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    flex: 1,
+    textAlign: 'center',
+  },
+  closeButton: {
+    position: 'absolute',
+    right: 0,
+    top: -5,
+    padding: 5,
+  },
+  closeButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  animationSection: {
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  animationContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 8,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  animationView: {
+    width: 120,
+    height: 120,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  statusText: {
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  attendeeText: {
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  confirmButton: {
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: 8,
+    minWidth: 120,
+  },
+  confirmButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

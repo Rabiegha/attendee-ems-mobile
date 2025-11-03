@@ -7,3 +7,4 @@ export { Card } from './Card';
 export { Input } from './Input';
 export { SearchBar } from './SearchBar';
 export { Header } from './Header';
+export { HighlightedText } from './HighlightedText';
