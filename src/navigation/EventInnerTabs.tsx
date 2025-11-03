@@ -73,8 +73,9 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
           tabBarIcon: ({ color }) => (
             <Image 
               source={Icons.Participant} 
-              style={{ width: 24, height: 24 }}
-              tintColor={color}
+              style={[styles.tabIcon, { tintColor: color }]}
+              resizeMode="contain"
+              fadeDuration={0}
             />
           ),
         }}
@@ -89,8 +90,9 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
           tabBarIcon: ({ color }) => (
             <Image 
               source={Icons.Ajouts} 
-              style={{ width: 24, height: 24 }}
-              tintColor={color}
+              style={[styles.tabIcon, { tintColor: color }]}
+              resizeMode="contain"
+              fadeDuration={0}
             />
           ),
         }}
@@ -103,26 +105,12 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
         options={{
           tabBarLabel: '',
           tabBarIcon: ({ focused }) => (
-            <View
-              style={{
-                width: 90,
-                height: 60,
-                borderRadius: 20,
-                backgroundColor: theme.colors.brand[600],
-                justifyContent: 'center' as const,
-                alignItems: 'center' as const,
-                marginTop: -30,
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.3,
-                shadowRadius: 8,
-                elevation: 8,
-              }}
-            >
+            <View style={styles.scanButton}>
               <Image 
                 source={Icons.Scan} 
-                style={{ width: 35, height: 35 }}
-                tintColor="#FFFFFF"
+                style={[styles.scanIcon, { tintColor: "#FFFFFF" }]}
+                resizeMode="contain"
+                fadeDuration={0}
               />
             </View>
           ),
@@ -137,8 +125,9 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
           tabBarIcon: ({ color }) => (
             <Image 
               source={Icons.Print} 
-              style={{ width: 24, height: 24 }}
-              tintColor={color}
+              style={[styles.tabIcon, { tintColor: color }]}
+              resizeMode="contain"
+              fadeDuration={0}
             />
           ),
         }}
@@ -152,8 +141,9 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
           tabBarIcon: ({ color }) => (
             <Image 
               source={Icons.Outils} 
-              style={{ width: 24, height: 24 }}
-              tintColor={color}
+              style={[styles.tabIcon, { tintColor: color }]}
+              resizeMode="contain"
+              fadeDuration={0}
             />
           ),
         }}
@@ -162,4 +152,27 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
   );
 };
 
-const styles = StyleSheet.create({});
+const styles = StyleSheet.create({
+  tabIcon: {
+    width: 24,
+    height: 24,
+  },
+  scanButton: {
+    width: 90,
+    height: 60,
+    borderRadius: 20,
+    backgroundColor: '#2563EB', // Couleur fixe pour éviter les problèmes de thème
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: -30,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  scanIcon: {
+    width: 35,
+    height: 35,
+  },
+});

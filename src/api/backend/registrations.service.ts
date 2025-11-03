@@ -91,6 +91,45 @@ export const registrationsService = {
   },
 
   /**
+   * Créer une nouvelle registration (inscription)
+   */
+  createRegistration: async (
+    eventId: string,
+    registrationData: {
+      attendee: {
+        email: string;
+        first_name?: string;
+        last_name?: string;
+        phone?: string;
+        company?: string;
+        job_title?: string;
+        country?: string;
+      };
+      attendance_type: 'onsite' | 'online' | 'hybrid';
+      event_attendee_type_id?: string;
+      answers?: any;
+    }
+  ): Promise<Registration> => {
+    try {
+      console.log('[RegistrationsService] Creating registration for event:', eventId, registrationData);
+      const response = await axiosClient.post(`/events/${eventId}/registrations`, {
+        ...registrationData,
+        source: 'manual'
+      });
+      console.log('[RegistrationsService] Registration created successfully:', response.data.id);
+      return response.data;
+    } catch (error: any) {
+      console.error('[RegistrationsService] Error creating registration:', {
+        eventId,
+        registrationData,
+        error: error.response?.data || error.message,
+        status: error.response?.status,
+      });
+      throw error;
+    }
+  },
+
+  /**
    * Marquer le badge comme imprimé
    */
   markBadgePrinted: async (eventId: string, registrationId: string): Promise<Registration> => {

@@ -56,13 +56,11 @@ export const UpcomingEventsScreen: React.FC<UpcomingEventsScreenProps> = ({
     dispatch(fetchUpcomingEventsThunk({ page: 1 }));
   }, [dispatch]);
 
-  // Charger les événements au montage UNIQUEMENT avec dépendances fixes
+  // Charger les événements au montage
   useEffect(() => {
-    if (events.length === 0 && !isLoading) {
-      console.log('[UpcomingEventsScreen] Initial load - Loading upcoming events');
-      dispatch(fetchUpcomingEventsThunk({}));
-    }
-  }, [dispatch]); // Seul dispatch comme dépendance
+    console.log('[UpcomingEventsScreen] Component mounted, loading events...');
+    dispatch(fetchUpcomingEventsThunk({ page: 1 }));
+  }, [dispatch]); // Charger à chaque montage
 
   const renderFooter = useCallback(() => {
     if (!isLoadingMore) return null;

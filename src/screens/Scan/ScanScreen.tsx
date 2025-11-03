@@ -162,13 +162,25 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation: navProp, rou
         console.warn('[ScanScreen] Haptics not available:', e);
       }
 
-      // Messages spécifiques selon le type d'erreur
-      const errorMessage = error || 'Erreur lors du check-in';
+      // Récupérer le message d'erreur depuis la réponse
+      let errorMessage = 'Erreur lors du check-in';
       
+      // Vérifier différentes sources d'erreur
+      if (error?.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
+      console.log('[ScanScreen] Parsed error message:', errorMessage);
+      
+      // Messages spécifiques selon le type d'erreur
       if (errorMessage.includes('QR Code mismatch') || errorMessage.includes('pas pour cet événement') || errorMessage.includes('not match')) {
         showFeedback('⚠️ Ce QR Code est pour un autre événement', 'warning');
       } else if (errorMessage.includes('Already checked-in') || errorMessage.includes('déjà enregistré')) {
-        showFeedback('⚠️ Participant déjà enregistré', 'warning');
+        showFeedback('ℹ️ Participant déjà présent', 'warning');
       } else if (errorMessage.includes('not found') || errorMessage.includes('introuvable')) {
         showFeedback('❌ Inscription introuvable', 'error');
       } else {

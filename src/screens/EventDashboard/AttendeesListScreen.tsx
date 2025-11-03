@@ -11,6 +11,8 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Animated,
+  Dimensions,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -25,6 +27,7 @@ import { Swipeable } from 'react-native-gesture-handler';
 import { APP_CONFIG } from '../../config/app.config';
 import { useCheckIn } from '../../hooks/useCheckIn';
 import { CheckInModal } from '../../components/modals/CheckInModal';
+import LottieView from 'lottie-react-native';
 
 interface AttendeesListScreenProps {
   navigation: any;
@@ -59,6 +62,11 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasUserInteracted = useRef(false);
 
+  // État pour le modal d'impression
+  const [isPrintModalVisible, setIsPrintModalVisible] = useState(false);
+  const [printingStatus, setPrintingStatus] = useState<'idle' | 'printing' | 'success' | 'error'>('idle');
+  const [currentPrintingAttendee, setCurrentPrintingAttendee] = useState<Registration | null>(null);
+
   // Hook centralisé pour check-in et impression
   const checkIn = useCheckIn();
   
@@ -71,8 +79,8 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
       dispatch(fetchRegistrationsThunk({ 
         eventId, 
         page: 1, 
-        search: query,
-        status: 'approved'
+        search: query
+        // Supprimer le filtre par statut pour voir tous les participants
       }));
     }
   }, [eventId, dispatch]);
@@ -148,8 +156,8 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
       dispatch(fetchRegistrationsThunk({ 
         eventId, 
         page: 1, 
-        search: '', // Pas de recherche au démarrage
-        status: 'approved'
+        search: '' // Pas de recherche au démarrage
+        // Supprimer le filtre par statut pour voir tous les participants
       }));
     }
   }, [eventId, dispatch]);
@@ -170,13 +178,20 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
       dispatch(fetchRegistrationsThunk({ 
         eventId, 
         page: 1, 
-        search: searchQuery, // Utiliser la recherche actuelle
-        status: 'approved'
+        search: searchQuery // Utiliser la recherche actuelle
+        // Supprimer le filtre par statut pour voir tous les participants
       }));
     } else {
       console.warn('[AttendeesListScreen] No eventId available!');
     }
   }, [eventId, searchQuery, dispatch]);
+
+  // Fonction pour fermer le modal d'impression
+  const closePrintModal = useCallback(() => {
+    setIsPrintModalVisible(false);
+    setPrintingStatus('idle');
+    setCurrentPrintingAttendee(null);
+  }, []);
 
   const handleLoadMore = () => {
     console.log('[AttendeesListScreen] handleLoadMore called', {
@@ -191,8 +206,8 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
       console.log('[AttendeesListScreen] Loading more registrations...');
       dispatch(fetchMoreRegistrationsThunk({ 
         eventId, 
-        search: searchQuery,
-        status: 'approved' // Charger uniquement les participants approuvés
+        search: searchQuery
+        // Supprimer le filtre par statut pour charger tous les participants
       }));
     } else {
       console.log('[AttendeesListScreen] Skipping load more:', {
@@ -308,21 +323,71 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
           />
           
           <View style={styles.registrationContent}>
-            <HighlightedText
-              text={`${item.attendee.first_name} ${item.attendee.last_name}`}
-              searchQuery={searchQuery}
-              style={{
-                fontSize: theme.fontSize.base,
-                fontWeight: theme.fontWeight.medium,
-                color: theme.colors.text.primary,
-              }}
-              highlightColor={theme.colors.brand[100]}
-              highlightStyle={{
-                backgroundColor: theme.colors.brand[100],
-                fontWeight: theme.fontWeight.bold,
-                color: theme.colors.brand[700],
-              }}
-            />
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <HighlightedText
+                text={`${item.attendee.first_name} ${item.attendee.last_name}`}
+                searchQuery={searchQuery}
+                style={{
+                  fontSize: theme.fontSize.base,
+                  fontWeight: theme.fontWeight.medium,
+                  color: theme.colors.text.primary,
+                  flex: 1,
+                }}
+                highlightColor={theme.colors.brand[100]}
+                highlightStyle={{
+                  backgroundColor: theme.colors.brand[100],
+                  fontWeight: theme.fontWeight.bold,
+                  color: theme.colors.brand[700],
+                }}
+              />
+              
+              {/* Badge de statut */}
+              <View
+                style={[
+                  {
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                  },
+                  {
+                    backgroundColor: item.status === 'approved' 
+                      ? theme.colors.success[50] 
+                      : item.status === 'pending' 
+                      ? theme.colors.warning[50] 
+                      : item.status === 'checked-in'
+                      ? theme.colors.brand[50]
+                      : theme.colors.error[50],
+                    borderColor: item.status === 'approved' 
+                      ? theme.colors.success[500] 
+                      : item.status === 'pending' 
+                      ? theme.colors.warning[500] 
+                      : item.status === 'checked-in'
+                      ? theme.colors.brand[500]
+                      : theme.colors.error[500],
+                  },
+                ]}
+              >
+                <Text
+                  style={{
+                    color: item.status === 'approved' 
+                      ? theme.colors.success[600] 
+                      : item.status === 'pending' 
+                      ? theme.colors.warning[600] 
+                      : item.status === 'checked-in'
+                      ? theme.colors.brand[600]
+                      : theme.colors.error[600],
+                    fontSize: theme.fontSize.xs,
+                    fontWeight: theme.fontWeight.medium,
+                  }}
+                >
+                  {item.status === 'approved' ? 'Approuvé' : 
+                   item.status === 'pending' ? 'En attente' : 
+                   item.status === 'checked-in' ? 'Présent' : 'Refusé'}
+                </Text>
+              </View>
+            </View>
+            
             {item.attendee.company && (
               <HighlightedText
                 text={item.attendee.company}

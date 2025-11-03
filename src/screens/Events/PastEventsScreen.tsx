@@ -56,13 +56,11 @@ export const PastEventsScreen: React.FC<PastEventsScreenProps> = ({
     dispatch(fetchPastEventsThunk({ page: 1 }));
   }, [dispatch]);
 
-  // Charger les événements au montage UNIQUEMENT avec dépendances fixes
+  // Charger les événements au montage
   useEffect(() => {
-    if (events.length === 0 && !isLoading) {
-      console.log('[PastEventsScreen] Initial load - Loading past events');
-      dispatch(fetchPastEventsThunk({}));
-    }
-  }, [dispatch]); // Seul dispatch comme dépendance
+    console.log('[PastEventsScreen] Component mounted, loading events...');
+    dispatch(fetchPastEventsThunk({ page: 1 }));
+  }, [dispatch]); // Charger à chaque montage
 
   const renderFooter = useCallback(() => {
     if (!isLoadingMore) return null;
