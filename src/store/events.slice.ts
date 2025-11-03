@@ -48,12 +48,18 @@ const initialState: EventsState = {
   currentEvent: null,
 };
 
-// Thunks
+// Thunks avec protection contre les appels multiples
 export const fetchUpcomingEventsThunk = createAsyncThunk(
   'events/fetchUpcomingEvents',
   async (params: { page?: number; limit?: number; search?: string } | undefined, { rejectWithValue, getState }) => {
     try {
       const state = getState() as { events: EventsState };
+      
+      // Protection : éviter les appels multiples
+      if (state.events.upcoming.isLoading && !params?.page) {
+        console.log('[EventsSlice] fetchUpcomingEventsThunk - Already loading, skipping');
+        return rejectWithValue('Already loading');
+      }
       
       const page = params?.page ?? state.events.upcoming.pagination.page;
       const limit = params?.limit ?? state.events.upcoming.pagination.limit;
@@ -87,6 +93,12 @@ export const fetchPastEventsThunk = createAsyncThunk(
     try {
       const state = getState() as { events: EventsState };
       
+      // Protection : éviter les appels multiples
+      if (state.events.past.isLoading && !params?.page) {
+        console.log('[EventsSlice] fetchPastEventsThunk - Already loading, skipping');
+        return rejectWithValue('Already loading');
+      }
+      
       const page = params?.page ?? state.events.past.pagination.page;
       const limit = params?.limit ?? state.events.past.pagination.limit;
       const search = params?.search;
@@ -119,6 +131,12 @@ export const fetchMoreUpcomingEventsThunk = createAsyncThunk(
     try {
       const state = getState() as { events: EventsState };
       
+      // Protection : éviter les appels multiples
+      if (state.events.upcoming.isLoadingMore || !state.events.upcoming.hasMore) {
+        console.log('[EventsSlice] fetchMoreUpcomingEventsThunk - Already loading or no more data');
+        return rejectWithValue('Already loading or no more data');
+      }
+      
       const nextPage = state.events.upcoming.pagination.page + 1;
       const limit = state.events.upcoming.pagination.limit;
       const search = params?.search;
@@ -150,6 +168,12 @@ export const fetchMorePastEventsThunk = createAsyncThunk(
   async (params: { search?: string } | undefined, { rejectWithValue, getState }) => {
     try {
       const state = getState() as { events: EventsState };
+      
+      // Protection : éviter les appels multiples
+      if (state.events.past.isLoadingMore || !state.events.past.hasMore) {
+        console.log('[EventsSlice] fetchMorePastEventsThunk - Already loading or no more data');
+        return rejectWithValue('Already loading or no more data');
+      }
       
       const nextPage = state.events.past.pagination.page + 1;
       const limit = state.events.past.pagination.limit;

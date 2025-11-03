@@ -11,11 +11,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Animated,
-  Image,
-  Modal,
-  Dimensions,
 } from 'react-native';
-import LottieView from 'lottie-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -26,8 +22,9 @@ import { SearchBar } from '../../components/ui/SearchBar';
 import { Header } from '../../components/ui/Header';
 import { HighlightedText } from '../../components/ui/HighlightedText';
 import { Swipeable } from 'react-native-gesture-handler';
-import Icons from '../../assets/icons';
 import { APP_CONFIG } from '../../config/app.config';
+import { useCheckIn } from '../../hooks/useCheckIn';
+import { CheckInModal } from '../../components/modals/CheckInModal';
 
 interface AttendeesListScreenProps {
   navigation: any;
@@ -54,12 +51,8 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasUserInteracted = useRef(false);
 
-  // État pour le modal d'impression
-  const [isPrintModalVisible, setIsPrintModalVisible] = useState(false);
-  const [printingStatus, setPrintingStatus] = useState<'printing' | 'success'>('printing');
-  const [printedCount, setPrintedCount] = useState(451); // Compteur initial
-  const totalCount = 2540; // Total fixe
-  const [currentPrintingAttendee, setCurrentPrintingAttendee] = useState<Registration | null>(null);
+  // Hook centralisé pour check-in et impression
+  const checkIn = useCheckIn();
   
   // Fonction de recherche avec debounce manuel
   const performSearch = useCallback((query: string) => {
@@ -197,28 +190,14 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
   };
 
   const handlePrint = (registration: Registration) => {
-    console.log('Print badge for:', registration.attendee.first_name);
-    setCurrentPrintingAttendee(registration);
-    setPrintingStatus('printing');
-    setIsPrintModalVisible(true);
-    
-    // Simuler l'impression : 4 secondes de printing, puis success
-    setTimeout(() => {
-      setPrintingStatus('success');
-      // Incrémenter le compteur après succès
-      setPrintedCount(prev => prev + 1);
-    }, 4000);
+    console.log('Print and check-in for:', registration.attendee.first_name);
+    // Le bouton print fait maintenant print + check-in
+    checkIn.printAndCheckIn(registration);
   };
 
   const handleCheckIn = (registration: Registration) => {
-    console.log('Check in:', registration.attendee.first_name);
-    // TODO: Implement check-in logic
-  };
-
-  const closePrintModal = () => {
-    setIsPrintModalVisible(false);
-    setCurrentPrintingAttendee(null);
-    setPrintingStatus('printing');
+    console.log('Check in only:', registration.attendee.first_name);
+    checkIn.checkInOnly(registration);
   };
 
   const renderRightActions = (registration: Registration, progress: Animated.AnimatedInterpolation<number>) => {
@@ -410,41 +389,47 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
         )}
       </View>
 
-      {/* Compteur et barre de progression pour badges imprimés */}
+      {/* Compteur et barre de progression dynamique */}
       <View style={[styles.progressContainer, { paddingHorizontal: theme.spacing.lg }]}>
-        <Text
-          style={{
-            fontSize: theme.fontSize.xl,
-            fontWeight: theme.fontWeight.bold,
-            color: theme.colors.text.primary,
-            textAlign: 'center',
-            marginBottom: theme.spacing.sm,
-          }}
-        >
-          {printedCount}/{totalCount}
-        </Text>
-        
-        {/* Barre de progression */}
-        <View
-          style={[
-            styles.progressBarBackground,
-            {
-              backgroundColor: theme.colors.neutral[200],
-              borderRadius: theme.radius.full,
-            },
-          ]}
-        >
-          <View
-            style={[
-              styles.progressBarFill,
-              {
-                width: `${(printedCount / totalCount) * 100}%`,
-                backgroundColor: theme.colors.brand[600],
-                borderRadius: theme.radius.full,
-              },
-            ]}
-          />
-        </View>
+        {checkIn.stats.isLoading ? (
+          <ActivityIndicator size="small" color={theme.colors.brand[600]} />
+        ) : (
+          <>
+            <Text
+              style={{
+                fontSize: theme.fontSize.xl,
+                fontWeight: theme.fontWeight.bold,
+                color: theme.colors.text.primary,
+                textAlign: 'center',
+                marginBottom: theme.spacing.sm,
+              }}
+            >
+              {checkIn.stats.checkedIn}/{checkIn.stats.total}
+            </Text>
+            
+            {/* Barre de progression */}
+            <View
+              style={[
+                styles.progressBarBackground,
+                {
+                  backgroundColor: theme.colors.neutral[200],
+                  borderRadius: theme.radius.full,
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.progressBarFill,
+                  {
+                    width: `${checkIn.stats.percentage}%`,
+                    backgroundColor: theme.colors.brand[600],
+                    borderRadius: theme.radius.full,
+                  },
+                ]}
+              />
+            </View>
+          </>
+        )}
       </View>
 
       {/* Liste des participants */}

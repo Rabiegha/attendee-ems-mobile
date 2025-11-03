@@ -3,7 +3,7 @@
  */
 
 import axiosClient from './axiosClient';
-import { Registration, RegistrationsResponse } from '../types/attendee';
+import { Registration, RegistrationsResponse } from '../../types/attendee';
 
 export const registrationsService = {
   /**
@@ -103,6 +103,29 @@ export const registrationsService = {
       console.error('[RegistrationsService] Error marking badge as printed:', {
         eventId,
         registrationId,
+        error: error.response?.data || error.message,
+        status: error.response?.status,
+      });
+      throw error;
+    }
+  },
+
+  /**
+   * Récupérer les statistiques d'un événement
+   */
+  getEventStats: async (eventId: string): Promise<{
+    total: number;
+    checkedIn: number;
+    percentage: number;
+  }> => {
+    try {
+      console.log('[RegistrationsService] Fetching event stats for:', eventId);
+      const response = await axiosClient.get(`/events/${eventId}/stats`);
+      console.log('[RegistrationsService] Event stats fetched successfully:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('[RegistrationsService] Error fetching event stats:', {
+        eventId,
         error: error.response?.data || error.message,
         status: error.response?.status,
       });

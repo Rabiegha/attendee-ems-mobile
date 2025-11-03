@@ -2,7 +2,7 @@
  * Écran des événements à venir
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -20,14 +20,18 @@ import { formatDate, formatTime } from '../../utils/format';
 import { Card } from '../../components/ui/Card';
 
 interface UpcomingEventsScreenProps {
-  navigation: any;
-  onRefresh: () => void;
+  navigation?: any;
+  route?: any;
+  onRefresh?: () => void;
 }
 
 export const UpcomingEventsScreen: React.FC<UpcomingEventsScreenProps> = ({ 
   navigation,
+  route,
   onRefresh,
 }) => {
+  // Récupérer navigation depuis route si pas disponible directement
+  const nav = navigation || route?.params?.navigation;
   const { t } = useTranslation();
   const { theme } = useTheme();
   const dispatch = useAppDispatch();
@@ -35,31 +39,32 @@ export const UpcomingEventsScreen: React.FC<UpcomingEventsScreenProps> = ({
   // Utiliser le state upcoming
   const { events, isLoading, isLoadingMore, hasMore } = useAppSelector((state) => state.events.upcoming);
 
-  // Charger les événements au montage UNIQUEMENT
-  useEffect(() => {
-    if (events.length === 0) {
-      console.log('[UpcomingEventsScreen] Initial load - Loading upcoming events');
-      dispatch(fetchUpcomingEventsThunk({}));
-    }
-  }, []); // Dépendances vides = une seule fois
+  // Mémoriser les callbacks pour éviter les re-rendus
+  const handleEventPress = useCallback((event: Event) => {
+    nav?.navigate('EventInner', { eventId: event.id, eventName: event.name });
+  }, [nav]);
 
-  const handleEventPress = (event: Event) => {
-    navigation.navigate('EventInner', { eventId: event.id, eventName: event.name });
-  };
-
-  const handleLoadMore = () => {
-    if (!isLoadingMore && hasMore) {
+  const handleLoadMore = useCallback(() => {
+    if (!isLoadingMore && hasMore && events.length > 0) {
       console.log('[UpcomingEventsScreen] Loading more events...');
       dispatch(fetchMoreUpcomingEventsThunk({}));
     }
-  };
+  }, [isLoadingMore, hasMore, events.length, dispatch]);
 
-  const handleRefresh = () => {
+  const handleRefresh = useCallback(() => {
     console.log('[UpcomingEventsScreen] Refreshing events...');
     dispatch(fetchUpcomingEventsThunk({ page: 1 }));
-  };
+  }, [dispatch]);
 
-  const renderFooter = () => {
+  // Charger les événements au montage UNIQUEMENT avec dépendances fixes
+  useEffect(() => {
+    if (events.length === 0 && !isLoading) {
+      console.log('[UpcomingEventsScreen] Initial load - Loading upcoming events');
+      dispatch(fetchUpcomingEventsThunk({}));
+    }
+  }, [dispatch]); // Seul dispatch comme dépendance
+
+  const renderFooter = useCallback(() => {
     if (!isLoadingMore) return null;
     
     return (
@@ -70,7 +75,7 @@ export const UpcomingEventsScreen: React.FC<UpcomingEventsScreenProps> = ({
         </Text>
       </View>
     );
-  };
+  }, [isLoadingMore, theme.colors.brand, theme.colors.text.secondary]);
 
   const renderEventCard = ({ item }: { item: Event }) => {
     // Détecter si l'événement est aujourd'hui
@@ -193,9 +198,15 @@ export const UpcomingEventsScreen: React.FC<UpcomingEventsScreenProps> = ({
         }
         ListFooterComponent={renderFooter}
         onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.5}
+        onEndReachedThreshold={0.3}
         refreshing={isLoading}
         onRefresh={handleRefresh}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        updateCellsBatchingPeriod={50}
+        windowSize={10}
+        initialNumToRender={10}
+        getItemLayout={undefined}
       />
     </View>
   );

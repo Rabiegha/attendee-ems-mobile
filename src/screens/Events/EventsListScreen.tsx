@@ -106,17 +106,17 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
           options={{
             tabBarLabel: t('events.upcoming'),
           }}
-        >
-          {() => <UpcomingEventsScreen navigation={navigation} onRefresh={() => {}} />}
-        </Tab.Screen>
+          component={UpcomingEventsScreen}
+          initialParams={{ navigation }}
+        />
         <Tab.Screen 
           name="Past"
           options={{
             tabBarLabel: t('events.past'),
           }}
-        >
-          {() => <PastEventsScreen navigation={navigation} onRefresh={() => {}} />}
-        </Tab.Screen>
+          component={PastEventsScreen}
+          initialParams={{ navigation }}
+        />
       </Tab.Navigator>
     </View>
   );
