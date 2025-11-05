@@ -47,6 +47,7 @@ export interface Registration {
   checked_in_at: string | null;
   checked_in_by: string | null;
   checkin_location: any | null;
+  comment: string | null;
   attendee: Attendee;
   eventAttendeeType: any;
 }

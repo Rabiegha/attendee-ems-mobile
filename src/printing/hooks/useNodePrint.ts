@@ -62,6 +62,7 @@ export const useNodePrint = () => {
           source: 'mobile-app',
           options: {
             copies: options?.copies ?? 1,
+            pages: '1', // Imprimer uniquement la première page
           },
         });
 

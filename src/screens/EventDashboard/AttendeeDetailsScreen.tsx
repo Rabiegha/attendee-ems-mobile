@@ -252,6 +252,24 @@ export const AttendeeDetailsScreen: React.FC<AttendeeDetailsScreenProps> = ({ na
             </View>
           )}
 
+          {currentRegistration.comment && (
+            <View style={[styles.infoRow, { marginTop: theme.spacing.lg }]}>
+              <Text style={{ color: theme.colors.text.secondary, fontSize: theme.fontSize.sm }}>
+                Commentaire
+              </Text>
+              <Text
+                style={{
+                  color: theme.colors.text.primary,
+                  fontSize: theme.fontSize.base,
+                  marginTop: theme.spacing.xs,
+                  fontStyle: 'italic',
+                }}
+              >
+                {currentRegistration.comment}
+              </Text>
+            </View>
+          )}
+
           <View style={[styles.infoRow, { marginTop: theme.spacing.lg }]}>
             <Text style={{ color: theme.colors.text.secondary, fontSize: theme.fontSize.sm }}>
               {t('attendees.status')}

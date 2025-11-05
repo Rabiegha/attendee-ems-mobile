@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
-    "start": "EXPO_USE_DEV_CLIENT=false expo start --go --clear",
+    "start": "EXPO_USE_DEV_CLIENT=false REACT_NATIVE_PACKAGER_HOSTNAME=192.168.56.5 expo start --go --clear",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web"

@@ -49,6 +49,7 @@ export const AttendeeAddScreen: React.FC<AttendeeAddScreenProps> = ({ navigation
   });
   const [attendanceType, setAttendanceType] = useState<'onsite' | 'online' | 'hybrid'>('onsite');
   const [selectedAttendeeTypeId, setSelectedAttendeeTypeId] = useState<string>('');
+  const [comment, setComment] = useState<string>('');
 
   // Charger les types d'attendee au montage
   useEffect(() => {
@@ -93,6 +94,8 @@ export const AttendeeAddScreen: React.FC<AttendeeAddScreenProps> = ({ navigation
         attendance_type: attendanceType,
         event_attendee_type_id: selectedAttendeeTypeId || undefined,
         answers: {},
+        comment: comment || undefined,
+        source: 'mobile_app',
       };
 
       console.log('[AttendeeAddScreen] Submitting registration:', registrationData);
@@ -300,6 +303,40 @@ export const AttendeeAddScreen: React.FC<AttendeeAddScreenProps> = ({ navigation
               onChangeText={(value) => handleInputChange('job_title', value)}
               placeholder="Titre du poste"
               placeholderTextColor={theme.colors.text.tertiary}
+            />
+          </View>
+
+          {/* Commentaire */}
+          <View style={{ marginBottom: theme.spacing.lg }}>
+            <Text
+              style={{
+                fontSize: theme.fontSize.sm,
+                color: theme.colors.text.secondary,
+                marginBottom: theme.spacing.xs,
+              }}
+            >
+              Commentaire (optionnel)
+            </Text>
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  backgroundColor: theme.colors.background,
+                  borderColor: theme.colors.border,
+                  color: theme.colors.text.primary,
+                  borderRadius: theme.radius.md,
+                  fontSize: theme.fontSize.base,
+                  height: 100,
+                  textAlignVertical: 'top',
+                  paddingTop: theme.spacing.sm,
+                },
+              ]}
+              value={comment}
+              onChangeText={setComment}
+              placeholder="Ajouter un commentaire..."
+              placeholderTextColor={theme.colors.text.tertiary}
+              multiline
+              numberOfLines={4}
             />
           </View>
 

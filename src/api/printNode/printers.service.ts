@@ -47,6 +47,7 @@ export interface PrintJob {
     paper?: string;
     dpi?: string;
     rotate?: number;
+    pages?: string; // e.g., "1" pour la première page, "1-3" pour pages 1 à 3
   };
 }
 

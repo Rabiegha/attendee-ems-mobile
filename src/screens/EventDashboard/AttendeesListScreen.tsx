@@ -549,7 +549,7 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
         </View>
       ) : (
         <FlatList
-          data={registrations}
+          data={registrations.filter(reg => reg.status !== 'rejected')}
           renderItem={renderRegistrationItem}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ 
