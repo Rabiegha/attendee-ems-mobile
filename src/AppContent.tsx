@@ -7,9 +7,10 @@ import { StatusBar } from 'react-native';
 import { useTheme } from './theme/ThemeProvider';
 import { AppNavigator } from './navigation/AppNavigator';
 import { useTokenRestoration } from './hooks/useTokenRestoration';
+import { ToastContainer } from './components/ui/ToastContainer';
 
 export const AppContent: React.FC = () => {
-  const { themeMode } = useTheme();
+  const { theme, colorScheme } = useTheme();
   
   // Restaurer le token au démarrage
   useTokenRestoration();
@@ -17,11 +18,12 @@ export const AppContent: React.FC = () => {
   return (
     <>
       <StatusBar 
-        barStyle={themeMode === 'dark' ? 'light-content' : 'dark-content'}
-        backgroundColor="transparent"
-        translucent={true}
+        barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
+        backgroundColor={theme.colors.background}
+        translucent={false}
       />
       <AppNavigator />
+      <ToastContainer />
     </>
   );
 };

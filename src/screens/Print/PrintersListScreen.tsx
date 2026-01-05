@@ -415,7 +415,7 @@ export const PrintersListScreen: React.FC<PrintersListScreenProps> = ({ navigati
           contentContainerStyle={{ 
             padding: theme.spacing.lg,
             paddingTop: 0,
-            paddingBottom: theme.spacing.xl * 2, // Espace supplémentaire en bas
+            paddingBottom: 120, // Espace pour la bottom tab bar
           }}
           refreshControl={
             <RefreshControl

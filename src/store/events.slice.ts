@@ -27,7 +27,9 @@ interface EventsState {
   past: EventsListState;
   currentEvent: Event | null;
   currentEventAttendeeTypes: any[];
+  currentEventRegistrationFields: any[];
   isLoadingAttendeeTypes: boolean;
+  isLoadingRegistrationFields: boolean;
 }
 
 const initialListState: EventsListState = {
@@ -49,7 +51,9 @@ const initialState: EventsState = {
   past: { ...initialListState },
   currentEvent: null,
   currentEventAttendeeTypes: [],
+  currentEventRegistrationFields: [],
   isLoadingAttendeeTypes: false,
+  isLoadingRegistrationFields: false,
 };
 
 // Thunks avec protection contre les appels multiples
@@ -308,6 +312,26 @@ export const fetchEventAttendeeTypesThunk = createAsyncThunk(
   }
 );
 
+export const fetchEventRegistrationFieldsThunk = createAsyncThunk(
+  'events/fetchEventRegistrationFields',
+  async (eventId: string, { rejectWithValue }) => {
+    try {
+      console.log('[EventsSlice] fetchEventRegistrationFieldsThunk - Starting for event:', eventId);
+      const response = await eventsService.getEventRegistrationFields(eventId);
+      console.log('[EventsSlice] fetchEventRegistrationFieldsThunk - Success:', response.length, 'fields found');
+      return response;
+    } catch (error: any) {
+      console.error('[EventsSlice] fetchEventRegistrationFieldsThunk - Error:', {
+        eventId,
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
 // Slice
 const eventsSlice = createSlice({
   name: 'events',
@@ -432,6 +456,23 @@ const eventsSlice = createSlice({
         console.error('[EventsSlice] fetchEventAttendeeTypesThunk.rejected:', action.payload || action.error);
         state.isLoadingAttendeeTypes = false;
         state.currentEventAttendeeTypes = [];
+      });
+
+    // Fetch event registration fields
+    builder
+      .addCase(fetchEventRegistrationFieldsThunk.pending, (state) => {
+        console.log('[EventsSlice] fetchEventRegistrationFieldsThunk.pending');
+        state.isLoadingRegistrationFields = true;
+      })
+      .addCase(fetchEventRegistrationFieldsThunk.fulfilled, (state, action) => {
+        console.log('[EventsSlice] fetchEventRegistrationFieldsThunk.fulfilled - Fields:', action.payload.length);
+        state.isLoadingRegistrationFields = false;
+        state.currentEventRegistrationFields = action.payload;
+      })
+      .addCase(fetchEventRegistrationFieldsThunk.rejected, (state, action) => {
+        console.error('[EventsSlice] fetchEventRegistrationFieldsThunk.rejected:', action.payload || action.error);
+        state.isLoadingRegistrationFields = false;
+        state.currentEventRegistrationFields = [];
       });
   },
 });

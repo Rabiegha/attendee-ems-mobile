@@ -18,6 +18,8 @@ import { fetchUpcomingEventsThunk, fetchMoreUpcomingEventsThunk } from '../../st
 import { Event } from '../../types/event';
 import { formatDate, formatTime } from '../../utils/format';
 import { Card } from '../../components/ui/Card';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { EventCardSkeleton, SkeletonList } from '../../components/ui/Skeleton';
 
 interface UpcomingEventsScreenProps {
   navigation?: any;
@@ -174,8 +176,12 @@ export const UpcomingEventsScreen: React.FC<UpcomingEventsScreenProps> = ({
 
   if (isLoading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
-        <ActivityIndicator size="large" color={theme.colors.brand[600]} />
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <SkeletonList
+          count={5}
+          renderItem={() => <EventCardSkeleton />}
+          style={{ padding: theme.spacing.lg }}
+        />
       </View>
     );
   }
@@ -188,11 +194,13 @@ export const UpcomingEventsScreen: React.FC<UpcomingEventsScreenProps> = ({
         keyExtractor={(item, index) => item.id || `event-${index}`}
         contentContainerStyle={{ padding: theme.spacing.lg }}
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={{ color: theme.colors.text.secondary, fontSize: theme.fontSize.base }}>
-              {t('events.noEvents')}
-            </Text>
-          </View>
+          <EmptyState
+            icon="📅"
+            title={t('events.noUpcomingEvents')}
+            description={t('events.noUpcomingEventsDescription')}
+            actionLabel={t('common.refresh')}
+            onAction={handleRefresh}
+          />
         }
         ListFooterComponent={renderFooter}
         onEndReached={handleLoadMore}

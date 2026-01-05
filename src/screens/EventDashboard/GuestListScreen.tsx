@@ -45,7 +45,10 @@ export const GuestListScreen: React.FC<GuestListScreenProps> = ({ navigation, ro
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <ScrollView 
-        contentContainerStyle={{ padding: theme.spacing.lg }}
+        contentContainerStyle={{ 
+          padding: theme.spacing.lg,
+          paddingBottom: 120,
+        }}
         showsVerticalScrollIndicator={false}
       >
         {/* Card Liste des participants */}

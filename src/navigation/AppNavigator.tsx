@@ -3,8 +3,8 @@
  * Gère Auth → Events → EventInner
  */
 
-import React, { useEffect, useState } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import React, { useEffect, useState, useMemo } from 'react';
+import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { checkAuthThunk } from '../store/auth.slice';
@@ -25,10 +25,44 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export const AppNavigator: React.FC = () => {
-  const { theme } = useTheme();
+  const { theme, colorScheme } = useTheme();
   const dispatch = useAppDispatch();
   const { isAuthenticated } = useAppSelector((state) => state.auth);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  // Créer un thème de navigation personnalisé basé sur notre thème
+  const navigationTheme = useMemo(
+    () => ({
+      dark: colorScheme === 'dark',
+      colors: {
+        primary: theme.colors.brand[600],
+        background: theme.colors.background,
+        card: theme.colors.surface,
+        text: theme.colors.text.primary,
+        border: theme.colors.border,
+        notification: theme.colors.brand[600],
+      },
+      fonts: {
+        regular: {
+          fontFamily: 'System',
+          fontWeight: '400' as const,
+        },
+        medium: {
+          fontFamily: 'System',
+          fontWeight: '500' as const,
+        },
+        bold: {
+          fontFamily: 'System',
+          fontWeight: '700' as const,
+        },
+        heavy: {
+          fontFamily: 'System',
+          fontWeight: '900' as const,
+        },
+      },
+    }),
+    [colorScheme, theme]
+  );
 
   useEffect(() => {
     checkAuthentication();
@@ -53,13 +87,21 @@ export const AppNavigator: React.FC = () => {
   }
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: theme.colors.background },
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <NavigationContainer 
+        theme={navigationTheme}
+        documentTitle={{
+          formatter: () => 'Attendee EMS'
         }}
       >
+        <Stack.Navigator
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: theme.colors.background },
+            animation: 'none',
+            presentation: 'card',
+          }}
+        >
         {!isAuthenticated ? (
           <Stack.Screen name="Auth" component={AuthNavigator} />
         ) : (
@@ -77,6 +119,8 @@ export const AppNavigator: React.FC = () => {
               component={EventInnerTabs}
               options={{
                 headerShown: false,
+                animation: 'none',
+                presentation: 'card',
               }}
             />
             <Stack.Screen
@@ -84,11 +128,14 @@ export const AppNavigator: React.FC = () => {
               component={AttendeeDetailsScreen}
               options={{
                 headerShown: false,
+                animation: 'none',
+                presentation: 'card',
               }}
             />
           </>
         )}
       </Stack.Navigator>
     </NavigationContainer>
+    </View>
   );
 };

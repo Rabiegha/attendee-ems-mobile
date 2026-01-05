@@ -27,6 +27,9 @@ export const EventDashboardNavigator: React.FC<EventDashboardNavigatorProps> = (
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
+        contentStyle: { backgroundColor: theme.colors.background },
+        animation: 'none',
+        presentation: 'card',
       }}
     >
       <Stack.Screen

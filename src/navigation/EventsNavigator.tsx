@@ -27,8 +27,11 @@ export const EventsNavigator: React.FC = () => {
       screenOptions={{
         headerShown: false,
         contentStyle: {
+          backgroundColor: theme.colors.background,
           paddingTop: 0,
         },
+        animation: 'none',
+        presentation: 'card',
       }}
     >
       <Stack.Screen

@@ -30,6 +30,9 @@ import { CheckInModal } from '../../components/modals/CheckInModal';
 import LottieView from 'lottie-react-native';
 import { Image } from 'react-native';
 import Icons from '../../assets/icons';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { AttendeeListItemSkeleton, SkeletonList } from '../../components/ui/Skeleton';
+import { ErrorState } from '../../components/ui/ErrorState';
 
 interface AttendeesListScreenProps {
   navigation: any;
@@ -544,9 +547,11 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
 
       {/* Liste des participants */}
       {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.brand[600]} />
-        </View>
+        <SkeletonList
+          count={8}
+          renderItem={() => <AttendeeListItemSkeleton />}
+          style={{ padding: theme.spacing.lg }}
+        />
       ) : (
         <FlatList
           data={registrations.filter(reg => reg.status !== 'rejected')}
@@ -554,14 +559,16 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ 
             padding: theme.spacing.lg,
-            paddingBottom: 100, // Espace pour la bottom tab bar
+            paddingBottom: 120, // Espace pour la bottom tab bar (70px hauteur + 20px bottom + marge)
           }}
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={{ color: theme.colors.text.secondary, fontSize: theme.fontSize.base }}>
-                {t('attendees.noAttendees')}
-              </Text>
-            </View>
+            <EmptyState
+              icon="👥"
+              title={t('attendees.noAttendees')}
+              description={searchQuery ? t('attendees.noSearchResults') : t('attendees.noAttendeesDescription')}
+              actionLabel={t('common.refresh')}
+              onAction={loadRegistrations}
+            />
           }
           ListFooterComponent={renderFooter}
           onEndReached={handleLoadMore}

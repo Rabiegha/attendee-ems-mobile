@@ -25,7 +25,10 @@ export const SessionsScreen: React.FC = () => {
       </View>
 
       <ScrollView 
-        contentContainerStyle={{ paddingHorizontal: theme.spacing.lg, paddingBottom: theme.spacing.lg }}
+        contentContainerStyle={{ 
+          paddingHorizontal: theme.spacing.lg, 
+          paddingBottom: 120,
+        }}
         showsVerticalScrollIndicator={false}
       >
         {/* Placeholder pour les sessions */}

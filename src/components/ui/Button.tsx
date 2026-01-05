@@ -54,7 +54,7 @@ export const Button: React.FC<ButtonProps> = ({
         backgroundColor: theme.colors.brand[600],
       },
       secondary: {
-        backgroundColor: theme.colors.neutral[100],
+        backgroundColor: theme.colors.card,
         borderWidth: 1,
         borderColor: theme.colors.border,
       },

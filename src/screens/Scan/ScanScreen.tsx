@@ -18,6 +18,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAppDispatch } from '../../store/hooks';
 import { checkInRegistrationThunk } from '../../store/registrations.slice';
+import { useTheme } from '../../theme/ThemeProvider';
 
 type RootStackParamList = {
   EventInner: { eventId: string };
@@ -36,6 +37,7 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation: navProp, rou
   const route = useRoute<ScanScreenRouteProp>();
   const navigation = useNavigation<ScanScreenNavigationProp>();
   const dispatch = useAppDispatch();
+  const { theme } = useTheme();
 
   const eventId = route.params?.eventId || routeProp?.params?.eventId;
 
@@ -203,29 +205,29 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation: navProp, rou
   // Gestion des permissions
   if (!permission) {
     return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#3B82F6" />
-        <Text style={styles.loadingText}>Demande de permission caméra...</Text>
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <ActivityIndicator size="large" color={theme.colors.brand[600]} />
+        <Text style={[styles.loadingText, { color: theme.colors.text.primary }]}>Demande de permission caméra...</Text>
       </View>
     );
   }
 
   if (!permission.granted) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <Text style={{ fontSize: 64 }}>⚠️</Text>
-        <Text style={styles.errorText}>Accès à la caméra refusé</Text>
-        <Text style={styles.errorSubtext}>
+        <Text style={[styles.errorText, { color: theme.colors.text.primary }]}>Accès à la caméra refusé</Text>
+        <Text style={[styles.errorSubtext, { color: theme.colors.text.secondary }]}>
           Veuillez autoriser l'accès à la caméra dans les paramètres de votre téléphone.
         </Text>
         <TouchableOpacity
-          style={styles.backButton}
+          style={[styles.backButton, { backgroundColor: theme.colors.brand[600] }]}
           onPress={() => requestPermission()}
         >
           <Text style={styles.backButtonText}>Demander à nouveau</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.backButton, { marginTop: 12, backgroundColor: '#6B7280' }]}
+          style={[styles.backButton, { marginTop: 12, backgroundColor: theme.colors.neutral[500] }]}
           onPress={() => navigation.goBack()}
         >
           <Text style={styles.backButtonText}>Retour</Text>

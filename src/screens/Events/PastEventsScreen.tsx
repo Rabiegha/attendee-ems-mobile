@@ -18,6 +18,8 @@ import { fetchPastEventsThunk, fetchMorePastEventsThunk } from '../../store/even
 import { Event } from '../../types/event';
 import { formatDate, formatTime } from '../../utils/format';
 import { Card } from '../../components/ui/Card';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { EventCardSkeleton, SkeletonList } from '../../components/ui/Skeleton';
 
 interface PastEventsScreenProps {
   navigation?: any;
@@ -149,8 +151,12 @@ export const PastEventsScreen: React.FC<PastEventsScreenProps> = ({
 
   if (isLoading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
-        <ActivityIndicator size="large" color={theme.colors.brand[600]} />
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <SkeletonList
+          count={5}
+          renderItem={() => <EventCardSkeleton />}
+          style={{ padding: theme.spacing.lg }}
+        />
       </View>
     );
   }
@@ -163,11 +169,13 @@ export const PastEventsScreen: React.FC<PastEventsScreenProps> = ({
         keyExtractor={(item, index) => item.id || `event-${index}`}
         contentContainerStyle={{ padding: theme.spacing.lg }}
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={{ color: theme.colors.text.secondary, fontSize: theme.fontSize.base }}>
-              {t('events.noEvents')}
-            </Text>
-          </View>
+          <EmptyState
+            icon="🗄️"
+            title={t('events.noPastEvents')}
+            description={t('events.noPastEventsDescription')}
+            actionLabel={t('common.refresh')}
+            onAction={handleRefresh}
+          />
         }
         ListFooterComponent={renderFooter}
         onEndReached={handleLoadMore}

@@ -1,5 +1,5 @@
 /**
- * Écran d'ajout d'un participant
+ * Écran d'ajout d'un participant avec formulaire dynamique
  */
 
 import React, { useState, useEffect } from 'react';
@@ -21,7 +21,7 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Header } from '../../components/ui/Header';
 import { createRegistrationThunk } from '../../store/registrations.slice';
-import { fetchEventAttendeeTypesThunk } from '../../store/events.slice';
+import { fetchEventAttendeeTypesThunk, fetchEventRegistrationFieldsThunk } from '../../store/events.slice';
 
 interface AttendeeAddScreenProps {
   navigation: any;
@@ -35,48 +35,35 @@ export const AttendeeAddScreen: React.FC<AttendeeAddScreenProps> = ({ navigation
   
   const { eventId } = route.params || {};
   const { isCreating } = useAppSelector((state) => state.registrations);
-  const { currentEventAttendeeTypes, isLoadingAttendeeTypes } = useAppSelector((state) => state.events);
+  const { 
+    currentEventAttendeeTypes, 
+    currentEventRegistrationFields,
+    isLoadingAttendeeTypes,
+    isLoadingRegistrationFields 
+  } = useAppSelector((state) => state.events);
 
-  // États du formulaire
-  const [formData, setFormData] = useState({
-    email: '',
-    first_name: '',
-    last_name: '',
-    phone: '',
-    company: '',
-    job_title: '',
-    country: 'FR',
-  });
-  const [attendanceType, setAttendanceType] = useState<'onsite' | 'online' | 'hybrid'>('onsite');
-  const [selectedAttendeeTypeId, setSelectedAttendeeTypeId] = useState<string>('');
-  const [comment, setComment] = useState<string>('');
+  // États du formulaire dynamique
+  const [formData, setFormData] = useState<Record<string, any>>({});
 
-  // Charger les types d'attendee au montage
+  // Charger les types d'attendee et les champs du formulaire au montage
   useEffect(() => {
     if (eventId) {
       dispatch(fetchEventAttendeeTypesThunk(eventId));
+      dispatch(fetchEventRegistrationFieldsThunk(eventId));
     }
   }, [eventId, dispatch]);
 
-  // Sélectionner automatiquement le premier type d'attendee si disponible
-  useEffect(() => {
-    if (currentEventAttendeeTypes.length > 0 && !selectedAttendeeTypeId) {
-      setSelectedAttendeeTypeId(currentEventAttendeeTypes[0].id);
-    }
-  }, [currentEventAttendeeTypes, selectedAttendeeTypeId]);
-
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const handleInputChange = (fieldId: string, value: any) => {
+    setFormData(prev => ({ ...prev, [fieldId]: value }));
   };
 
   const validateForm = () => {
-    if (!formData.email) {
-      Alert.alert('Erreur', 'L\'email est requis');
-      return false;
-    }
-    if (!formData.first_name || !formData.last_name) {
-      Alert.alert('Erreur', 'Le prénom et le nom sont requis');
-      return false;
+    // Valider les champs requis
+    for (const field of currentEventRegistrationFields) {
+      if (field.required && !formData[field.id]) {
+        Alert.alert('Erreur', `Le champ "${field.label}" est requis`);
+        return false;
+      }
     }
     return true;
   };
@@ -89,337 +76,296 @@ export const AttendeeAddScreen: React.FC<AttendeeAddScreenProps> = ({ navigation
     }
 
     try {
-      const registrationData = {
-        attendee: formData,
-        attendance_type: attendanceType,
-        event_attendee_type_id: selectedAttendeeTypeId || undefined,
-        answers: {},
-        comment: comment || undefined,
-        source: 'mobile_app',
+      // Préparer les données selon le mapping des champs (comme sur le web)
+      const attendee: any = {};
+      const registrationData: any = {};
+      const answers: any = {};
+
+      // Helper pour convertir camelCase en snake_case
+      const toSnakeCase = (str: string) => {
+        return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
       };
 
-      console.log('[AttendeeAddScreen] Submitting registration:', registrationData);
+      currentEventRegistrationFields.forEach((field: any) => {
+        const value = formData[field.id];
+        if (!value && value !== false && value !== 0) return;
+
+        if (field.attendeeField) {
+          // Convertir de camelCase à snake_case pour le backend
+          const backendFieldName = toSnakeCase(field.attendeeField);
+          attendee[backendFieldName] = value;
+        } else if (field.registrationField) {
+          registrationData[field.registrationField] = value;
+        } else if (field.storeInAnswers) {
+          answers[field.key || field.id] = value;
+        }
+      });
+
+      const payload = {
+        attendee,
+        attendance_type: registrationData.attendance_type || 'onsite',
+        source: 'mobile_app',
+        ...registrationData,
+        answers: Object.keys(answers).length > 0 ? answers : undefined,
+      };
+
+      console.log('[AttendeeAddScreen] Submitting registration:', payload);
       await dispatch(createRegistrationThunk({ 
         eventId, 
-        registrationData 
+        registrationData: payload 
       })).unwrap();
       
       Alert.alert('Succès', 'Participant ajouté avec succès', [
         { text: 'OK', onPress: () => navigation.goBack() }
       ]);
     } catch (error: any) {
-      console.error('[AttendeeAddScreen] Registration failed:', error);
-      Alert.alert('Erreur', error.message || 'Erreur lors de l\'ajout du participant');
+      console.error('[AttendeeAddScreen] Error creating registration:', error);
+      Alert.alert(
+        'Erreur',
+        error.message || 'Une erreur est survenue lors de l\'ajout du participant'
+      );
     }
   };
 
-  return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
-      edges={['top', 'left', 'right', 'bottom']} // Inclure aussi le bas
-    >
-      <Header
-        title="Ajouter un participant"
-        onBack={() => navigation.goBack()}
-      />
-      <ScrollView 
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingBottom: 200 }} // Énorme padding pour éviter la nav bar
-      >
-        <View style={{ padding: theme.spacing.lg }}>
-          <Card>
+  const renderField = (field: any) => {
+    const value = formData[field.id] || '';
 
-          {/* Prénom */}
-          <View style={{ marginBottom: theme.spacing.md }}>
-            <Text
-              style={{
-                fontSize: theme.fontSize.sm,
-                color: theme.colors.text.secondary,
-                marginBottom: theme.spacing.xs,
-              }}
-            >
-              Prénom *
+    switch (field.type) {
+      case 'textarea':
+        return (
+          <View key={field.id} style={{ marginBottom: theme.spacing.md }}>
+            <Text style={{
+              fontSize: theme.fontSize.sm,
+              color: theme.colors.text.secondary,
+              marginBottom: theme.spacing.xs,
+            }}>
+              {field.label}
+              {field.required && <Text style={{ color: '#EF4444' }}>*</Text>}
             </Text>
             <TextInput
               style={[
-                styles.input,
                 {
                   backgroundColor: theme.colors.background,
+                  borderWidth: 1,
                   borderColor: theme.colors.border,
                   color: theme.colors.text.primary,
                   borderRadius: theme.radius.md,
                   fontSize: theme.fontSize.base,
+                  paddingHorizontal: theme.spacing.md,
+                  paddingVertical: theme.spacing.sm,
                 },
+                { height: 100, textAlignVertical: 'top', paddingTop: theme.spacing.sm }
               ]}
-              value={formData.first_name}
-              onChangeText={(value) => handleInputChange('first_name', value)}
-              placeholder="Entrez le prénom"
-              placeholderTextColor={theme.colors.text.tertiary}
-            />
-          </View>
-
-          {/* Nom */}
-          <View style={{ marginBottom: theme.spacing.md }}>
-            <Text
-              style={{
-                fontSize: theme.fontSize.sm,
-                color: theme.colors.text.secondary,
-                marginBottom: theme.spacing.xs,
-              }}
-            >
-              Nom *
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: theme.colors.background,
-                  borderColor: theme.colors.border,
-                  color: theme.colors.text.primary,
-                  borderRadius: theme.radius.md,
-                  fontSize: theme.fontSize.base,
-                },
-              ]}
-              value={formData.last_name}
-              onChangeText={(value) => handleInputChange('last_name', value)}
-              placeholder="Entrez le nom"
-              placeholderTextColor={theme.colors.text.tertiary}
-            />
-          </View>
-
-          {/* Email */}
-          <View style={{ marginBottom: theme.spacing.md }}>
-            <Text
-              style={{
-                fontSize: theme.fontSize.sm,
-                color: theme.colors.text.secondary,
-                marginBottom: theme.spacing.xs,
-              }}
-            >
-              Email *
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: theme.colors.background,
-                  borderColor: theme.colors.border,
-                  color: theme.colors.text.primary,
-                  borderRadius: theme.radius.md,
-                  fontSize: theme.fontSize.base,
-                },
-              ]}
-              value={formData.email}
-              onChangeText={(value) => handleInputChange('email', value)}
-              placeholder="email@example.com"
-              placeholderTextColor={theme.colors.text.tertiary}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-          </View>
-
-          {/* Téléphone */}
-          <View style={{ marginBottom: theme.spacing.md }}>
-            <Text
-              style={{
-                fontSize: theme.fontSize.sm,
-                color: theme.colors.text.secondary,
-                marginBottom: theme.spacing.xs,
-              }}
-            >
-              Téléphone
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: theme.colors.background,
-                  borderColor: theme.colors.border,
-                  color: theme.colors.text.primary,
-                  borderRadius: theme.radius.md,
-                  fontSize: theme.fontSize.base,
-                },
-              ]}
-              value={formData.phone}
-              onChangeText={(value) => handleInputChange('phone', value)}
-              placeholder="+33 6 12 34 56 78"
-              placeholderTextColor={theme.colors.text.tertiary}
-              keyboardType="phone-pad"
-            />
-          </View>
-
-          {/* Entreprise */}
-          <View style={{ marginBottom: theme.spacing.md }}>
-            <Text
-              style={{
-                fontSize: theme.fontSize.sm,
-                color: theme.colors.text.secondary,
-                marginBottom: theme.spacing.xs,
-              }}
-            >
-              Entreprise
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: theme.colors.background,
-                  borderColor: theme.colors.border,
-                  color: theme.colors.text.primary,
-                  borderRadius: theme.radius.md,
-                  fontSize: theme.fontSize.base,
-                },
-              ]}
-              value={formData.company}
-              onChangeText={(value) => handleInputChange('company', value)}
-              placeholder="Nom de l'entreprise"
-              placeholderTextColor={theme.colors.text.tertiary}
-            />
-          </View>
-
-          {/* Poste */}
-          <View style={{ marginBottom: theme.spacing.lg }}>
-            <Text
-              style={{
-                fontSize: theme.fontSize.sm,
-                color: theme.colors.text.secondary,
-                marginBottom: theme.spacing.xs,
-              }}
-            >
-              Poste
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: theme.colors.background,
-                  borderColor: theme.colors.border,
-                  color: theme.colors.text.primary,
-                  borderRadius: theme.radius.md,
-                  fontSize: theme.fontSize.base,
-                },
-              ]}
-              value={formData.job_title}
-              onChangeText={(value) => handleInputChange('job_title', value)}
-              placeholder="Titre du poste"
-              placeholderTextColor={theme.colors.text.tertiary}
-            />
-          </View>
-
-          {/* Commentaire */}
-          <View style={{ marginBottom: theme.spacing.lg }}>
-            <Text
-              style={{
-                fontSize: theme.fontSize.sm,
-                color: theme.colors.text.secondary,
-                marginBottom: theme.spacing.xs,
-              }}
-            >
-              Commentaire (optionnel)
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: theme.colors.background,
-                  borderColor: theme.colors.border,
-                  color: theme.colors.text.primary,
-                  borderRadius: theme.radius.md,
-                  fontSize: theme.fontSize.base,
-                  height: 100,
-                  textAlignVertical: 'top',
-                  paddingTop: theme.spacing.sm,
-                },
-              ]}
-              value={comment}
-              onChangeText={setComment}
-              placeholder="Ajouter un commentaire..."
+              value={value}
+              onChangeText={(val) => handleInputChange(field.id, val)}
+              placeholder={field.placeholder}
               placeholderTextColor={theme.colors.text.tertiary}
               multiline
               numberOfLines={4}
             />
           </View>
+        );
 
-          {/* Type de présence */}
-          <View style={{ marginBottom: theme.spacing.md }}>
-            <Text
-              style={{
-                fontSize: theme.fontSize.sm,
-                color: theme.colors.text.secondary,
-                marginBottom: theme.spacing.xs,
-              }}
-            >
-              Type de présence
+      case 'select':
+        return (
+          <View key={field.id} style={{ marginBottom: theme.spacing.md }}>
+            <Text style={{
+              fontSize: theme.fontSize.sm,
+              color: theme.colors.text.secondary,
+              marginBottom: theme.spacing.xs,
+            }}>
+              {field.label}
+              {field.required && <Text style={{ color: '#EF4444' }}>*</Text>}
             </Text>
-            <View style={styles.pickerContainer}>
-              <View style={[styles.picker, { 
-                backgroundColor: theme.colors.background, 
-                borderColor: theme.colors.border,
-                borderRadius: theme.radius.md,
-              }]}>
-                {['onsite', 'online', 'hybrid'].map((type) => (
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              style={{ marginTop: theme.spacing.xs }}
+            >
+              {field.options?.map((option: { value: string; label: string }, idx: number) => (
+                <Button
+                  key={idx}
+                  title={option.label}
+                  variant={value === option.value ? 'primary' : 'secondary'}
+                  onPress={() => handleInputChange(field.id, option.value)}
+                  style={{ marginRight: theme.spacing.xs }}
+                />
+              ))}
+            </ScrollView>
+          </View>
+        );
+
+      case 'attendee_type':
+        return (
+          <View key={field.id} style={{ marginBottom: theme.spacing.md }}>
+            <Text style={{
+              fontSize: theme.fontSize.sm,
+              color: theme.colors.text.secondary,
+              marginBottom: theme.spacing.xs,
+            }}>
+              {field.label}
+              {field.required && <Text style={{ color: '#EF4444' }}>*</Text>}
+            </Text>
+            {isLoadingAttendeeTypes ? (
+              <ActivityIndicator size="small" color="#007AFF" />
+            ) : (
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                style={{ marginTop: theme.spacing.xs }}
+              >
+                {currentEventAttendeeTypes.map((type) => (
                   <Button
-                    key={type}
-                    title={type === 'onsite' ? 'Sur site' : type === 'online' ? 'En ligne' : 'Hybride'}
-                    variant={attendanceType === type ? 'primary' : 'secondary'}
-                    onPress={() => setAttendanceType(type as 'onsite' | 'online' | 'hybrid')}
-                    style={{ marginHorizontal: theme.spacing.xs }}
+                    key={type.id}
+                    title={type.attendeeType.name}
+                    variant={value === type.id ? 'primary' : 'secondary'}
+                    onPress={() => handleInputChange(field.id, type.id)}
+                    style={{ marginRight: theme.spacing.xs }}
                   />
                 ))}
-              </View>
-            </View>
+              </ScrollView>
+            )}
           </View>
+        );
 
-          {/* Type de participant */}
-          {isLoadingAttendeeTypes ? (
-            <View style={{ marginBottom: theme.spacing.md }}>
-              <Text
-                style={{
-                  fontSize: theme.fontSize.sm,
-                  color: theme.colors.text.secondary,
-                  marginBottom: theme.spacing.xs,
-                }}
-              >
-                Types de participant
-              </Text>
-              <ActivityIndicator size="small" color="#007AFF" />
-            </View>
-          ) : currentEventAttendeeTypes.length > 0 ? (
-            <View style={{ marginBottom: theme.spacing.md }}>
-              <Text
-                style={{
-                  fontSize: theme.fontSize.sm,
-                  color: theme.colors.text.secondary,
-                  marginBottom: theme.spacing.xs,
-                }}
-              >
-                Type de participant
-              </Text>
-              <View style={styles.pickerContainer}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  {currentEventAttendeeTypes.map((type: any) => (
-                    <Button
-                      key={type.id}
-                      title={type.attendeeType.name}
-                      variant={selectedAttendeeTypeId === type.id ? 'primary' : 'secondary'}
-                      onPress={() => setSelectedAttendeeTypeId(type.id)}
-                      style={{ marginHorizontal: theme.spacing.xs }}
-                    />
-                  ))}
-                </ScrollView>
-              </View>
-            </View>
-          ) : null}
+      case 'email':
+        return (
+          <View key={field.id} style={{ marginBottom: theme.spacing.md }}>
+            <Text style={{
+              fontSize: theme.fontSize.sm,
+              color: theme.colors.text.secondary,
+              marginBottom: theme.spacing.xs,
+            }}>
+              {field.label}
+              {field.required && <Text style={{ color: '#EF4444' }}>*</Text>}
+            </Text>
+            <TextInput
+              style={{
+                backgroundColor: theme.colors.background,
+                borderWidth: 1,
+                borderColor: theme.colors.border,
+                color: theme.colors.text.primary,
+                borderRadius: theme.radius.md,
+                fontSize: theme.fontSize.base,
+                paddingHorizontal: theme.spacing.md,
+                paddingVertical: theme.spacing.sm,
+              }}
+              value={value}
+              onChangeText={(val) => handleInputChange(field.id, val)}
+              placeholder={field.placeholder}
+              placeholderTextColor={theme.colors.text.tertiary}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+          </View>
+        );
 
-          {/* Bouton */}
+      case 'tel':
+        return (
+          <View key={field.id} style={{ marginBottom: theme.spacing.md }}>
+            <Text style={{
+              fontSize: theme.fontSize.sm,
+              color: theme.colors.text.secondary,
+              marginBottom: theme.spacing.xs,
+            }}>
+              {field.label}
+              {field.required && <Text style={{ color: '#EF4444' }}>*</Text>}
+            </Text>
+            <TextInput
+              style={{
+                backgroundColor: theme.colors.background,
+                borderWidth: 1,
+                borderColor: theme.colors.border,
+                color: theme.colors.text.primary,
+                borderRadius: theme.radius.md,
+                fontSize: theme.fontSize.base,
+                paddingHorizontal: theme.spacing.md,
+                paddingVertical: theme.spacing.sm,
+              }}
+              value={value}
+              onChangeText={(val) => handleInputChange(field.id, val)}
+              placeholder={field.placeholder}
+              placeholderTextColor={theme.colors.text.tertiary}
+              keyboardType="phone-pad"
+            />
+          </View>
+        );
+
+      default: // text, number, etc.
+        return (
+          <View key={field.id} style={{ marginBottom: theme.spacing.md }}>
+            <Text style={{
+              fontSize: theme.fontSize.sm,
+              color: theme.colors.text.secondary,
+              marginBottom: theme.spacing.xs,
+            }}>
+              {field.label}
+              {field.required && <Text style={{ color: '#EF4444' }}>*</Text>}
+            </Text>
+            <TextInput
+              style={{
+                backgroundColor: theme.colors.background,
+                borderWidth: 1,
+                borderColor: theme.colors.border,
+                color: theme.colors.text.primary,
+                borderRadius: theme.radius.md,
+                fontSize: theme.fontSize.base,
+                paddingHorizontal: theme.spacing.md,
+                paddingVertical: theme.spacing.sm,
+              }}
+              value={value}
+              onChangeText={(val) => handleInputChange(field.id, val)}
+              placeholder={field.placeholder}
+              placeholderTextColor={theme.colors.text.tertiary}
+              keyboardType={field.type === 'number' ? 'numeric' : 'default'}
+            />
+          </View>
+        );
+    }
+  };
+  return (
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      edges={['top', 'left', 'right', 'bottom']}
+    >
+      <Header
+        title="Ajouter un participant"
+        onBack={() => navigation.goBack()}
+      />
+      
+      {isLoadingRegistrationFields ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={{ marginTop: theme.spacing.md, color: theme.colors.text.secondary }}>
+            Chargement du formulaire...
+          </Text>
+        </View>
+      ) : (
+        <ScrollView 
+          style={{ flex: 1 }}
+          contentContainerStyle={{ 
+            padding: theme.spacing.lg,
+            paddingBottom: 120,
+          }}
+        >
+          <Card>
+            {currentEventRegistrationFields.length === 0 ? (
+              <Text style={{ color: theme.colors.text.secondary, textAlign: 'center' }}>
+                Aucun champ de formulaire configuré pour cet événement
+              </Text>
+            ) : (
+              currentEventRegistrationFields.map(renderField)
+            )}
+          </Card>
+
           <Button
-            title={isCreating ? "Ajout en cours..." : "Ajouter le participant"}
+            title={isCreating ? 'Ajout en cours...' : 'Ajouter le participant'}
             onPress={handleSubmit}
             disabled={isCreating}
+            style={{ marginTop: theme.spacing.lg }}
           />
-        </Card>
-        </View>
-      </ScrollView>
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 };
@@ -427,21 +373,5 @@ export const AttendeeAddScreen: React.FC<AttendeeAddScreenProps> = ({ navigation
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  input: {
-    height: 48,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-  },
-  pickerContainer: {
-    marginBottom: 8,
-  },
-  picker: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 8,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
   },
 });

@@ -12,6 +12,7 @@ import { loadSelectedPrinterThunk } from '../store/printers.slice';
 import { updateRegistration } from '../store/registrations.slice';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { debugPrinterStorage } from '../utils/printerDebug';
+import { hapticSuccess, hapticError, hapticLight } from '../utils/haptics';
 
 export type CheckInStatus = 'idle' | 'printing' | 'checkin' | 'undoing' | 'success' | 'error';
 
@@ -314,10 +315,12 @@ export const useCheckIn = (): UseCheckInResult => {
       
       setProgress(100);
       setStatus('success');
+      hapticSuccess();
       console.log('[useCheckIn] ✅ Print completed successfully for:', registration.attendee.first_name);
 
     } catch (error: any) {
       setStatus('error');
+      hapticError();
       const errorMsg = error.message || 'Erreur lors de l\'impression du badge';
       setErrorMessage(errorMsg);
       console.error('[useCheckIn] ❌ Print failed:', {
@@ -353,6 +356,7 @@ export const useCheckIn = (): UseCheckInResult => {
       const result = await registrationsService.checkIn(registration.id, registration.event_id);
       
       setStatus('success');
+      hapticSuccess();
       console.log('[useCheckIn] ✅ Check-in completed successfully:', {
         attendeeName: registration.attendee.first_name,
         message: result.message,
@@ -371,6 +375,7 @@ export const useCheckIn = (): UseCheckInResult => {
       }
     } catch (error: any) {
       setStatus('error');
+      hapticError();
       const errorMsg = error.message || 'Erreur lors du check-in';
       setErrorMessage(errorMsg);
       console.error('[useCheckIn] ❌ Check-in failed:', {
@@ -407,6 +412,7 @@ export const useCheckIn = (): UseCheckInResult => {
       const result = await registrationsService.undoCheckIn(registration.id, registration.event_id);
       
       setStatus('success');
+      hapticSuccess();
       console.log('[useCheckIn] ✅ Undo check-in completed successfully:', {
         attendeeName: registration.attendee.first_name,
         message: result.message,
@@ -425,6 +431,7 @@ export const useCheckIn = (): UseCheckInResult => {
       }
     } catch (error: any) {
       setStatus('error');
+      hapticError();
       const errorMsg = error.message || 'Erreur lors de l\'annulation du check-in';
       setErrorMessage(errorMsg);
       console.error('[useCheckIn] ❌ Undo check-in failed:', {

@@ -13,18 +13,21 @@ import { AppNavigator } from './src/navigation/AppNavigator';
 import { buildAbilityFor, defaultAbility } from './src/permissions/ability';
 import { AbilityProvider } from './src/permissions/AbilityProvider';
 import { AppContent } from './src/AppContent';
+import { ToastProvider } from './src/contexts/ToastContext';
 import './src/i18n';
 // import './global.css';
 
 export default function App() {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#1F2937' }}>
       <SafeAreaProvider>
         <Provider store={store}>
           <ThemeProvider>
-            <AbilityProvider ability={defaultAbility}>
-              <AppContent />
-            </AbilityProvider>
+            <ToastProvider>
+              <AbilityProvider ability={defaultAbility}>
+                <AppContent />
+              </AbilityProvider>
+            </ToastProvider>
           </ThemeProvider>
         </Provider>
       </SafeAreaProvider>

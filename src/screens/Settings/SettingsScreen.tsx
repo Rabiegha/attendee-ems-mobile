@@ -12,6 +12,9 @@ import { logoutThunk } from '../../store/auth.slice';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Header } from '../../components/ui/Header';
+import { useConfirm } from '../../hooks/useConfirm';
+import { ConfirmModal } from '../../components/modals/ConfirmModal';
+import { hapticHeavy } from '../../utils/haptics';
 
 interface SettingsScreenProps {
   navigation: any;
@@ -22,9 +25,23 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
   const { t } = useTranslation();
   const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state.auth);
+  const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm();
 
-  const handleLogout = async () => {
-    await dispatch(logoutThunk());
+  const handleLogout = () => {
+    hapticHeavy();
+    confirm(
+      {
+        title: 'Déconnexion',
+        message: 'Êtes-vous sûr de vouloir vous déconnecter ?',
+        confirmText: 'Se déconnecter',
+        cancelText: 'Annuler',
+        confirmColor: 'danger',
+        icon: '👋',
+      },
+      async () => {
+        await dispatch(logoutThunk());
+      }
+    );
   };
 
   const themeModes: Array<{ value: 'system' | 'light' | 'dark'; label: string }> = [
@@ -119,6 +136,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
         <Button title={t('auth.logout')} onPress={handleLogout} variant="destructive" />
         </View>
       </ScrollView>
+
+      <ConfirmModal
+        {...confirmState}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
     </SafeAreaView>
   );
 };

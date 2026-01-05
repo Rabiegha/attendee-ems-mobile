@@ -40,6 +40,9 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
+        sceneContainerStyle: {
+          backgroundColor: theme.colors.background,
+        },
         tabBarStyle: {
           position: 'absolute' as const,
           bottom: Math.max(insets.bottom, 20),
@@ -137,7 +140,7 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
         name="Settings"
         component={SettingsScreen}
         options={{
-          tabBarLabel: t('navigation.menu'),
+          tabBarLabel: t('navigation.settings'),
           tabBarIcon: ({ color }) => (
             <Image 
               source={Icons.Outils} 

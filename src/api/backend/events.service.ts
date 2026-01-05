@@ -177,4 +177,24 @@ export const eventsService = {
       throw error;
     }
   },
+
+  /**
+   * Récupérer les champs de formulaire d'inscription configurés pour l'événement
+   */
+  getEventRegistrationFields: async (eventId: string) => {
+    try {
+      console.log('[EventsService] Fetching registration fields for event:', eventId);
+      const response = await axiosClient.get(`/events/${eventId}`);
+      const registrationFields = response.data.settings?.registration_fields || [];
+      console.log('[EventsService] Registration fields fetched:', registrationFields.length);
+      return registrationFields;
+    } catch (error: any) {
+      console.error('[EventsService] Error fetching registration fields:', {
+        eventId,
+        error: error.response?.data || error.message,
+        status: error.response?.status,
+      });
+      throw error;
+    }
+  },
 };
