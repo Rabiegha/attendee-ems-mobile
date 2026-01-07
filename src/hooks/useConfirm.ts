@@ -26,7 +26,7 @@ export const useConfirm = () => {
     confirmText: 'Confirmer',
     cancelText: 'Annuler',
     confirmColor: 'danger',
-    icon: '⚠️',
+    icon: 'alert-circle-outline',
     onConfirm: () => {},
   });
 

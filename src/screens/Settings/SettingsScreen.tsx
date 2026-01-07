@@ -36,7 +36,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
         confirmText: 'Se déconnecter',
         cancelText: 'Annuler',
         confirmColor: 'danger',
-        icon: '👋',
+        icon: 'log-out-outline',
       },
       async () => {
         await dispatch(logoutThunk());

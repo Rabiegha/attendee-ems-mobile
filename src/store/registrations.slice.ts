@@ -148,9 +148,83 @@ export const checkInRegistrationThunk = createAsyncThunk(
         status: error.response?.status,
       });
       
-      // Extraire le message d'erreur depuis la réponse
-      const errorMessage = error.response?.data?.message || error.message || 'Erreur lors du check-in';
-      return rejectWithValue(errorMessage);
+      // Retourner l'objet d'erreur complet pour un meilleur traitement dans les composants
+      return rejectWithValue({
+        message: error.message,
+        detail: error.response?.data?.detail || error.response?.data?.message,
+        status: error.response?.status,
+        response: error.response?.data,
+      });
+    }
+  }
+);
+
+/**
+ * Thunk pour check-out (quand le participant quitte l'événement)
+ */
+export const checkOutRegistrationThunk = createAsyncThunk(
+  'registrations/checkOutRegistration',
+  async (params: {
+    registrationId: string;
+    eventId: string;
+    location?: { lat: number; lng: number };
+  }, { rejectWithValue }) => {
+    try {
+      console.log('[RegistrationsSlice] checkOutRegistrationThunk - Starting:', params);
+      const response = await registrationsService.checkOut(
+        params.registrationId,
+        params.eventId,
+        params.location
+      );
+      console.log('[RegistrationsSlice] checkOutRegistrationThunk - Success:', response.message);
+      return response.registration;
+    } catch (error: any) {
+      console.error('[RegistrationsSlice] checkOutRegistrationThunk - Error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+
+      return rejectWithValue({
+        message: error.message,
+        detail: error.response?.data?.detail || error.response?.data?.message,
+        status: error.response?.status,
+        response: error.response?.data,
+      });
+    }
+  }
+);
+
+/**
+ * Thunk pour annuler un check-out
+ */
+export const undoCheckOutThunk = createAsyncThunk(
+  'registrations/undoCheckOut',
+  async (params: {
+    registrationId: string;
+    eventId: string;
+  }, { rejectWithValue }) => {
+    try {
+      console.log('[RegistrationsSlice] undoCheckOutThunk - Starting:', params);
+      const response = await registrationsService.undoCheckOut(
+        params.registrationId,
+        params.eventId
+      );
+      console.log('[RegistrationsSlice] undoCheckOutThunk - Success:', response.message);
+      return response.registration;
+    } catch (error: any) {
+      console.error('[RegistrationsSlice] undoCheckOutThunk - Error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+
+      return rejectWithValue({
+        message: error.message,
+        detail: error.response?.data?.detail || error.response?.data?.message,
+        status: error.response?.status,
+        response: error.response?.data,
+      });
     }
   }
 );
@@ -328,6 +402,54 @@ const registrationsSlice = createSlice({
       .addCase(checkInRegistrationThunk.rejected, (state, action) => {
         console.error('[RegistrationsSlice] checkInRegistrationThunk.rejected:', action.payload || action.error);
         state.error = (action.payload as string) || action.error.message || 'Erreur lors du check-in';
+      });
+
+    // Check-out
+    builder
+      .addCase(checkOutRegistrationThunk.pending, (state) => {
+        console.log('[RegistrationsSlice] checkOutRegistrationThunk.pending');
+        state.error = null;
+      })
+      .addCase(checkOutRegistrationThunk.fulfilled, (state, action) => {
+        console.log('[RegistrationsSlice] checkOutRegistrationThunk.fulfilled - Registration checked out:', action.payload.id);
+        const index = state.registrations.findIndex((r) => r.id === action.payload.id);
+        if (index !== -1) {
+          state.registrations[index] = action.payload;
+          console.log('[RegistrationsSlice] Updated registration in list at index:', index);
+        }
+        if (state.currentRegistration?.id === action.payload.id) {
+          state.currentRegistration = action.payload;
+          console.log('[RegistrationsSlice] Updated current registration');
+        }
+        state.error = null;
+      })
+      .addCase(checkOutRegistrationThunk.rejected, (state, action) => {
+        console.error('[RegistrationsSlice] checkOutRegistrationThunk.rejected:', action.payload || action.error);
+        state.error = (action.payload as string) || action.error.message || 'Erreur lors du check-out';
+      });
+
+    // Undo Check-out
+    builder
+      .addCase(undoCheckOutThunk.pending, (state) => {
+        console.log('[RegistrationsSlice] undoCheckOutThunk.pending');
+        state.error = null;
+      })
+      .addCase(undoCheckOutThunk.fulfilled, (state, action) => {
+        console.log('[RegistrationsSlice] undoCheckOutThunk.fulfilled - Check-out undone:', action.payload.id);
+        const index = state.registrations.findIndex((r) => r.id === action.payload.id);
+        if (index !== -1) {
+          state.registrations[index] = action.payload;
+          console.log('[RegistrationsSlice] Updated registration in list at index:', index);
+        }
+        if (state.currentRegistration?.id === action.payload.id) {
+          state.currentRegistration = action.payload;
+          console.log('[RegistrationsSlice] Updated current registration');
+        }
+        state.error = null;
+      })
+      .addCase(undoCheckOutThunk.rejected, (state, action) => {
+        console.error('[RegistrationsSlice] undoCheckOutThunk.rejected:', action.payload || action.error);
+        state.error = (action.payload as string) || action.error.message || 'Erreur lors de l\'annulation du check-out';
       });
 
         // Create registration

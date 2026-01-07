@@ -20,6 +20,7 @@ import { formatDate, formatTime } from '../../utils/format';
 import { Card } from '../../components/ui/Card';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { EventCardSkeleton, SkeletonList } from '../../components/ui/Skeleton';
+import { useEventSearch } from '../../contexts/EventSearchContext';
 
 interface PastEventsScreenProps {
   navigation?: any;
@@ -37,9 +38,24 @@ export const PastEventsScreen: React.FC<PastEventsScreenProps> = ({
   const { t } = useTranslation();
   const { theme } = useTheme();
   const dispatch = useAppDispatch();
+  const { searchQuery } = useEventSearch();
   
   // Utiliser le state past
   const { events, isLoading, isLoadingMore, hasMore } = useAppSelector((state) => state.events.past);
+
+  // Filtrer les événements selon la recherche
+  const filteredEvents = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return events;
+    }
+    
+    const query = searchQuery.toLowerCase();
+    return events.filter(event => 
+      event.name.toLowerCase().includes(query) ||
+      event.description?.toLowerCase().includes(query) ||
+      event.location?.toLowerCase().includes(query)
+    );
+  }, [events, searchQuery]);
 
   // Mémoriser les callbacks pour éviter les re-rendus
   const handleEventPress = useCallback((event: Event) => {
@@ -164,13 +180,12 @@ export const PastEventsScreen: React.FC<PastEventsScreenProps> = ({
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <FlatList
-        data={events}
+        data={filteredEvents}
         renderItem={renderEventCard}
         keyExtractor={(item, index) => item.id || `event-${index}`}
         contentContainerStyle={{ padding: theme.spacing.lg }}
         ListEmptyComponent={
           <EmptyState
-            icon="🗄️"
             title={t('events.noPastEvents')}
             description={t('events.noPastEventsDescription')}
             actionLabel={t('common.refresh')}

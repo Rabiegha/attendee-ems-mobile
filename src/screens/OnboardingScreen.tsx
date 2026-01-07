@@ -28,25 +28,25 @@ interface OnboardingSlide {
 const slides: OnboardingSlide[] = [
   {
     id: '1',
-    icon: '📅',
+    icon: 'calendar-outline',
     title: 'Gérez vos événements',
     description: 'Accédez facilement à tous vos événements à venir et passés. Consultez les détails et statistiques en temps réel.',
   },
   {
     id: '2',
-    icon: '👥',
+    icon: 'people-outline',
     title: 'Participants en un coup d\'œil',
     description: 'Visualisez la liste complète des participants, recherchez rapidement et consultez les informations détaillées.',
   },
   {
     id: '3',
-    icon: '✓',
+    icon: 'checkmark-circle-outline',
     title: 'Check-in instantané',
     description: 'Enregistrez les participants d\'un simple geste. Suivez la progression en temps réel avec les statistiques.',
   },
   {
     id: '4',
-    icon: '🎫',
+    icon: 'ticket-outline',
     title: 'Impression de badges',
     description: 'Imprimez les badges directement depuis l\'app. Configuration simple et impression rapide.',
   },

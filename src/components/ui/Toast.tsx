@@ -19,7 +19,7 @@ const getToastIcon = (type: ToastType): string => {
   switch (type) {
     case 'success': return '✓';
     case 'error': return '✕';
-    case 'warning': return '⚠';
+    case 'warning': return '';
     case 'info': return 'ℹ';
     default: return 'ℹ';
   }

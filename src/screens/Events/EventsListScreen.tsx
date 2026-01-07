@@ -18,6 +18,7 @@ import { SearchBar } from '../../components/ui/SearchBar';
 import Icons from '../../assets/icons';
 import { UpcomingEventsScreen } from './UpcomingEventsScreen';
 import { PastEventsScreen } from './PastEventsScreen';
+import { EventSearchProvider, useEventSearch } from '../../contexts/EventSearchContext';
 
 const Tab = createMaterialTopTabNavigator();
 
@@ -25,16 +26,11 @@ interface EventsListScreenProps {
   navigation: any;
 }
 
-export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }) => {
+const EventsListContent: React.FC<EventsListScreenProps> = ({ navigation }) => {
   const { t } = useTranslation();
   const { theme } = useTheme();
-  const [searchQuery, setSearchQuery] = useState('');
+  const { searchQuery, setSearchQuery } = useEventSearch();
   const insets = useSafeAreaInsets();
-
-  const handleSearch = () => {
-    // TODO: Implémenter la recherche
-    console.log('[EventsListScreen] Search:', searchQuery);
-  };
 
   return (
     <View 
@@ -70,7 +66,6 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
           placeholder={t('common.search')}
           value={searchQuery}
           onChangeText={setSearchQuery}
-          onSearch={handleSearch}
         />
       </View>
 
@@ -119,6 +114,14 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
         />
       </Tab.Navigator>
     </View>
+  );
+};
+
+export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }) => {
+  return (
+    <EventSearchProvider>
+      <EventsListContent navigation={navigation} />
+    </EventSearchProvider>
   );
 };
 

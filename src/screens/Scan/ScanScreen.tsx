@@ -16,9 +16,11 @@ import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-ca
 import * as Haptics from 'expo-haptics';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch } from '../../store/hooks';
-import { checkInRegistrationThunk } from '../../store/registrations.slice';
+import { checkInRegistrationThunk, checkOutRegistrationThunk } from '../../store/registrations.slice';
 import { useTheme } from '../../theme/ThemeProvider';
+import { useTranslation } from 'react-i18next';
 
 type RootStackParamList = {
   EventInner: { eventId: string };
@@ -38,10 +40,12 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation: navProp, rou
   const navigation = useNavigation<ScanScreenNavigationProp>();
   const dispatch = useAppDispatch();
   const { theme } = useTheme();
+  const { t } = useTranslation();
 
   const eventId = route.params?.eventId || routeProp?.params?.eventId;
 
   const [permission, requestPermission] = useCameraPermissions();
+  const [scanMode, setScanMode] = useState<'check-in' | 'check-out'>('check-in');
   const [scanned, setScanned] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
@@ -113,6 +117,7 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation: navProp, rou
       type: result.type,
       data,
       eventId,
+      mode: scanMode,
     });
 
     // Vérifier que data est un UUID valide
@@ -124,7 +129,7 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation: navProp, rou
       } catch (e) {
         console.warn('[ScanScreen] Haptics not available:', e);
       }
-      showFeedback('❌ QR Code invalide', 'error');
+      showFeedback(t('scan.invalidQR'), 'error');
       setIsProcessing(false);
       setTimeout(() => resetScan(), 3000);
       return;
@@ -133,29 +138,48 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation: navProp, rou
     const registrationId = data;
 
     try {
-      // Appeler le thunk de check-in
-      const result = await dispatch(
-        checkInRegistrationThunk({
-          registrationId,
-          eventId,
-          // On pourrait ajouter la géolocalisation ici si besoin
-          // location: { lat: 48.8566, lng: 2.3522 }
-        })
-      ).unwrap();
+      if (scanMode === 'check-in') {
+        // MODE CHECK-IN
+        const result = await dispatch(
+          checkInRegistrationThunk({
+            registrationId,
+            eventId,
+          })
+        ).unwrap();
 
-      console.log('[ScanScreen] Check-in successful:', result);
+        console.log('[ScanScreen] Check-in successful:', result);
 
-      // 🎉 SUCCÈS - Vibration + Animation
-      try {
-        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      } catch (e) {
-        console.warn('[ScanScreen] Haptics not available:', e);
+        try {
+          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        } catch (e) {
+          console.warn('[ScanScreen] Haptics not available:', e);
+        }
+        const fullName = `${result.attendee?.first_name} ${result.attendee?.last_name}`;
+        showFeedback(`✓ ${fullName} - ${t('scan.checkInSuccess')}`, 'success');
+        setTimeout(() => resetScan(), 3000);
+      } else {
+        // MODE CHECK-OUT
+        const result = await dispatch(
+          checkOutRegistrationThunk({
+            registrationId,
+            eventId,
+          })
+        ).unwrap();
+
+        console.log('[ScanScreen] Check-out successful:', result);
+
+        try {
+          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        } catch (e) {
+          console.warn('[ScanScreen] Haptics not available:', e);
+        }
+        const fullName = `${result.attendee?.first_name} ${result.attendee?.last_name}`;
+        showFeedback(`✓ ${fullName} - ${t('scan.checkOutSuccess')}`, 'success');
+        setTimeout(() => resetScan(), 3000);
       }
-      const fullName = `${result.attendee?.first_name} ${result.attendee?.last_name}`;
-      showFeedback(`✅ ${fullName} enregistré(e) !`, 'success');
-      setTimeout(() => resetScan(), 3000);
     } catch (error: any) {
-      console.error('[ScanScreen] Check-in failed:', error);
+      console.error(`[ScanScreen] ${scanMode} failed:`, error);
+      console.log('[ScanScreen] Error structure:', JSON.stringify(error, null, 2));
 
       // Vibration d'erreur
       try {
@@ -165,11 +189,12 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation: navProp, rou
       }
 
       // Récupérer le message d'erreur depuis la réponse
-      let errorMessage = 'Erreur lors du check-in';
+      let errorMessage = scanMode === 'check-in' 
+        ? 'Erreur lors du check-in'
+        : 'Erreur lors du check-out';
       
-      // Vérifier différentes sources d'erreur
-      if (error?.response?.data?.detail) {
-        errorMessage = error.response.data.detail;
+      if (error?.detail) {
+        errorMessage = error.detail;
       } else if (error?.message) {
         errorMessage = error.message;
       } else if (typeof error === 'string') {
@@ -182,7 +207,15 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation: navProp, rou
       if (errorMessage.includes('QR Code mismatch') || errorMessage.includes('pas pour cet événement') || errorMessage.includes('not match')) {
         showFeedback('⚠️ Ce QR Code est pour un autre événement', 'warning');
       } else if (errorMessage.includes('Already checked-in') || errorMessage.includes('déjà enregistré')) {
-        showFeedback('ℹ️ Participant déjà présent', 'warning');
+        showFeedback(t('scan.alreadyCheckedIn'), 'warning');
+      } else if (errorMessage.includes('Already checked-out') || errorMessage.includes('déjà sorti')) {
+        showFeedback(t('scan.alreadyCheckedOut'), 'warning');
+      } else if (errorMessage.includes('not checked-in') || errorMessage.includes('pas encore enregistré')) {
+        showFeedback(t('scan.notCheckedIn'), 'warning');
+      } else if (errorMessage.includes('was refused') || errorMessage.includes('été refusé') || errorMessage.includes('refusée')) {
+        showFeedback(t('scan.participantRefused'), 'error');
+      } else if (errorMessage.includes('was cancelled') || errorMessage.includes('été annulé') || errorMessage.includes('annulée')) {
+        showFeedback(t('scan.participantCancelled'), 'error');
       } else if (errorMessage.includes('not found') || errorMessage.includes('introuvable')) {
         showFeedback('❌ Inscription introuvable', 'error');
       } else {
@@ -215,7 +248,7 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation: navProp, rou
   if (!permission.granted) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <Text style={{ fontSize: 64 }}>⚠️</Text>
+        <Ionicons name="alert-circle-outline" size={64} color={theme.colors.warning[500]} />
         <Text style={[styles.errorText, { color: theme.colors.text.primary }]}>Accès à la caméra refusé</Text>
         <Text style={[styles.errorSubtext, { color: theme.colors.text.secondary }]}>
           Veuillez autoriser l'accès à la caméra dans les paramètres de votre téléphone.
@@ -251,11 +284,73 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation: navProp, rou
       {/* Overlay avec cadre de scan */}
       <View style={styles.overlay}>
         <View style={styles.header}>
+          {/* Sélecteur de mode */}
+          <View style={styles.modeSelectorContainer}>
+            <Text style={styles.modeSelectorLabel}>{t('scan.modeSelector')}</Text>
+            <View style={styles.modeButtons}>
+              <TouchableOpacity
+                style={[
+                  styles.modeButton,
+                  scanMode === 'check-in' && styles.modeButtonActive,
+                  { backgroundColor: scanMode === 'check-in' ? theme.colors.brand[600] : theme.colors.neutral[700] },
+                ]}
+                onPress={() => setScanMode('check-in')}
+                disabled={isProcessing}
+              >
+                <Ionicons
+                  name="enter-outline"
+                  size={28}
+                  color={scanMode === 'check-in' ? '#FFFFFF' : theme.colors.neutral[400]}
+                />
+                <Text style={[
+                  styles.modeButtonText,
+                  { color: scanMode === 'check-in' ? '#FFFFFF' : theme.colors.neutral[400] }
+                ]}>
+                  {t('scan.checkInMode')}
+                </Text>
+                <Text style={[
+                  styles.modeButtonDesc,
+                  { color: scanMode === 'check-in' ? '#FFFFFF' : theme.colors.neutral[500] }
+                ]}>
+                  {t('scan.checkInDescription')}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modeButton,
+                  scanMode === 'check-out' && styles.modeButtonActive,
+                  { backgroundColor: scanMode === 'check-out' ? theme.colors.success[600] : theme.colors.neutral[700] },
+                ]}
+                onPress={() => setScanMode('check-out')}
+                disabled={isProcessing}
+              >
+                <Ionicons
+                  name="exit-outline"
+                  size={28}
+                  color={scanMode === 'check-out' ? '#FFFFFF' : theme.colors.neutral[400]}
+                />
+                <Text style={[
+                  styles.modeButtonText,
+                  { color: scanMode === 'check-out' ? '#FFFFFF' : theme.colors.neutral[400] }
+                ]}>
+                  {t('scan.checkOutMode')}
+                </Text>
+                <Text style={[
+                  styles.modeButtonDesc,
+                  { color: scanMode === 'check-out' ? '#FFFFFF' : theme.colors.neutral[500] }
+                ]}>
+                  {t('scan.checkOutDescription')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
           <TouchableOpacity
             style={styles.closeButton}
             onPress={() => navigation.goBack()}
           >
-            <Text style={{ fontSize: 24, color: '#FFFFFF' }}>✕</Text>
+            <Ionicons name="close" size={28} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
@@ -359,7 +454,50 @@ const styles = StyleSheet.create({
   header: {
     paddingTop: 60,
     paddingHorizontal: 20,
-    alignItems: 'flex-end',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  modeSelectorContainer: {
+    flex: 1,
+    marginRight: 12,
+  },
+  modeSelectorLabel: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modeButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  modeButton: {
+    flex: 1,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 100,
+  },
+  modeButtonActive: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  modeButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginTop: 8,
+  },
+  modeButtonDesc: {
+    fontSize: 11,
+    marginTop: 4,
+    textAlign: 'center',
   },
   closeButton: {
     width: 40,

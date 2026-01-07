@@ -17,7 +17,7 @@ interface EmptyStateProps {
 }
 
 export const EmptyState: React.FC<EmptyStateProps> = ({
-  icon = '📭',
+  icon,
   title,
   description,
   actionLabel,
@@ -30,7 +30,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
     <View style={[styles.container, style]}>
       <View style={styles.content}>
         {/* Icône/Illustration */}
-        <Text style={styles.icon}>{icon}</Text>
+        {icon && <Text style={styles.icon}>{icon}</Text>}
 
         {/* Titre */}
         <Text

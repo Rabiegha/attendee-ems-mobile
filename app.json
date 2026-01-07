@@ -37,15 +37,11 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": [
-      [
-        "expo-navigation-bar",
-        {
-          "position": "relative",
-          "visibility": "visible",
-          "behavior": "overlay-swipe"
-        }
-      ]
-    ]
+    "plugins": [],
+    "extra": {
+      "eas": {
+        "projectId": "1e87d178-8131-4511-badc-2214c8ae2a42"
+      }
+    }
   }
 }

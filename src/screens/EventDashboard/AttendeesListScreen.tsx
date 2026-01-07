@@ -20,7 +20,7 @@ import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { fetchRegistrationsThunk, fetchMoreRegistrationsThunk } from '../../store/registrations.slice';
+import { fetchRegistrationsThunk, fetchMoreRegistrationsThunk, checkOutRegistrationThunk, undoCheckOutThunk } from '../../store/registrations.slice';
 import { fetchEventAttendeeTypesThunk } from '../../store/events.slice';
 import { Registration } from '../../types/attendee';
 import { SearchBar } from '../../components/ui/SearchBar';
@@ -378,14 +378,89 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
     });
   };
 
+  const handleCheckOut = (registration: Registration) => {
+    console.log('[AttendeesListScreen] Check out:', registration.attendee.first_name);
+    setConfirmDialog({
+      visible: true,
+      title: t('attendees.checkOut'),
+      message: `${t('attendees.checkOut')} ${registration.attendee.first_name} ${registration.attendee.last_name} ?`,
+      confirmText: t('attendees.checkOut'),
+      confirmColor: theme.colors.brand[600],
+      icon: 'exit-outline',
+      iconColor: theme.colors.brand[600],
+      onConfirm: async () => {
+        setConfirmDialog(prev => ({ ...prev, visible: false }));
+        // Fermer le swipeable ouvert
+        if (openSwipeableRef.current) {
+          openSwipeableRef.current.close();
+          openSwipeableRef.current = null;
+        }
+        
+        try {
+          await dispatch(checkOutRegistrationThunk({
+            registrationId: registration.id,
+            eventId: eventId!,
+          })).unwrap();
+          
+          toast.success(t('attendees.checkOutSuccess'));
+          // Rafraîchir les stats
+          if (eventId) {
+            checkIn.refreshStats(eventId);
+          }
+        } catch (error: any) {
+          const errorMessage = error?.detail || error?.message || t('attendees.checkOutError');
+          toast.error(errorMessage);
+        }
+      },
+    });
+  };
+
+  const handleUndoCheckOut = (registration: Registration) => {
+    console.log('[AttendeesListScreen] Undo check out:', registration.attendee.first_name);
+    setConfirmDialog({
+      visible: true,
+      title: t('attendees.undoCheckOut'),
+      message: `${t('attendees.undoCheckOut')} ${registration.attendee.first_name} ${registration.attendee.last_name} ?`,
+      confirmText: t('common.confirm'),
+      confirmColor: theme.colors.warning[600],
+      icon: 'arrow-undo',
+      iconColor: theme.colors.warning[600],
+      onConfirm: async () => {
+        setConfirmDialog(prev => ({ ...prev, visible: false }));
+        // Fermer le swipeable ouvert
+        if (openSwipeableRef.current) {
+          openSwipeableRef.current.close();
+          openSwipeableRef.current = null;
+        }
+        
+        try {
+          await dispatch(undoCheckOutThunk({
+            registrationId: registration.id,
+            eventId: eventId!,
+          })).unwrap();
+          
+          toast.success('Check-out annulé');
+          // Rafraîchir les stats
+          if (eventId) {
+            checkIn.refreshStats(eventId);
+          }
+        } catch (error: any) {
+          const errorMessage = error?.detail || error?.message || 'Erreur lors de l\'annulation';
+          toast.error(errorMessage);
+        }
+      },
+    });
+  };
+
   const renderRightActions = (registration: Registration, progress: Animated.AnimatedInterpolation<number>) => {
     const translateX = progress.interpolate({
       inputRange: [0, 1],
-      outputRange: [200, 0],
+      outputRange: [250, 0],
     });
 
-    // Vérifier si le participant est déjà enregistré
+    // Vérifier l'état du participant
     const isCheckedIn = registration.status === 'checked-in' || registration.checked_in_at;
+    const isCheckedOut = registration.checked_out_at;
 
     return (
       <Animated.View
@@ -397,6 +472,7 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
           },
         ]}
       >
+        {/* Bouton Print - toujours visible */}
         <TouchableOpacity
           style={[
             styles.actionButton, 
@@ -407,24 +483,64 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
           ]}
           onPress={() => handlePrint(registration)}
         >
-          <Text style={[styles.actionText, { color: '#FFFFFF' }]}>Print</Text>
+          <Ionicons name="print" size={20} color="#FFFFFF" />
+          <Text style={[styles.actionText, { color: '#FFFFFF', fontSize: 11 }]}>Print</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.actionButton, 
-            { 
-              backgroundColor: isCheckedIn 
-                ? theme.colors.error[600] 
-                : theme.colors.success[600],
-              borderRadius: theme.radius.lg,
-            }
-          ]}
-          onPress={() => isCheckedIn ? handleUndoCheckIn(registration) : handleCheckIn(registration)}
-        >
-          <Text style={[styles.actionText, { color: '#FFFFFF' }]}>
-            {isCheckedIn ? 'Undo' : 'Check'}
-          </Text>
-        </TouchableOpacity>
+
+        {/* Bouton Check-in / Undo Check-in */}
+        {!isCheckedOut && (
+          <TouchableOpacity
+            style={[
+              styles.actionButton, 
+              { 
+                backgroundColor: isCheckedIn 
+                  ? theme.colors.error[600] 
+                  : theme.colors.success[600],
+                borderRadius: theme.radius.lg,
+              }
+            ]}
+            onPress={() => isCheckedIn ? handleUndoCheckIn(registration) : handleCheckIn(registration)}
+          >
+            <Ionicons name={isCheckedIn ? 'arrow-undo' : 'checkmark-circle'} size={20} color="#FFFFFF" />
+            <Text style={[styles.actionText, { color: '#FFFFFF', fontSize: 11 }]}>
+              {isCheckedIn ? 'Undo' : 'Check'}
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Bouton Check-out - visible seulement si checked-in et pas encore checked-out */}
+        {isCheckedIn && !isCheckedOut && (
+          <TouchableOpacity
+            style={[
+              styles.actionButton, 
+              { 
+                backgroundColor: theme.colors.brand[600],
+                borderRadius: theme.radius.lg,
+              }
+            ]}
+            onPress={() => handleCheckOut(registration)}
+          >
+            <Ionicons name="exit-outline" size={20} color="#FFFFFF" />
+            <Text style={[styles.actionText, { color: '#FFFFFF', fontSize: 11 }]}>Out</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Bouton Undo Check-out - visible seulement si checked-out */}
+        {isCheckedOut && (
+          <TouchableOpacity
+            style={[
+              styles.actionButton, 
+              { 
+                backgroundColor: theme.colors.warning[600],
+                borderRadius: theme.radius.lg,
+              }
+            ]}
+            onPress={() => handleUndoCheckOut(registration)}
+          >
+            <Ionicons name="arrow-undo" size={20} color="#FFFFFF" />
+            <Text style={[styles.actionText, { color: '#FFFFFF', fontSize: 11 }]}>Undo Out</Text>
+          </TouchableOpacity>
+        )}
       </Animated.View>
     );
   };
@@ -514,14 +630,18 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
                       borderWidth: 1,
                     },
                     {
-                      backgroundColor: item.status === 'approved' 
+                      backgroundColor: item.checked_out_at
+                        ? theme.colors.neutral[100]
+                        : item.status === 'approved' 
                         ? theme.colors.success[50] 
                         : item.status === 'pending' 
                         ? theme.colors.warning[50] 
                         : item.status === 'checked-in'
                         ? theme.colors.brand[50]
                         : theme.colors.error[50],
-                      borderColor: item.status === 'approved' 
+                      borderColor: item.checked_out_at
+                        ? theme.colors.neutral[500]
+                        : item.status === 'approved' 
                         ? theme.colors.success[500] 
                         : item.status === 'pending' 
                         ? theme.colors.warning[500] 
@@ -533,7 +653,9 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
                 >
                   <Text
                     style={{
-                      color: item.status === 'approved' 
+                      color: item.checked_out_at
+                        ? theme.colors.neutral[600]
+                        : item.status === 'approved' 
                         ? theme.colors.success[600] 
                         : item.status === 'pending' 
                         ? theme.colors.warning[600] 
@@ -544,7 +666,8 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
                       fontWeight: theme.fontWeight.medium,
                     }}
                   >
-                    {item.status === 'approved' ? 'Approuvé' : 
+                    {item.checked_out_at ? t('attendees.checkedOut') :
+                     item.status === 'approved' ? 'Approuvé' : 
                      item.status === 'pending' ? 'En attente' : 
                      item.status === 'checked-in' ? 'Présent' : 'Refusé'}
                   </Text>
@@ -638,14 +761,18 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
                       borderWidth: 1,
                     },
                     {
-                      backgroundColor: item.status === 'approved' 
+                      backgroundColor: item.checked_out_at
+                        ? theme.colors.neutral[100]
+                        : item.status === 'approved' 
                         ? theme.colors.success[50] 
                         : item.status === 'pending' 
                         ? theme.colors.warning[50] 
                         : item.status === 'checked-in'
                         ? theme.colors.brand[50]
                         : theme.colors.error[50],
-                      borderColor: item.status === 'approved' 
+                      borderColor: item.checked_out_at
+                        ? theme.colors.neutral[500]
+                        : item.status === 'approved' 
                         ? theme.colors.success[500] 
                         : item.status === 'pending' 
                         ? theme.colors.warning[500] 
@@ -657,7 +784,9 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
                 >
                   <Text
                     style={{
-                      color: item.status === 'approved' 
+                      color: item.checked_out_at
+                        ? theme.colors.neutral[600]
+                        : item.status === 'approved' 
                         ? theme.colors.success[600] 
                         : item.status === 'pending' 
                         ? theme.colors.warning[600] 
@@ -668,7 +797,8 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
                       fontWeight: theme.fontWeight.medium,
                     }}
                   >
-                    {item.status === 'approved' ? 'Approuvé' : 
+                    {item.checked_out_at ? t('attendees.checkedOut') :
+                     item.status === 'approved' ? 'Approuvé' : 
                      item.status === 'pending' ? 'En attente' : 
                      item.status === 'checked-in' ? 'Présent' : 'Refusé'}
                   </Text>
@@ -813,23 +943,24 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
       />
 
       {/* Barre de recherche avec toggle intégré */}
-      <View style={[styles.searchContainer, { paddingHorizontal: theme.spacing.lg, flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm }]}>
-        <View style={{ flex: 1 }}>
-          <SearchBar
-            placeholder={t('common.search')}
-            value={searchQuery}
-            onChangeText={handleSearchChange}
-            returnKeyType="search"
-            onSubmitEditing={() => {
-              // Déclencher la recherche immédiatement sur "Entrée"
-              if (searchTimeoutRef.current) {
-                clearTimeout(searchTimeoutRef.current);
-              }
-              setIsWaitingToSearch(false);
-              performSearch(searchQuery);
-            }}
-          />
-        </View>
+      <View style={[styles.searchContainer, { paddingHorizontal: theme.spacing.lg }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm }}>
+          <View style={{ flex: 1 }}>
+            <SearchBar
+              placeholder={t('common.search')}
+              value={searchQuery}
+              onChangeText={handleSearchChange}
+              returnKeyType="search"
+              onSubmitEditing={() => {
+                // Déclencher la recherche immédiatement sur "Entrée"
+                if (searchTimeoutRef.current) {
+                  clearTimeout(searchTimeoutRef.current);
+                }
+                setIsWaitingToSearch(false);
+                performSearch(searchQuery);
+              }}
+            />
+          </View>
         
         {/* Bouton filtre */}
         <TouchableOpacity
@@ -902,20 +1033,21 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
             color={showActions ? '#FFFFFF' : theme.colors.text.secondary} 
           />
         </TouchableOpacity>
+        </View>
         
-        {/* Indicateurs d'état de recherche */}
-        {isWaitingToSearch && (
-          <View style={styles.searchingIndicator}>
-            <Text style={[styles.searchWaitText, { color: theme.colors.text.secondary }]}>
-              Recherche...
-            </Text>
-          </View>
-        )}
-        {isSearching && !isWaitingToSearch && (
-          <View style={styles.searchingIndicator}>
-            <ActivityIndicator size="small" color={theme.colors.brand[600]} />
-          </View>
-        )}
+        {/* Indicateurs d'état de recherche sous la barre - hauteur fixe pour éviter le décalage */}
+        <View style={{ height: 20, justifyContent: 'center', marginTop: 0, paddingLeft: 4 }}>
+          {(isWaitingToSearch || isSearching) && (
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {isSearching && !isWaitingToSearch && (
+                <ActivityIndicator size="small" color={theme.colors.brand[600]} style={{ marginRight: 8 }} />
+              )}
+              <Text style={[styles.searchWaitText, { color: theme.colors.text.secondary }]}>
+                Recherche...
+              </Text>
+            </View>
+          )}
+        </View>
       </View>
 
       {/* Compteur et barre de progression dynamique */}
@@ -1004,7 +1136,6 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
           }}
           ListEmptyComponent={
             <EmptyState
-              icon="👥"
               title={t('attendees.noAttendees')}
               description={searchQuery ? t('attendees.noSearchResults') : t('attendees.noAttendeesDescription')}
               actionLabel={t('common.refresh')}
@@ -1053,10 +1184,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   searchContainer: {
-    paddingVertical: 12,
+    paddingTop: 8,
+    paddingBottom: 4,
   },
   progressContainer: {
-    paddingVertical: 12,
+    paddingBottom: 8,
   },
   progressBarBackground: {
     height: 8,
@@ -1128,12 +1260,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  searchingIndicator: {
-    position: 'absolute',
-    right: 12,
-    top: '50%',
-    transform: [{ translateY: -10 }],
   },
   searchWaitText: {
     fontSize: 12,

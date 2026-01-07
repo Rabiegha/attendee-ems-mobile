@@ -8,7 +8,7 @@ import { View, Text, TouchableOpacity, Alert } from 'react-native';
 export const BadgeConfigInfo: React.FC = () => {
   const showInfo = () => {
     Alert.alert(
-      '✅ Template de Badge Configuré',
+      'Template de Badge Configuré',
       'Un template de badge par défaut a été créé avec succès !\n\n' +
       '• Design : Dégradé bleu élégant\n' +
       '• Informations : Nom, email, type de participant\n' +
@@ -34,7 +34,7 @@ export const BadgeConfigInfo: React.FC = () => {
           fontWeight: '600',
           fontSize: 14
         }}>
-          ✅ Template de badge configuré avec succès
+          Template de badge configuré avec succès
         </Text>
         <Text style={{ 
           color: '#5a8e5a', 

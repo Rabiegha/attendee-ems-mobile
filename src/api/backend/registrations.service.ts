@@ -198,6 +198,74 @@ export const registrationsService = {
   },
 
   /**
+   * Check-out d'une registration (quand le participant quitte l'événement)
+   * @param registrationId - ID de la registration
+   * @param eventId - ID de l'événement (validation croisée obligatoire)
+   * @param location - Coordonnées GPS optionnelles
+   */
+  checkOut: async (
+    registrationId: string,
+    eventId: string,
+    location?: { lat: number; lng: number }
+  ): Promise<{ success: boolean; message: string; registration: Registration }> => {
+    try {
+      console.log('[RegistrationsService] Checking out registration:', { 
+        registrationId, 
+        eventId,
+        hasLocation: !!location 
+      });
+      
+      const response = await axiosClient.post(`/registrations/${registrationId}/check-out`, {
+        eventId,
+        checkoutLocation: location,
+      });
+      
+      console.log('[RegistrationsService] Check-out successful:', response.data.message);
+      return response.data;
+    } catch (error: any) {
+      console.error('[RegistrationsService] Check-out failed:', {
+        registrationId,
+        eventId,
+        error: error.response?.data || error.message,
+        status: error.response?.status,
+      });
+      throw error;
+    }
+  },
+
+  /**
+   * Annuler le check-out d'une registration
+   * @param registrationId - ID de la registration
+   * @param eventId - ID de l'événement (validation croisée obligatoire)
+   */
+  undoCheckOut: async (
+    registrationId: string,
+    eventId: string
+  ): Promise<{ success: boolean; message: string; registration: Registration }> => {
+    try {
+      console.log('[RegistrationsService] Undoing check-out for registration:', { 
+        registrationId, 
+        eventId
+      });
+      
+      const response = await axiosClient.post(`/registrations/${registrationId}/undo-check-out`, {
+        eventId,
+      });
+      
+      console.log('[RegistrationsService] Undo check-out successful:', response.data.message);
+      return response.data;
+    } catch (error: any) {
+      console.error('[RegistrationsService] Undo check-out failed:', {
+        registrationId,
+        eventId,
+        error: error.response?.data || error.message,
+        status: error.response?.status,
+      });
+      throw error;
+    }
+  },
+
+  /**
    * Créer une nouvelle registration
    */
   createRegistration: async (eventId: string, registrationData: any): Promise<Registration> => {

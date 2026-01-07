@@ -4,6 +4,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, Animated } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../theme/ThemeProvider';
 import { Button } from '../ui/Button';
 
@@ -16,7 +17,7 @@ interface ConfirmModalProps {
   confirmColor?: 'danger' | 'primary';
   onConfirm: () => void;
   onCancel: () => void;
-  icon?: string;
+  icon?: keyof typeof Ionicons.glyphMap;
 }
 
 export const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -28,7 +29,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   confirmColor = 'danger',
   onConfirm,
   onCancel,
-  icon = '⚠️',
+  icon = 'alert-circle-outline',
 }) => {
   const { theme } = useTheme();
   const scaleAnim = React.useRef(new Animated.Value(0)).current;
@@ -72,7 +73,11 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
         >
           {/* Icône */}
           <View style={styles.iconContainer}>
-            <Text style={styles.icon}>{icon}</Text>
+            <Ionicons 
+              name={icon} 
+              size={48} 
+              color={confirmColor === 'danger' ? theme.colors.error : theme.colors.brand[600]} 
+            />
           </View>
 
           {/* Titre */}

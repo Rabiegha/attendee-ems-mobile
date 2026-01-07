@@ -114,7 +114,7 @@ export const EventDashboardScreen: React.FC<EventDashboardScreenProps> = ({ rout
                 }
               ]}
             >
-              📅 {formatEventDate(event?.startDate)}
+              {formatEventDate(event?.startDate)}
             </Text>
           </View>
         </View>
