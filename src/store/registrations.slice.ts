@@ -229,7 +229,15 @@ const registrationsSlice = createSlice({
       const updatedRegistration = action.payload;
       const index = state.registrations.findIndex(reg => reg.id === updatedRegistration.id);
       if (index !== -1) {
-        state.registrations[index] = updatedRegistration;
+        // Fusionner avec les données existantes pour préserver les relations imbriquées
+        state.registrations[index] = {
+          ...state.registrations[index],
+          ...updatedRegistration,
+          // Préserver eventAttendeeType si non fourni dans la mise à jour
+          eventAttendeeType: updatedRegistration.eventAttendeeType || state.registrations[index].eventAttendeeType,
+          // Préserver attendee si non fourni dans la mise à jour
+          attendee: updatedRegistration.attendee || state.registrations[index].attendee,
+        };
         console.log('[RegistrationsSlice] Registration updated in store:', updatedRegistration.id);
       }
     },

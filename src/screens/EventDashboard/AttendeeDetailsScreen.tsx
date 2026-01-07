@@ -53,13 +53,19 @@ export const AttendeeDetailsScreen: React.FC<AttendeeDetailsScreenProps> = ({ na
   const attendee = currentRegistration.attendee;
 
   const getAttendeeTypeColor = () => {
-    return currentRegistration.eventAttendeeType?.attendeeType?.text_color_hex || 
+    // Utiliser la couleur spécifique à l'événement (peut être personnalisée)
+    return currentRegistration.eventAttendeeType?.text_color_hex ||
+           currentRegistration.eventAttendeeType?.color_hex || 
+           currentRegistration.eventAttendeeType?.attendeeType?.text_color_hex || 
            currentRegistration.eventAttendeeType?.attendeeType?.color_hex || 
            theme.colors.brand[600];
   };
 
   const getAttendeeTypeColorLight = () => {
-    const color = currentRegistration.eventAttendeeType?.attendeeType?.color_hex || theme.colors.brand[100];
+    // Utiliser la couleur spécifique à l'événement (peut être personnalisée)
+    const color = currentRegistration.eventAttendeeType?.color_hex ||
+                  currentRegistration.eventAttendeeType?.attendeeType?.color_hex || 
+                  theme.colors.brand[100];
     // Si la couleur est en format hex, ajouter de l'opacité
     if (color.startsWith('#')) {
       return color + '20'; // 20% d'opacité

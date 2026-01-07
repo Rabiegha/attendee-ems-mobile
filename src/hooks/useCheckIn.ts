@@ -19,18 +19,15 @@ export type CheckInStatus = 'idle' | 'printing' | 'checkin' | 'undoing' | 'succe
 export interface UseCheckInResult {
   // État du processus
   status: CheckInStatus;
-  isModalVisible: boolean;
   currentAttendee: Registration | null;
   errorMessage: string | null;
   progress: number; // Pourcentage de progression (0-100)
 
-  // Actions
-  printAndCheckIn: (registration: Registration) => Promise<void>;
-  printOnly: (registration: Registration) => Promise<void>;
-  checkInOnly: (registration: Registration) => Promise<void>;
-  undoCheckIn: (registration: Registration) => Promise<void>;
-  closeModal: () => void;
-  retryAction: () => Promise<void>;
+  // Actions avec callbacks pour confirmation et toast
+  printAndCheckIn: (registration: Registration, onSuccess?: (message: string) => void, onError?: (message: string) => void) => Promise<void>;
+  printOnly: (registration: Registration, onSuccess?: (message: string) => void, onError?: (message: string) => void) => Promise<void>;
+  checkInOnly: (registration: Registration, onSuccess?: (message: string) => void, onError?: (message: string) => void) => Promise<void>;
+  undoCheckIn: (registration: Registration, onSuccess?: (message: string) => void, onError?: (message: string) => void) => Promise<void>;
 
   // Statistiques dynamiques
   stats: {
@@ -45,11 +42,9 @@ export interface UseCheckInResult {
 export const useCheckIn = (): UseCheckInResult => {
   // État principal
   const [status, setStatus] = useState<CheckInStatus>('idle');
-  const [isModalVisible, setIsModalVisible] = useState(false);
   const [currentAttendee, setCurrentAttendee] = useState<Registration | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
-  const [lastAction, setLastAction] = useState<(() => Promise<void>) | null>(null);
 
   const dispatch = useAppDispatch();
 
@@ -154,27 +149,29 @@ export const useCheckIn = (): UseCheckInResult => {
     }
   }, []);
 
-  // Fonction utilitaire pour initialiser le modal
-  const initializeModal = useCallback((attendee: Registration) => {
+  // Fonction utilitaire pour initialiser l'état
+  const initializeState = useCallback((attendee: Registration) => {
     setCurrentAttendee(attendee);
     setErrorMessage(null);
     setProgress(0);
-    setIsModalVisible(true);
   }, []);
 
 
 
   // Fonction pour gérer l'impression seule
-  const printOnly = useCallback(async (registration: Registration) => {
+  const printOnly = useCallback(async (
+    registration: Registration,
+    onSuccess?: (message: string) => void,
+    onError?: (message: string) => void
+  ) => {
     console.log('[useCheckIn] 🖨️ Starting print process for:', {
       registrationId: registration.id,
       attendeeName: `${registration.attendee.first_name} ${registration.attendee.last_name}`,
       eventId: registration.event_id,
     });
 
-    initializeModal(registration);
+    initializeState(registration);
     setStatus('printing');
-    setLastAction(() => () => printOnly(registration));
 
     try {
       // 1. Vérifier si une imprimante est sélectionnée ou essayer de la charger
@@ -317,6 +314,10 @@ export const useCheckIn = (): UseCheckInResult => {
       setStatus('success');
       hapticSuccess();
       console.log('[useCheckIn] ✅ Print completed successfully for:', registration.attendee.first_name);
+      
+      if (onSuccess) {
+        onSuccess(`Badge imprimé pour ${registration.attendee.first_name} ${registration.attendee.last_name}`);
+      }
 
     } catch (error: any) {
       setStatus('error');
@@ -328,11 +329,19 @@ export const useCheckIn = (): UseCheckInResult => {
         registrationId: registration.id,
         stack: error.stack,
       });
+      
+      if (onError) {
+        onError(errorMsg);
+      }
     }
-  }, [initializeModal, ensurePrinterLoaded]);
+  }, [initializeState, ensurePrinterLoaded]);
 
   // Fonction pour gérer le check-in seul
-  const checkInOnly = useCallback(async (registration: Registration) => {
+  const checkInOnly = useCallback(async (
+    registration: Registration,
+    onSuccess?: (message: string) => void,
+    onError?: (message: string) => void
+  ) => {
     console.log('[useCheckIn] ✅ Starting check-in process for:', {
       registrationId: registration.id,
       attendeeName: `${registration.attendee.first_name} ${registration.attendee.last_name}`,
@@ -340,9 +349,8 @@ export const useCheckIn = (): UseCheckInResult => {
       alreadyCheckedIn: !!registration.checked_in_at,
     });
 
-    initializeModal(registration);
+    initializeState(registration);
     setStatus('checkin');
-    setLastAction(() => () => checkInOnly(registration));
 
     try {
       // Vérifier si déjà check-in
@@ -373,6 +381,10 @@ export const useCheckIn = (): UseCheckInResult => {
         console.log('[useCheckIn] 🔄 Refreshing stats...');
         await refreshStats(registration.event_id);
       }
+      
+      if (onSuccess) {
+        onSuccess(`${registration.attendee.first_name} ${registration.attendee.last_name} enregistré(e)`);
+      }
     } catch (error: any) {
       setStatus('error');
       hapticError();
@@ -384,11 +396,19 @@ export const useCheckIn = (): UseCheckInResult => {
         response: error.response?.data,
         stack: error.stack,
       });
+      
+      if (onError) {
+        onError(errorMsg);
+      }
     }
-  }, [initializeModal, refreshStats]);
+  }, [initializeState, refreshStats]);
 
   // Fonction pour annuler le check-in
-  const undoCheckIn = useCallback(async (registration: Registration) => {
+  const undoCheckIn = useCallback(async (
+    registration: Registration,
+    onSuccess?: (message: string) => void,
+    onError?: (message: string) => void
+  ) => {
     console.log('[useCheckIn] ↩️ Starting undo check-in process for:', {
       registrationId: registration.id,
       attendeeName: `${registration.attendee.first_name} ${registration.attendee.last_name}`,
@@ -396,9 +416,8 @@ export const useCheckIn = (): UseCheckInResult => {
       checkedInAt: registration.checked_in_at,
     });
 
-    initializeModal(registration);
+    initializeState(registration);
     setStatus('undoing');
-    setLastAction(() => () => undoCheckIn(registration));
 
     try {
       // Vérifier si vraiment check-in
@@ -429,6 +448,10 @@ export const useCheckIn = (): UseCheckInResult => {
         console.log('[useCheckIn] 🔄 Refreshing stats after undo...');
         await refreshStats(registration.event_id);
       }
+      
+      if (onSuccess) {
+        onSuccess(`Check-in annulé pour ${registration.attendee.first_name} ${registration.attendee.last_name}`);
+      }
     } catch (error: any) {
       setStatus('error');
       hapticError();
@@ -440,26 +463,33 @@ export const useCheckIn = (): UseCheckInResult => {
         response: error.response?.data,
         stack: error.stack,
       });
+      
+      if (onError) {
+        onError(errorMsg);
+      }
     }
-  }, [initializeModal, refreshStats]);
+  }, [initializeState, refreshStats]);
 
   // Fonction principale : imprimer ET faire le check-in
-  const printAndCheckIn = useCallback(async (registration: Registration) => {
+  const printAndCheckIn = useCallback(async (
+    registration: Registration,
+    onSuccess?: (message: string) => void,
+    onError?: (message: string) => void
+  ) => {
     console.log('[useCheckIn] 🔄 Starting print and check-in process for:', {
       registrationId: registration.id,
       attendeeName: `${registration.attendee.first_name} ${registration.attendee.last_name}`,
       eventId: registration.event_id,
     });
 
-    initializeModal(registration);
+    initializeState(registration);
     setStatus('printing');
-    setLastAction(() => () => printAndCheckIn(registration));
 
     try {
       // Vérifier si déjà check-in
       if (registration.checked_in_at) {
         console.log('[useCheckIn] ⚠️ Already checked in, printing only');
-        await printOnly(registration);
+        await printOnly(registration, onSuccess, onError);
         return;
       }
 
@@ -601,6 +631,10 @@ export const useCheckIn = (): UseCheckInResult => {
       setProgress(100);
       setStatus('success');
       console.log('[useCheckIn] ✅ Print and check-in completed successfully for:', registration.attendee.first_name);
+      
+      if (onSuccess) {
+        onSuccess(`${registration.attendee.first_name} ${registration.attendee.last_name} enregistré(e) et badge imprimé`);
+      }
 
     } catch (error: any) {
       setStatus('error');
@@ -611,32 +645,17 @@ export const useCheckIn = (): UseCheckInResult => {
         registrationId: registration.id,
         stack: error.stack,
       });
+      
+      if (onError) {
+        onError(errorMsg);
+      }
     }
-  }, [initializeModal, ensurePrinterLoaded, printOnly, refreshStats]);
-
-  // Fonction pour fermer le modal
-  const closeModal = useCallback(() => {
-    setIsModalVisible(false);
-    setCurrentAttendee(null);
-    setStatus('idle');
-    setErrorMessage(null);
-    setProgress(0);
-    setLastAction(null);
-  }, []);
-
-  // Fonction pour retry la dernière action
-  const retryAction = useCallback(async () => {
-    if (lastAction && currentAttendee) {
-      setErrorMessage(null);
-      await lastAction();
-    }
-  }, [lastAction, currentAttendee]);
+  }, [initializeState, ensurePrinterLoaded, printOnly, refreshStats]);
 
   // Mémoriser l'objet retourné pour éviter les re-rendus
   return useMemo(() => ({
     // État
     status,
-    isModalVisible,
     currentAttendee,
     errorMessage,
     progress,
@@ -646,15 +665,12 @@ export const useCheckIn = (): UseCheckInResult => {
     printOnly,
     checkInOnly,
     undoCheckIn,
-    closeModal,
-    retryAction,
 
     // Statistiques
     stats,
     refreshStats,
   }), [
     status,
-    isModalVisible,
     currentAttendee,
     errorMessage,
     progress,
@@ -662,8 +678,6 @@ export const useCheckIn = (): UseCheckInResult => {
     printOnly,
     checkInOnly,
     undoCheckIn,
-    closeModal,
-    retryAction,
     stats,
     refreshStats,
   ]);

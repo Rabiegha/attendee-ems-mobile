@@ -2,7 +2,7 @@
  * Écran d'ajout d'un participant avec formulaire dynamique
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,8 +11,10 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -44,14 +46,59 @@ export const AttendeeAddScreen: React.FC<AttendeeAddScreenProps> = ({ navigation
 
   // États du formulaire dynamique
   const [formData, setFormData] = useState<Record<string, any>>({});
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastFieldsUpdate, setLastFieldsUpdate] = useState<number>(0);
+  
+  // État pour la navigation en 2 étapes
+  const [currentStep, setCurrentStep] = useState<1 | 2>(1); // 1 = sélection type, 2 = formulaire
+  const [selectedAttendeeTypeId, setSelectedAttendeeTypeId] = useState<string | null>(null);
+
+  // Fonction pour charger/recharger les données
+  const loadFormData = useCallback(async () => {
+    if (eventId) {
+      console.log('[AttendeeAddScreen] Loading form data for event:', eventId);
+      await Promise.all([
+        dispatch(fetchEventAttendeeTypesThunk(eventId)),
+        dispatch(fetchEventRegistrationFieldsThunk(eventId))
+      ]);
+      // Forcer un re-render en mettant à jour le timestamp
+      setLastFieldsUpdate(Date.now());
+    }
+  }, [eventId, dispatch]);
 
   // Charger les types d'attendee et les champs du formulaire au montage
   useEffect(() => {
-    if (eventId) {
-      dispatch(fetchEventAttendeeTypesThunk(eventId));
-      dispatch(fetchEventRegistrationFieldsThunk(eventId));
-    }
-  }, [eventId, dispatch]);
+    loadFormData();
+  }, [loadFormData]);
+
+  // Recharger à chaque fois que l'écran devient actif (pour voir les modifications)
+  useFocusEffect(
+    useCallback(() => {
+      console.log('[AttendeeAddScreen] Screen focused - reloading form data');
+      loadFormData();
+    }, [loadFormData])
+  );
+
+  // Réinitialiser le formulaire quand les champs changent
+  useEffect(() => {
+    console.log('[AttendeeAddScreen] Fields updated, resetting form. Fields count:', currentEventRegistrationFields.length);
+    // Garder seulement les valeurs des champs qui existent toujours
+    const newFormData: Record<string, any> = {};
+    currentEventRegistrationFields.forEach(field => {
+      if (formData[field.id] !== undefined) {
+        newFormData[field.id] = formData[field.id];
+      }
+    });
+    setFormData(newFormData);
+  }, [currentEventRegistrationFields.length, lastFieldsUpdate]); // Dépendre du nombre de champs et du timestamp
+
+  // Pull-to-refresh handler
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    console.log('[AttendeeAddScreen] Pull-to-refresh triggered');
+    await loadFormData();
+    setRefreshing(false);
+  }, [loadFormData]);
 
   const handleInputChange = (fieldId: string, value: any) => {
     setFormData(prev => ({ ...prev, [fieldId]: value }));
@@ -72,6 +119,10 @@ export const AttendeeAddScreen: React.FC<AttendeeAddScreenProps> = ({ navigation
     if (!validateForm()) return;
     if (!eventId) {
       Alert.alert('Erreur', 'ID de l\'événement manquant');
+      return;
+    }
+    if (!selectedAttendeeTypeId) {
+      Alert.alert('Erreur', 'Type de participant non sélectionné');
       return;
     }
 
@@ -103,6 +154,7 @@ export const AttendeeAddScreen: React.FC<AttendeeAddScreenProps> = ({ navigation
 
       const payload = {
         attendee,
+        event_attendee_type_id: selectedAttendeeTypeId, // Ajouter le type sélectionné
         attendance_type: registrationData.attendance_type || 'onsite',
         source: 'mobile_app',
         ...registrationData,
@@ -196,37 +248,8 @@ export const AttendeeAddScreen: React.FC<AttendeeAddScreenProps> = ({ navigation
         );
 
       case 'attendee_type':
-        return (
-          <View key={field.id} style={{ marginBottom: theme.spacing.md }}>
-            <Text style={{
-              fontSize: theme.fontSize.sm,
-              color: theme.colors.text.secondary,
-              marginBottom: theme.spacing.xs,
-            }}>
-              {field.label}
-              {field.required && <Text style={{ color: '#EF4444' }}>*</Text>}
-            </Text>
-            {isLoadingAttendeeTypes ? (
-              <ActivityIndicator size="small" color="#007AFF" />
-            ) : (
-              <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false}
-                style={{ marginTop: theme.spacing.xs }}
-              >
-                {currentEventAttendeeTypes.map((type) => (
-                  <Button
-                    key={type.id}
-                    title={type.attendeeType.name}
-                    variant={value === type.id ? 'primary' : 'secondary'}
-                    onPress={() => handleInputChange(field.id, type.id)}
-                    style={{ marginRight: theme.spacing.xs }}
-                  />
-                ))}
-              </ScrollView>
-            )}
-          </View>
-        );
+        // Ce champ ne doit plus apparaître dans le formulaire, car le type est sélectionné en étape 1
+        return null;
 
       case 'email':
         return (
@@ -323,48 +346,159 @@ export const AttendeeAddScreen: React.FC<AttendeeAddScreenProps> = ({ navigation
         );
     }
   };
+
+  // Vue Étape 1 : Sélection du type d'attendee
+  const renderStep1 = () => {
+    return (
+      <ScrollView 
+        style={{ flex: 1 }}
+        contentContainerStyle={{ 
+          padding: theme.spacing.lg,
+          paddingBottom: 120,
+        }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.colors.brand[600]}
+            colors={[theme.colors.brand[600]]}
+          />
+        }
+      >
+        <Card>
+          <Text style={{
+            fontSize: theme.fontSize.xl,
+            fontWeight: '600',
+            color: theme.colors.text.primary,
+            marginBottom: theme.spacing.lg,
+          }}>
+            Choisir le type
+          </Text>
+
+          {isLoadingAttendeeTypes ? (
+            <ActivityIndicator size="large" color={theme.colors.brand[600]} />
+          ) : currentEventAttendeeTypes.length === 0 ? (
+            <Text style={{ color: theme.colors.text.secondary, textAlign: 'center' }}>
+              Aucun type de participant configuré pour cet événement
+            </Text>
+          ) : (
+            <View style={{ gap: theme.spacing.md }}>
+              {currentEventAttendeeTypes.map((type) => {
+                const bgColor = type.color_hex || type.attendeeType.color_hex || theme.colors.neutral[200];
+                
+                return (
+                  <Button
+                    key={type.id}
+                    title={type.attendeeType.name}
+                    onPress={() => {
+                      setSelectedAttendeeTypeId(type.id);
+                      setCurrentStep(2); // Passer directement au formulaire
+                    }}
+                    variant="secondary"
+                    style={{
+                      borderWidth: 2,
+                      borderColor: bgColor,
+                      height: 70, // Remplacer minHeight par height pour éviter les conflits
+                    }}
+                    textStyle={{
+                      fontSize: theme.fontSize.xl,
+                      fontWeight: '600',
+                    }}
+                  />
+                );
+              })}
+            </View>
+          )}
+        </Card>
+      </ScrollView>
+    );
+  };
+
+  // Vue Étape 2 : Formulaire
+  const renderStep2 = () => {
+    const selectedType = currentEventAttendeeTypes.find(t => t.id === selectedAttendeeTypeId);
+    
+    return (
+      <ScrollView 
+        style={{ flex: 1 }}
+        contentContainerStyle={{ 
+          padding: theme.spacing.lg,
+          paddingBottom: 120,
+        }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.colors.brand[600]}
+            colors={[theme.colors.brand[600]]}
+          />
+        }
+      >
+        {/* Indicateur du type sélectionné */}
+        <Card style={{ marginBottom: theme.spacing.lg }}>
+          <Text style={{
+            fontSize: theme.fontSize.sm,
+            color: theme.colors.text.secondary,
+            marginBottom: theme.spacing.xs,
+          }}>
+            Type :
+          </Text>
+          <Text style={{
+            fontSize: theme.fontSize.lg,
+            fontWeight: '600',
+            color: theme.colors.text.primary,
+          }}>
+            {selectedType?.attendeeType.name}
+          </Text>
+        </Card>
+
+        <Card>
+          {currentEventRegistrationFields.length === 0 ? (
+            <Text style={{ color: theme.colors.text.secondary, textAlign: 'center' }}>
+              Aucun champ de formulaire configuré pour cet événement
+            </Text>
+          ) : (
+            currentEventRegistrationFields.map(renderField)
+          )}
+        </Card>
+
+        <Button
+          title={isCreating ? 'Ajout en cours...' : 'Ajouter le participant'}
+          onPress={handleSubmit}
+          disabled={isCreating}
+          style={{ marginTop: theme.spacing.lg }}
+        />
+      </ScrollView>
+    );
+  };
+  
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
       edges={['top', 'left', 'right', 'bottom']}
     >
       <Header
-        title="Ajouter un participant"
-        onBack={() => navigation.goBack()}
+        title={currentStep === 1 ? "Sélectionner le type" : "Remplir le formulaire"}
+        onBack={() => {
+          if (currentStep === 2) {
+            // Si on est à l'étape 2, revenir à l'étape 1
+            setCurrentStep(1);
+          } else {
+            // Sinon, retour à l'écran précédent
+            navigation.goBack();
+          }
+        }}
       />
       
-      {isLoadingRegistrationFields ? (
+      {isLoadingRegistrationFields || isLoadingAttendeeTypes ? (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator size="large" color="#007AFF" />
           <Text style={{ marginTop: theme.spacing.md, color: theme.colors.text.secondary }}>
-            Chargement du formulaire...
+            Chargement...
           </Text>
         </View>
       ) : (
-        <ScrollView 
-          style={{ flex: 1 }}
-          contentContainerStyle={{ 
-            padding: theme.spacing.lg,
-            paddingBottom: 120,
-          }}
-        >
-          <Card>
-            {currentEventRegistrationFields.length === 0 ? (
-              <Text style={{ color: theme.colors.text.secondary, textAlign: 'center' }}>
-                Aucun champ de formulaire configuré pour cet événement
-              </Text>
-            ) : (
-              currentEventRegistrationFields.map(renderField)
-            )}
-          </Card>
-
-          <Button
-            title={isCreating ? 'Ajout en cours...' : 'Ajouter le participant'}
-            onPress={handleSubmit}
-            disabled={isCreating}
-            style={{ marginTop: theme.spacing.lg }}
-          />
-        </ScrollView>
+        currentStep === 1 ? renderStep1() : renderStep2()
       )}
     </SafeAreaView>
   );

@@ -2,11 +2,13 @@
  * Écran Guest List avec bouton vers la liste des participants
  */
 
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useEffect, useCallback, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchRegistrationsThunk } from '../../store/registrations.slice';
+import { fetchEventByIdThunk } from '../../store/events.slice';
 import { Card } from '../../components/ui/Card';
 
 interface GuestListScreenProps {
@@ -19,6 +21,7 @@ export const GuestListScreen: React.FC<GuestListScreenProps> = ({ navigation, ro
   const dispatch = useAppDispatch();
   const { registrations, pagination } = useAppSelector((state) => state.registrations);
   const { currentEvent } = useAppSelector((state) => state.events);
+  const [refreshing, setRefreshing] = useState(false);
 
   const eventId = route.params?.eventId || currentEvent?.id;
   
@@ -32,11 +35,37 @@ export const GuestListScreen: React.FC<GuestListScreenProps> = ({ navigation, ro
     checkedInPercentage: 0,
   };
 
-  useEffect(() => {
+  // Fonction pour charger/recharger les données
+  const loadData = useCallback(async () => {
     if (eventId) {
-      dispatch(fetchRegistrationsThunk({ eventId }));
+      console.log('[GuestListScreen] Loading data for event:', eventId);
+      await Promise.all([
+        dispatch(fetchRegistrationsThunk({ eventId })),
+        dispatch(fetchEventByIdThunk(eventId)) // Recharger l'événement pour avoir les stats à jour
+      ]);
     }
-  }, [eventId]);
+  }, [eventId, dispatch]);
+
+  // Chargement initial
+  useEffect(() => {
+    loadData();
+  }, [eventId]); // Charger seulement quand eventId change
+
+  // Recharger à chaque fois que l'écran devient actif (pour voir les modifications)
+  useFocusEffect(
+    useCallback(() => {
+      console.log('[GuestListScreen] Screen focused - reloading data');
+      loadData();
+    }, [loadData])
+  );
+
+  // Pull-to-refresh handler
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    console.log('[GuestListScreen] Pull-to-refresh triggered');
+    await loadData();
+    setRefreshing(false);
+  }, [loadData]);
 
   const handleNavigateToList = () => {
     navigation.navigate('AttendeesList', { eventId });
@@ -50,6 +79,14 @@ export const GuestListScreen: React.FC<GuestListScreenProps> = ({ navigation, ro
           paddingBottom: 120,
         }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.colors.brand[600]}
+            colors={[theme.colors.brand[600]]}
+          />
+        }
       >
         {/* Card Liste des participants */}
         <TouchableOpacity onPress={handleNavigateToList} activeOpacity={0.7}>

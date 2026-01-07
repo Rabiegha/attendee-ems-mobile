@@ -18,6 +18,7 @@ interface ButtonProps {
   loading?: boolean;
   className?: string;
   style?: ViewStyle;
+  textStyle?: TextStyle;
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -29,6 +30,7 @@ export const Button: React.FC<ButtonProps> = ({
   loading = false,
   className,
   style,
+  textStyle,
 }) => {
   const { theme } = useTheme();
 
@@ -114,7 +116,7 @@ export const Button: React.FC<ButtonProps> = ({
           color={variant === 'primary' || variant === 'destructive' ? '#FFFFFF' : theme.colors.brand[600]}
         />
       ) : (
-        <Text style={getTextStyle()}>{title}</Text>
+        <Text style={[getTextStyle(), textStyle]}>{title}</Text>
       )}
     </TouchableOpacity>
   );

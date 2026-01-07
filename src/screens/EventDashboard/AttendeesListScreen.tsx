@@ -14,11 +14,14 @@ import {
   Dimensions,
   Modal,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchRegistrationsThunk, fetchMoreRegistrationsThunk } from '../../store/registrations.slice';
+import { fetchEventAttendeeTypesThunk } from '../../store/events.slice';
 import { Registration } from '../../types/attendee';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { Header } from '../../components/ui/Header';
@@ -26,7 +29,9 @@ import { HighlightedText } from '../../components/ui/HighlightedText';
 import { Swipeable } from 'react-native-gesture-handler';
 import { APP_CONFIG } from '../../config/app.config';
 import { useCheckIn } from '../../hooks/useCheckIn';
-import { CheckInModal } from '../../components/modals/CheckInModal';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { FilterModal, FilterOptions } from '../../components/modals/FilterModal';
+import { useToast } from '../../contexts/ToastContext';
 import LottieView from 'lottie-react-native';
 import { Image } from 'react-native';
 import Icons from '../../assets/icons';
@@ -47,7 +52,7 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
   const { theme } = useTheme();
   const dispatch = useAppDispatch();
   const { registrations, isLoading, isLoadingMore, hasMore, pagination } = useAppSelector((state) => state.registrations);
-  const { currentEvent } = useAppSelector((state) => state.events);
+  const { currentEvent, currentEventAttendeeTypes } = useAppSelector((state) => state.events);
   const insets = useSafeAreaInsets();
 
   const eventId = route.params?.eventId || currentEvent?.id;
@@ -64,31 +69,110 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [isWaitingToSearch, setIsWaitingToSearch] = useState(false);
+  const [isUserInteracting, setIsUserInteracting] = useState(false); // Nouveau: suivre les interactions
+  const [showActions, setShowActions] = useState(true); // Par défaut activé pour voir les changements
+  const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
+  const [filters, setFilters] = useState<FilterOptions>({
+    attendeeTypeIds: [],
+    statuses: [],
+    checkedIn: 'all',
+  });
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasUserInteracted = useRef(false);
 
-  // État pour le modal d'impression
-  const [isPrintModalVisible, setIsPrintModalVisible] = useState(false);
-  const [printingStatus, setPrintingStatus] = useState<'idle' | 'printing' | 'success' | 'error'>('idle');
-  const [currentPrintingAttendee, setCurrentPrintingAttendee] = useState<Registration | null>(null);
+  // Charger l'état du toggle depuis AsyncStorage au montage
+  useEffect(() => {
+    const loadShowActionsState = async () => {
+      try {
+        const savedState = await AsyncStorage.getItem('showActions');
+        if (savedState !== null) {
+          setShowActions(JSON.parse(savedState));
+        }
+      } catch (error) {
+        console.error('[AttendeesListScreen] Error loading showActions state:', error);
+      }
+    };
+    loadShowActionsState();
+  }, []);
+
+  // Charger les types de participants pour l'événement
+  useEffect(() => {
+    if (eventId) {
+      console.log('[AttendeesListScreen] Loading attendee types for event:', eventId);
+      dispatch(fetchEventAttendeeTypesThunk(eventId));
+    }
+  }, [eventId, dispatch]);
+
+  // Sauvegarder l'état du toggle dans AsyncStorage quand il change
+  const handleToggleActions = useCallback(async () => {
+    const newState = !showActions;
+    setShowActions(newState);
+    try {
+      await AsyncStorage.setItem('showActions', JSON.stringify(newState));
+    } catch (error) {
+      console.error('[AttendeesListScreen] Error saving showActions state:', error);
+    }
+  }, [showActions]);
+
+  // Handler pour appliquer les filtres
+  const handleApplyFilters = useCallback((newFilters: FilterOptions) => {
+    setFilters(newFilters);
+    performSearch(searchQuery, newFilters);
+  }, [searchQuery, performSearch]);
 
   // Hook centralisé pour check-in et impression
   const checkIn = useCheckIn();
+  const toast = useToast();
+
+  // État pour le dialog de confirmation
+  const [confirmDialog, setConfirmDialog] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    confirmText: string;
+    confirmColor: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    iconColor: string;
+    onConfirm: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirmer',
+    confirmColor: theme.colors.brand[600],
+    icon: 'checkmark-circle',
+    iconColor: theme.colors.brand[600],
+    onConfirm: () => {},
+  });
   
   // Fonction de recherche avec debounce manuel
-  const performSearch = useCallback((query: string) => {
+  const performSearch = useCallback((query: string, currentFilters?: FilterOptions) => {
     if (eventId) {
       console.log('[AttendeesListScreen] Search query changed:', query);
       setIsSearching(true);  // Démarrer le loading
       setIsWaitingToSearch(false); // Arrêter l'attente
-      dispatch(fetchRegistrationsThunk({ 
+      
+      const filtersToUse = currentFilters || filters;
+      const params: any = { 
         eventId, 
         page: 1, 
         search: query
-        // Supprimer le filtre par statut pour voir tous les participants
-      }));
+      };
+      
+      // Ajouter les filtres s'ils sont actifs
+      // Note: Le backend n'accepte qu'un seul attendeeTypeId, on prend le premier
+      if (filtersToUse.attendeeTypeIds.length > 0) {
+        params.attendeeTypeId = filtersToUse.attendeeTypeIds[0];
+      }
+      // Filtrer par statut (le backend accepte les valeurs: approved, pending, rejected, checked-in)
+      if (filtersToUse.statuses.length > 0) {
+        params.status = filtersToUse.statuses[0]; // Le backend n'accepte qu'un statut
+      }
+      // Pour checkedIn, on doit filtrer côté client car le backend n'a pas ce paramètre
+      
+      dispatch(fetchRegistrationsThunk(params));
     }
-  }, [eventId, dispatch]);
+  }, [eventId, dispatch, filters]);
 
   // Handler pour les changements de recherche
   const handleSearchChange = useCallback((query: string) => {
@@ -153,50 +237,39 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
     isSearching,
   });
 
-  // Chargement initial seulement si eventId change
-  useEffect(() => {
+  // Chargement initial et rechargement complet
+  const loadAllData = useCallback(() => {
     if (eventId) {
-      console.log('[AttendeesListScreen] Initial load for eventId:', eventId);
-      // Chargement initial des registrations sans recherche
-      dispatch(fetchRegistrationsThunk({ 
+      console.log('[AttendeesListScreen] Loading all data for eventId:', eventId);
+      const params: any = { 
         eventId, 
         page: 1, 
-        search: '' // Pas de recherche au démarrage
-        // Supprimer le filtre par statut pour voir tous les participants
-      }));
-    }
-  }, [eventId, dispatch]);
-
-  // Effet séparé pour charger les statistiques
-  useEffect(() => {
-    if (eventId) {
-      console.log('[AttendeesListScreen] Loading stats for eventId:', eventId);
+        search: searchQuery
+      };
+      
+      // Ajouter les filtres (backend n'accepte qu'un seul attendeeTypeId et status)
+      if (filters.attendeeTypeIds.length > 0) {
+        params.attendeeTypeId = filters.attendeeTypeIds[0];
+      }
+      if (filters.statuses.length > 0) {
+        params.status = filters.statuses[0];
+      }
+      // checkedIn sera filtré côté client
+      
+      dispatch(fetchRegistrationsThunk(params));
       checkIn.refreshStats(eventId);
-    } else {
-      console.warn('[AttendeesListScreen] No eventId available for stats');
     }
-  }, [eventId]); // Ne pas inclure checkIn.refreshStats comme dépendance
+  }, [eventId, searchQuery, filters, dispatch, checkIn]);
+
+  // Chargement initial
+  useEffect(() => {
+    loadAllData();
+  }, [eventId]); // Charger seulement quand eventId change
 
   const loadRegistrations = useCallback(() => {
-    if (eventId) {
-      console.log('[AttendeesListScreen] Manual reload for eventId:', eventId);
-      dispatch(fetchRegistrationsThunk({ 
-        eventId, 
-        page: 1, 
-        search: searchQuery // Utiliser la recherche actuelle
-        // Supprimer le filtre par statut pour voir tous les participants
-      }));
-    } else {
-      console.warn('[AttendeesListScreen] No eventId available!');
-    }
-  }, [eventId, searchQuery, dispatch]);
-
-  // Fonction pour fermer le modal d'impression
-  const closePrintModal = useCallback(() => {
-    setIsPrintModalVisible(false);
-    setPrintingStatus('idle');
-    setCurrentPrintingAttendee(null);
-  }, []);
+    console.log('[AttendeesListScreen] Manual reload triggered');
+    loadAllData();
+  }, [loadAllData]);
 
   const handleLoadMore = () => {
     console.log('[AttendeesListScreen] handleLoadMore called', {
@@ -229,18 +302,80 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
 
   const handlePrint = (registration: Registration) => {
     console.log('Print and check-in for:', registration.attendee.first_name);
-    // Le bouton print fait maintenant print + check-in
-    checkIn.printAndCheckIn(registration);
+    setConfirmDialog({
+      visible: true,
+      title: 'Imprimer le badge',
+      message: `Imprimer et enregistrer ${registration.attendee.first_name} ${registration.attendee.last_name} ?`,
+      confirmText: 'Imprimer',
+      confirmColor: theme.colors.neutral[950],
+      icon: 'print',
+      iconColor: theme.colors.neutral[700],
+      onConfirm: () => {
+        setConfirmDialog(prev => ({ ...prev, visible: false }));
+        // Fermer le swipeable ouvert
+        if (openSwipeableRef.current) {
+          openSwipeableRef.current.close();
+          openSwipeableRef.current = null;
+        }
+        checkIn.printAndCheckIn(
+          registration,
+          (message) => toast.success(message),
+          (message) => toast.error(message)
+        );
+      },
+    });
   };
 
   const handleCheckIn = (registration: Registration) => {
     console.log('Check in only:', registration.attendee.first_name);
-    checkIn.checkInOnly(registration);
+    setConfirmDialog({
+      visible: true,
+      title: 'Enregistrer',
+      message: `Enregistrer ${registration.attendee.first_name} ${registration.attendee.last_name} comme présent(e) ?`,
+      confirmText: 'Enregistrer',
+      confirmColor: theme.colors.success[600],
+      icon: 'checkmark-circle',
+      iconColor: theme.colors.success[600],
+      onConfirm: () => {
+        setConfirmDialog(prev => ({ ...prev, visible: false }));
+        // Fermer le swipeable ouvert
+        if (openSwipeableRef.current) {
+          openSwipeableRef.current.close();
+          openSwipeableRef.current = null;
+        }
+        checkIn.checkInOnly(
+          registration,
+          (message) => toast.success(message),
+          (message) => toast.error(message)
+        );
+      },
+    });
   };
 
   const handleUndoCheckIn = (registration: Registration) => {
     console.log('Undo check in:', registration.attendee.first_name);
-    checkIn.undoCheckIn(registration);
+    setConfirmDialog({
+      visible: true,
+      title: 'Annuler l\'enregistrement',
+      message: `Annuler l'enregistrement de ${registration.attendee.first_name} ${registration.attendee.last_name} ?`,
+      confirmText: 'Confirmer',
+      confirmColor: theme.colors.error[600],
+      icon: 'arrow-undo',
+      iconColor: theme.colors.error[600],
+      onConfirm: () => {
+        setConfirmDialog(prev => ({ ...prev, visible: false }));
+        // Fermer le swipeable ouvert
+        if (openSwipeableRef.current) {
+          openSwipeableRef.current.close();
+          openSwipeableRef.current = null;
+        }
+        checkIn.undoCheckIn(
+          registration,
+          (message) => toast.success(message),
+          (message) => toast.error(message)
+        );
+      },
+    });
   };
 
   const renderRightActions = (registration: Registration, progress: Animated.AnimatedInterpolation<number>) => {
@@ -295,148 +430,356 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
   };
 
   const getAttendeeTypeColor = (registration: Registration) => {
-    // Utiliser la couleur qui vient du backend
-    return registration.eventAttendeeType?.attendeeType?.color_hex || 
+    // Utiliser la couleur spécifique à l'événement (peut être personnalisée)
+    // Fallback sur la couleur globale du type si pas de couleur spécifique
+    return registration.eventAttendeeType?.color_hex || 
+           registration.eventAttendeeType?.attendeeType?.color_hex || 
            theme.colors.neutral[400];
   };
 
   const renderRegistrationItem = ({ item }: { item: Registration }) => {
-    let swipeableRef: Swipeable | null = null;
+    const isCheckedIn = item.status === 'checked-in' || item.checked_in_at;
 
-    const handleSwipeableWillOpen = () => {
-      // Fermer le swipeable précédemment ouvert dès qu'on commence à swiper un nouveau
-      if (openSwipeableRef.current && openSwipeableRef.current !== swipeableRef) {
-        openSwipeableRef.current.close();
-      }
-      // Garder la référence du nouveau swipeable en cours d'ouverture
-      openSwipeableRef.current = swipeableRef;
-    };
+    // Si showActions est false, utiliser le swipe classique
+    if (!showActions) {
+      let swipeableRef: Swipeable | null = null;
 
-    return (
-      <Swipeable
-        ref={(ref) => { swipeableRef = ref; }}
-        renderRightActions={(progress) => renderRightActions(item, progress)}
-        overshootRight={false}
-        onSwipeableWillOpen={handleSwipeableWillOpen}
-      >
-        <TouchableOpacity
-          style={[
-            styles.registrationItem,
-            {
-              backgroundColor: theme.colors.card,
-              borderRadius: theme.radius.lg,
-              marginBottom: theme.spacing.sm,
-            },
-          ]}
-          onPress={() => handleRegistrationPress(item)}
-          activeOpacity={0.7}
+      const handleSwipeableWillOpen = () => {
+        setIsUserInteracting(true);
+        if (openSwipeableRef.current && openSwipeableRef.current !== swipeableRef) {
+          openSwipeableRef.current.close();
+        }
+        openSwipeableRef.current = swipeableRef;
+      };
+
+      const handleSwipeableClose = () => {
+        setIsUserInteracting(false);
+        openSwipeableRef.current = null;
+      };
+
+      return (
+        <Swipeable
+          ref={(ref) => { swipeableRef = ref; }}
+          renderRightActions={(progress) => renderRightActions(item, progress)}
+          overshootRight={false}
+          onSwipeableWillOpen={handleSwipeableWillOpen}
+          onSwipeableClose={handleSwipeableClose}
         >
-          {/* Barre colorée inclinée sur le côté gauche */}
-          <View
+          <TouchableOpacity
             style={[
-              styles.colorStripe,
-              { backgroundColor: getAttendeeTypeColor(item) },
+              styles.registrationItem,
+              {
+                backgroundColor: theme.colors.card,
+                borderRadius: theme.radius.lg,
+                marginBottom: theme.spacing.sm,
+              },
             ]}
-          />
-          
-          <View style={styles.registrationContent}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <HighlightedText
-                text={`${item.attendee.first_name} ${item.attendee.last_name}`}
-                searchQuery={searchQuery}
-                style={{
-                  fontSize: theme.fontSize.base,
-                  fontWeight: theme.fontWeight.medium,
-                  color: theme.colors.text.primary,
-                  flex: 1,
-                }}
-                highlightColor={theme.colors.brand[100]}
-                highlightStyle={{
-                  backgroundColor: theme.colors.brand[100],
-                  fontWeight: theme.fontWeight.bold,
-                  color: theme.colors.brand[700],
-                }}
-              />
-              
-              {/* Badge de statut */}
-              <View
-                style={[
-                  {
-                    paddingHorizontal: 8,
-                    paddingVertical: 4,
-                    borderRadius: 12,
-                    borderWidth: 1,
-                  },
-                  {
-                    backgroundColor: item.status === 'approved' 
-                      ? theme.colors.success[50] 
-                      : item.status === 'pending' 
-                      ? theme.colors.warning[50] 
-                      : item.status === 'checked-in'
-                      ? theme.colors.brand[50]
-                      : theme.colors.error[50],
-                    borderColor: item.status === 'approved' 
-                      ? theme.colors.success[500] 
-                      : item.status === 'pending' 
-                      ? theme.colors.warning[500] 
-                      : item.status === 'checked-in'
-                      ? theme.colors.brand[500]
-                      : theme.colors.error[500],
-                  },
-                ]}
-              >
-                <Text
-                  style={{
-                    color: item.status === 'approved' 
-                      ? theme.colors.success[600] 
-                      : item.status === 'pending' 
-                      ? theme.colors.warning[600] 
-                      : item.status === 'checked-in'
-                      ? theme.colors.brand[600]
-                      : theme.colors.error[600],
-                    fontSize: theme.fontSize.xs,
-                    fontWeight: theme.fontWeight.medium,
-                  }}
-                >
-                  {item.status === 'approved' ? 'Approuvé' : 
-                   item.status === 'pending' ? 'En attente' : 
-                   item.status === 'checked-in' ? 'Présent' : 'Refusé'}
-                </Text>
-              </View>
-            </View>
+            onPress={() => handleRegistrationPress(item)}
+            activeOpacity={0.7}
+          >
+            {/* Barre colorée inclinée sur le côté gauche */}
+            <View
+              style={[
+                styles.colorStripe,
+                { backgroundColor: getAttendeeTypeColor(item) },
+              ]}
+            />
             
-            {item.attendee.company && (
-              <HighlightedText
-                text={item.attendee.company}
-                searchQuery={searchQuery}
-                style={{
-                  fontSize: theme.fontSize.sm,
-                  color: theme.colors.text.secondary,
-                  marginTop: 2,
-                }}
-                highlightColor={theme.colors.brand[100]}
-                highlightStyle={{
-                  backgroundColor: theme.colors.brand[100],
-                  fontWeight: theme.fontWeight.bold,
-                  color: theme.colors.brand[700],
-                }}
-              />
-            )}
-          </View>
-
-          {/* Icône checked-in */}
-          {(item.status === 'checked-in' || item.checked_in_at) && (
-            <View style={styles.checkedInIconContainer}>
-              <Image
-                source={Icons.Accepted}
-                style={styles.checkedInIcon}
-                resizeMode="contain"
-              />
+            <View style={styles.registrationContent}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <HighlightedText
+                  text={`${item.attendee.first_name} ${item.attendee.last_name}`}
+                  searchQuery={searchQuery}
+                  style={{
+                    fontSize: theme.fontSize.base,
+                    fontWeight: theme.fontWeight.medium,
+                    color: theme.colors.text.primary,
+                    flex: 1,
+                  }}
+                  highlightColor={theme.colors.brand[100]}
+                  highlightStyle={{
+                    backgroundColor: theme.colors.brand[100],
+                    fontWeight: theme.fontWeight.bold,
+                    color: theme.colors.brand[700],
+                  }}
+                />
+                
+                {/* Badge de statut */}
+                <View
+                  style={[
+                    {
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                      borderRadius: 12,
+                      borderWidth: 1,
+                    },
+                    {
+                      backgroundColor: item.status === 'approved' 
+                        ? theme.colors.success[50] 
+                        : item.status === 'pending' 
+                        ? theme.colors.warning[50] 
+                        : item.status === 'checked-in'
+                        ? theme.colors.brand[50]
+                        : theme.colors.error[50],
+                      borderColor: item.status === 'approved' 
+                        ? theme.colors.success[500] 
+                        : item.status === 'pending' 
+                        ? theme.colors.warning[500] 
+                        : item.status === 'checked-in'
+                        ? theme.colors.brand[500]
+                        : theme.colors.error[500],
+                    },
+                  ]}
+                >
+                  <Text
+                    style={{
+                      color: item.status === 'approved' 
+                        ? theme.colors.success[600] 
+                        : item.status === 'pending' 
+                        ? theme.colors.warning[600] 
+                        : item.status === 'checked-in'
+                        ? theme.colors.brand[600]
+                        : theme.colors.error[600],
+                      fontSize: theme.fontSize.xs,
+                      fontWeight: theme.fontWeight.medium,
+                    }}
+                  >
+                    {item.status === 'approved' ? 'Approuvé' : 
+                     item.status === 'pending' ? 'En attente' : 
+                     item.status === 'checked-in' ? 'Présent' : 'Refusé'}
+                  </Text>
+                </View>
+              </View>
+              
+              {item.attendee.company && (
+                <HighlightedText
+                  text={item.attendee.company}
+                  searchQuery={searchQuery}
+                  style={{
+                    fontSize: theme.fontSize.sm,
+                    color: theme.colors.text.secondary,
+                    marginTop: 2,
+                  }}
+                  highlightColor={theme.colors.brand[100]}
+                  highlightStyle={{
+                    backgroundColor: theme.colors.brand[100],
+                    fontWeight: theme.fontWeight.bold,
+                    color: theme.colors.brand[700],
+                  }}
+                />
+              )}
             </View>
-          )}
+
+            {/* Icône checked-in */}
+            {(item.status === 'checked-in' || item.checked_in_at) && (
+              <View style={styles.checkedInIconContainer}>
+                <Image
+                  source={Icons.Accepted}
+                  style={styles.checkedInIcon}
+                  resizeMode="contain"
+                />
+              </View>
+            )}
+            
+          </TouchableOpacity>
+        </Swipeable>
+      );
+    }
+
+    // Si showActions est true, afficher les boutons en colonne sous le contenu
+    return (
+      <TouchableOpacity
+        style={[
+          styles.registrationItem,
+          {
+            backgroundColor: theme.colors.card,
+            borderRadius: theme.radius.lg,
+            marginBottom: theme.spacing.sm,
+          },
+        ]}
+        onPress={() => handleRegistrationPress(item)}
+        activeOpacity={0.7}
+      >
+        {/* Barre colorée inclinée sur le côté gauche */}
+        <View
+          style={[
+            styles.colorStripe,
+            { backgroundColor: getAttendeeTypeColor(item) },
+          ]}
+        />
+        
+        <View style={{ flex: 1, flexDirection: 'column' }}>
+            <View style={[styles.registrationContent, { paddingBottom: theme.spacing.lg }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <HighlightedText
+                  text={`${item.attendee.first_name} ${item.attendee.last_name}`}
+                  searchQuery={searchQuery}
+                  style={{
+                    fontSize: theme.fontSize.base,
+                    fontWeight: theme.fontWeight.medium,
+                    color: theme.colors.text.primary,
+                    flex: 1,
+                  }}
+                  highlightColor={theme.colors.brand[100]}
+                  highlightStyle={{
+                    backgroundColor: theme.colors.brand[100],
+                    fontWeight: theme.fontWeight.bold,
+                    color: theme.colors.brand[700],
+                  }}
+                />
+                
+                {/* Badge de statut */}
+                <View
+                  style={[
+                    {
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                      borderRadius: 12,
+                      borderWidth: 1,
+                    },
+                    {
+                      backgroundColor: item.status === 'approved' 
+                        ? theme.colors.success[50] 
+                        : item.status === 'pending' 
+                        ? theme.colors.warning[50] 
+                        : item.status === 'checked-in'
+                        ? theme.colors.brand[50]
+                        : theme.colors.error[50],
+                      borderColor: item.status === 'approved' 
+                        ? theme.colors.success[500] 
+                        : item.status === 'pending' 
+                        ? theme.colors.warning[500] 
+                        : item.status === 'checked-in'
+                        ? theme.colors.brand[500]
+                        : theme.colors.error[500],
+                    },
+                  ]}
+                >
+                  <Text
+                    style={{
+                      color: item.status === 'approved' 
+                        ? theme.colors.success[600] 
+                        : item.status === 'pending' 
+                        ? theme.colors.warning[600] 
+                        : item.status === 'checked-in'
+                        ? theme.colors.brand[600]
+                        : theme.colors.error[600],
+                      fontSize: theme.fontSize.xs,
+                      fontWeight: theme.fontWeight.medium,
+                    }}
+                  >
+                    {item.status === 'approved' ? 'Approuvé' : 
+                     item.status === 'pending' ? 'En attente' : 
+                     item.status === 'checked-in' ? 'Présent' : 'Refusé'}
+                  </Text>
+                </View>
+              </View>
+              
+              {item.attendee.company && (
+                <HighlightedText
+                  text={item.attendee.company}
+                  searchQuery={searchQuery}
+                  style={{
+                    fontSize: theme.fontSize.sm,
+                    color: theme.colors.text.secondary,
+                    marginTop: 2,
+                  }}
+                  highlightColor={theme.colors.brand[100]}
+                  highlightStyle={{
+                    backgroundColor: theme.colors.brand[100],
+                    fontWeight: theme.fontWeight.bold,
+                    color: theme.colors.brand[700],
+                  }}
+                />
+              )}
+            </View>
+
+          {/* Boutons d'action en colonne sous le contenu */}
+          <View style={{ 
+            flexDirection: 'row', 
+            gap: theme.spacing.xs, 
+            paddingRight: theme.spacing.md,
+            paddingTop: 0,
+            paddingBottom: theme.spacing.sm,
+            marginLeft: 'auto',
+          }}>
+          <TouchableOpacity
+            style={{
+              width: 50,
+              height: 50,
+              backgroundColor: '#1F2937',
+              borderRadius: theme.radius.lg,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1,
+              borderColor: '#374151',
+            }}
+            onPress={() => handleRegistrationPress(item)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="eye" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
           
-        </TouchableOpacity>
-      </Swipeable>
+          <TouchableOpacity
+            style={{
+              width: 50,
+              height: 50,
+              backgroundColor: '#6366F1',
+              borderRadius: theme.radius.lg,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1,
+              borderColor: '#818CF8',
+            }}
+            onPress={() => {
+              // TODO: Navigation vers écran d'édition
+              console.log('Edit registration:', item.id);
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="pencil" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={{
+              width: 50,
+              height: 50,
+              backgroundColor: '#1F2937',
+              borderRadius: theme.radius.lg,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1,
+              borderColor: '#374151',
+            }}
+            onPress={() => handlePrint(item)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="print" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={{
+              width: 50,
+              height: 50,
+              backgroundColor: isCheckedIn ? '#EF4444' : '#10B981',
+              borderRadius: theme.radius.lg,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1,
+              borderColor: isCheckedIn ? '#F87171' : '#34D399',
+            }}
+            onPress={() => isCheckedIn ? handleUndoCheckIn(item) : handleCheckIn(item)}
+            activeOpacity={0.7}
+          >
+            <Ionicons 
+              name={isCheckedIn ? "arrow-undo" : "checkmark-circle"} 
+              size={24} 
+              color="#FFFFFF" 
+            />
+          </TouchableOpacity>
+        </View>
+        </View>
+      </TouchableOpacity>
     );
   };
 
@@ -469,22 +812,97 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
         onBack={() => navigation.goBack()}
       />
 
-      {/* Barre de recherche */}
-      <View style={[styles.searchContainer, { paddingHorizontal: theme.spacing.lg }]}>
-        <SearchBar
-          placeholder={t('common.search')}
-          value={searchQuery}
-          onChangeText={handleSearchChange}
-          returnKeyType="search"
-          onSubmitEditing={() => {
-            // Déclencher la recherche immédiatement sur "Entrée"
-            if (searchTimeoutRef.current) {
-              clearTimeout(searchTimeoutRef.current);
-            }
-            setIsWaitingToSearch(false);
-            performSearch(searchQuery);
+      {/* Barre de recherche avec toggle intégré */}
+      <View style={[styles.searchContainer, { paddingHorizontal: theme.spacing.lg, flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm }]}>
+        <View style={{ flex: 1 }}>
+          <SearchBar
+            placeholder={t('common.search')}
+            value={searchQuery}
+            onChangeText={handleSearchChange}
+            returnKeyType="search"
+            onSubmitEditing={() => {
+              // Déclencher la recherche immédiatement sur "Entrée"
+              if (searchTimeoutRef.current) {
+                clearTimeout(searchTimeoutRef.current);
+              }
+              setIsWaitingToSearch(false);
+              performSearch(searchQuery);
+            }}
+          />
+        </View>
+        
+        {/* Bouton filtre */}
+        <TouchableOpacity
+          style={{
+            width: 44,
+            height: 44,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: (filters.attendeeTypeIds.length > 0 || filters.statuses.length > 0 || filters.checkedIn !== 'all') 
+              ? theme.colors.brand[600] 
+              : theme.colors.card,
+            borderRadius: theme.radius.md,
+            borderWidth: 1,
+            borderColor: (filters.attendeeTypeIds.length > 0 || filters.statuses.length > 0 || filters.checkedIn !== 'all')
+              ? theme.colors.brand[600] 
+              : theme.colors.border,
+            position: 'relative',
           }}
-        />
+          onPress={() => setIsFilterModalVisible(true)}
+          activeOpacity={0.7}
+        >
+          <Ionicons 
+            name="filter" 
+            size={20} 
+            color={(filters.attendeeTypeIds.length > 0 || filters.statuses.length > 0 || filters.checkedIn !== 'all')
+              ? '#FFFFFF' 
+              : theme.colors.text.secondary
+            } 
+          />
+          {/* Badge de nombre de filtres actifs */}
+          {(filters.attendeeTypeIds.length > 0 || filters.statuses.length > 0 || filters.checkedIn !== 'all') && (
+            <View style={{
+              position: 'absolute',
+              top: -4,
+              right: -4,
+              width: 18,
+              height: 18,
+              borderRadius: 9,
+              backgroundColor: theme.colors.error[600],
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 2,
+              borderColor: theme.colors.background,
+            }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '700' }}>
+                {filters.attendeeTypeIds.length + filters.statuses.length + (filters.checkedIn !== 'all' ? 1 : 0)}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+        
+        {/* Bouton toggle compact */}
+        <TouchableOpacity
+          style={{
+            width: 44,
+            height: 44,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: showActions ? theme.colors.brand[600] : theme.colors.card,
+            borderRadius: theme.radius.md,
+            borderWidth: 1,
+            borderColor: showActions ? theme.colors.brand[600] : theme.colors.border,
+          }}
+          onPress={handleToggleActions}
+          activeOpacity={0.7}
+        >
+          <Ionicons 
+            name={showActions ? "eye" : "eye-off"} 
+            size={20} 
+            color={showActions ? '#FFFFFF' : theme.colors.text.secondary} 
+          />
+        </TouchableOpacity>
+        
         {/* Indicateurs d'état de recherche */}
         {isWaitingToSearch && (
           <View style={styles.searchingIndicator}>
@@ -554,7 +972,30 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
         />
       ) : (
         <FlatList
-          data={registrations.filter(reg => reg.status !== 'rejected')}
+          data={registrations.filter(reg => {
+            // Filtrer rejected par défaut
+            if (reg.status === 'rejected') return false;
+            
+            // Filtrer par type d'attendee (côté client pour multi-sélection)
+            if (filters.attendeeTypeIds.length > 0 && !filters.attendeeTypeIds.includes(reg.event_attendee_type_id)) {
+              return false;
+            }
+            
+            // Filtrer par statut (côté client pour multi-sélection)
+            if (filters.statuses.length > 0 && !filters.statuses.includes(reg.status)) {
+              return false;
+            }
+            
+            // Filtrer par check-in
+            if (filters.checkedIn === 'checked-in' && !reg.checked_in_at) {
+              return false;
+            }
+            if (filters.checkedIn === 'not-checked-in' && reg.checked_in_at) {
+              return false;
+            }
+            
+            return true;
+          })}
           renderItem={renderRegistrationItem}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ 
@@ -578,15 +1019,30 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
         />
       )}
 
-      {/* Modal centralisé pour check-in et impression */}
-      <CheckInModal
-        visible={checkIn.isModalVisible}
-        status={checkIn.status}
-        attendee={checkIn.currentAttendee}
-        progress={checkIn.progress}
-        errorMessage={checkIn.errorMessage}
-        onClose={checkIn.closeModal}
-        onRetry={checkIn.retryAction}
+      {/* Modal de filtres */}
+      <FilterModal
+        visible={isFilterModalVisible}
+        onClose={() => setIsFilterModalVisible(false)}
+        onApply={handleApplyFilters}
+        currentFilters={filters}
+        attendeeTypes={currentEventAttendeeTypes.map(eat => ({
+          id: eat.id,
+          name: eat.attendeeType.name,
+          color_hex: eat.color_hex || eat.attendeeType.color_hex,
+        }))}
+      />
+
+      {/* Dialog de confirmation pour les actions */}
+      <ConfirmDialog
+        visible={confirmDialog.visible}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        confirmText={confirmDialog.confirmText}
+        confirmColor={confirmDialog.confirmColor}
+        icon={confirmDialog.icon}
+        iconColor={confirmDialog.iconColor}
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={() => setConfirmDialog(prev => ({ ...prev, visible: false }))}
       />
     </View>
   );
@@ -620,15 +1076,15 @@ const styles = StyleSheet.create({
   },
   colorStripe: {
     position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 6,
+    left: -5,
+    top: -2,
+    bottom: -2,
+    width: 20,
     transform: [{ skewY: '-5deg' }],
   },
   registrationContent: {
     flex: 1,
-    marginLeft: 12, // Espace après la barre colorée
+    marginLeft: 12,
   },
   corner: {
     position: 'absolute',
