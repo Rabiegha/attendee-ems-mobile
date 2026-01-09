@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
-    "start": "EXPO_USE_DEV_CLIENT=false REACT_NATIVE_PACKAGER_HOSTNAME=192.168.56.6 expo start --go --clear",
+    "start": "expo start --clear",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web"
@@ -34,8 +34,6 @@
     "react-native": "0.81.5",
     "react-native-gesture-handler": "~2.28.0",
     "react-native-pager-view": "^6.9.1",
-    "react-native-print": "^0.9.0",
-    "react-native-reanimated": "~3.6.0",
     "react-native-safe-area-context": "^5.6.1",
     "react-native-screens": "~4.16.0",
     "react-native-svg": "^15.12.1",

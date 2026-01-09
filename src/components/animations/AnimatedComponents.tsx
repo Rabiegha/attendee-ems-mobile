@@ -1,39 +1,13 @@
 /**
  * Composants d'animation réutilisables
- * Utilise react-native-reanimated pour des animations performantes
+ * Utilise Animated natif de React Native
  */
 
-import React, { useEffect } from 'react';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
-  withRepeat,
-  withSequence,
-  Easing,
-  FadeIn,
-  FadeOut,
-  SlideInRight,
-  SlideOutLeft,
-  SlideInUp,
-  SlideOutDown,
-  ZoomIn,
-  ZoomOut,
-} from 'react-native-reanimated';
-import { ViewStyle } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Animated, Easing, ViewStyle } from 'react-native';
 
-// Export des animations prédéfinies pour utilisation directe
-export {
-  FadeIn,
-  FadeOut,
-  SlideInRight,
-  SlideOutLeft,
-  SlideInUp,
-  SlideOutDown,
-  ZoomIn,
-  ZoomOut,
-};
+// Les animations layout ne sont pas supportées avec Animated natif
+// Utiliser les composants wrapper ci-dessous
 
 // Configuration d'animation par défaut
 export const springConfig = {
@@ -62,11 +36,19 @@ export const FadeInView: React.FC<FadeInViewProps> = ({
   delay = 0,
   style,
 }) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration,
+      delay,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
   return (
-    <Animated.View
-      entering={FadeIn.duration(duration).delay(delay)}
-      style={style}
-    >
+    <Animated.View style={[style, { opacity: fadeAnim }]}>
       {children}
     </Animated.View>
   );
@@ -88,23 +70,25 @@ export const ScaleButton: React.FC<ScaleButtonProps> = ({
   style,
   scale = 0.95,
 }) => {
-  const scaleValue = useSharedValue(1);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scaleValue.value }],
-  }));
+  const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
-    scaleValue.value = withSpring(scale, springConfig);
+    Animated.spring(scaleAnim, {
+      toValue: scale,
+      useNativeDriver: true,
+    }).start();
   };
 
   const handlePressOut = () => {
-    scaleValue.value = withSpring(1, springConfig);
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+    }).start();
   };
 
   return (
     <Animated.View
-      style={[animatedStyle, style]}
+      style={[style, { transform: [{ scale: scaleAnim }] }]}
       onTouchStart={handlePressIn}
       onTouchEnd={handlePressOut}
       onTouchCancel={handlePressOut}
@@ -130,12 +114,19 @@ export const SlideInView: React.FC<SlideInViewProps> = ({
   delay = 0,
   style,
 }) => {
+  const slideAnim = useRef(new Animated.Value(300)).current;
+
+  useEffect(() => {
+    Animated.timing(slideAnim, {
+      toValue: 0,
+      duration,
+      delay,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
   return (
-    <Animated.View
-      entering={SlideInRight.duration(duration).delay(delay)}
-      exiting={SlideOutLeft.duration(duration)}
-      style={style}
-    >
+    <Animated.View style={[style, { transform: [{ translateX: slideAnim }] }]}>
       {children}
     </Animated.View>
   );
@@ -157,25 +148,27 @@ export const PulseView: React.FC<PulseViewProps> = ({
   duration = 1000,
   style,
 }) => {
-  const scaleValue = useSharedValue(1);
+  const scaleAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    scaleValue.value = withRepeat(
-      withSequence(
-        withTiming(scale, { duration: duration / 2 }),
-        withTiming(1, { duration: duration / 2 })
-      ),
-      -1,
-      true
-    );
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(scaleAnim, {
+          toValue: scale,
+          duration: duration / 2,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: duration / 2,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
   }, []);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scaleValue.value }],
-  }));
-
   return (
-    <Animated.View style={[animatedStyle, style]}>
+    <Animated.View style={[style, { transform: [{ scale: scaleAnim }] }]}>
       {children}
     </Animated.View>
   );
@@ -195,26 +188,22 @@ export const ShakeView: React.FC<ShakeViewProps> = ({
   shake = false,
   style,
 }) => {
-  const translateX = useSharedValue(0);
+  const translateX = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (shake) {
-      translateX.value = withSequence(
-        withTiming(-10, { duration: 50 }),
-        withTiming(10, { duration: 50 }),
-        withTiming(-10, { duration: 50 }),
-        withTiming(10, { duration: 50 }),
-        withTiming(0, { duration: 50 })
-      );
+      Animated.sequence([
+        Animated.timing(translateX, { toValue: -10, duration: 50, useNativeDriver: true }),
+        Animated.timing(translateX, { toValue: 10, duration: 50, useNativeDriver: true }),
+        Animated.timing(translateX, { toValue: -10, duration: 50, useNativeDriver: true }),
+        Animated.timing(translateX, { toValue: 10, duration: 50, useNativeDriver: true }),
+        Animated.timing(translateX, { toValue: 0, duration: 50, useNativeDriver: true }),
+      ]).start();
     }
   }, [shake]);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }],
-  }));
-
   return (
-    <Animated.View style={[animatedStyle, style]}>
+    <Animated.View style={[style, { transform: [{ translateX }] }]}>
       {children}
     </Animated.View>
   );
@@ -234,22 +223,26 @@ export const RotateView: React.FC<RotateViewProps> = ({
   duration = 1000,
   style,
 }) => {
-  const rotation = useSharedValue(0);
+  const rotation = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    rotation.value = withRepeat(
-      withTiming(360, { duration, easing: Easing.linear }),
-      -1,
-      false
-    );
+    Animated.loop(
+      Animated.timing(rotation, {
+        toValue: 1,
+        duration,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    ).start();
   }, []);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${rotation.value}deg` }],
-  }));
+  const rotate = rotation.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
 
   return (
-    <Animated.View style={[animatedStyle, style]}>
+    <Animated.View style={[style, { transform: [{ rotate }] }]}>
       {children}
     </Animated.View>
   );
