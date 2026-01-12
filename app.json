@@ -27,11 +27,6 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "statusBar": {
-        "barStyle": "dark-content",
-        "backgroundColor": "#ffffff",
-        "translucent": true
-      },
       "package": "com.anonymous.attendeeemsmobile"
     },
     "web": {

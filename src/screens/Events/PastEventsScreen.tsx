@@ -139,7 +139,7 @@ export const PastEventsScreen: React.FC<PastEventsScreenProps> = ({
                   fontSize: theme.fontSize.lg,
                   fontWeight: theme.fontWeight.bold,
                   color: theme.colors.text.primary,
-                  marginBottom: theme.spacing.xs,
+                  marginBottom: 4,
                 }}
                 numberOfLines={2}
                 ellipsizeMode="tail"
@@ -147,14 +147,19 @@ export const PastEventsScreen: React.FC<PastEventsScreenProps> = ({
                 {item.name || 'Événement sans titre'}
               </Text>
 
+              <View style={[styles.pastBadge, { backgroundColor: theme.colors.text.tertiary, alignSelf: 'flex-start', paddingVertical: 2, marginBottom: 0 }]}>
+                <Text style={[styles.pastBadgeText, { color: '#FFFFFF' }]}>
+                  TERMINÉ
+                </Text>
+              </View>
+
               <Text
                 style={{
                   fontSize: theme.fontSize.sm,
                   color: theme.colors.text.secondary,
                   lineHeight: 18,
-                  height: 36,
                 }}
-                numberOfLines={2}
+                numberOfLines={1}
               >
                 {item.description || ' '}
               </Text>
@@ -241,5 +246,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  pastBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  pastBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
 });

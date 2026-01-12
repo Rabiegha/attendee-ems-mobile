@@ -1,5 +1,5 @@
 /**
- * Écran des événements à venir
+ * Écran des événements en cours
  */
 
 import React, { useEffect, useCallback, useMemo } from 'react';
@@ -14,21 +14,22 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
-import { fetchUpcomingEventsThunk, fetchMoreUpcomingEventsThunk } from '../../store/events.slice';
+import { fetchOngoingEventsThunk, fetchMoreOngoingEventsThunk } from '../../store/events.slice';
 import { Event } from '../../types/event';
 import { formatDate, formatTime } from '../../utils/format';
 import { Card } from '../../components/ui/Card';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { EventCardSkeleton, SkeletonList } from '../../components/ui/Skeleton';
 import { useEventSearch } from '../../contexts/EventSearchContext';
+import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 
-interface UpcomingEventsScreenProps {
+interface OngoingEventsScreenProps {
   navigation?: any;
   route?: any;
   onRefresh?: () => void;
 }
 
-export const UpcomingEventsScreen: React.FC<UpcomingEventsScreenProps> = ({ 
+export const OngoingEventsScreen: React.FC<OngoingEventsScreenProps> = ({ 
   navigation,
   route,
   onRefresh,
@@ -40,8 +41,8 @@ export const UpcomingEventsScreen: React.FC<UpcomingEventsScreenProps> = ({
   const dispatch = useAppDispatch();
   const { searchQuery } = useEventSearch();
   
-  // Utiliser le state upcoming
-  const { events, isLoading, isLoadingMore, hasMore } = useAppSelector((state) => state.events.upcoming);
+  // Utiliser le state ongoing
+  const { events, isLoading, isLoadingMore, hasMore } = useAppSelector((state) => state.events.ongoing);
 
   // Filtrer les événements selon la recherche
   const filteredEvents = useMemo(() => {
@@ -62,21 +63,26 @@ export const UpcomingEventsScreen: React.FC<UpcomingEventsScreenProps> = ({
 
   const handleLoadMore = useCallback(() => {
     if (!isLoadingMore && hasMore && events.length > 0) {
-      console.log('[UpcomingEventsScreen] Loading more events...');
-      dispatch(fetchMoreUpcomingEventsThunk({}));
+      console.log('[OngoingEventsScreen] Loading more events...');
+      dispatch(fetchMoreOngoingEventsThunk({}));
     }
   }, [isLoadingMore, hasMore, events.length, dispatch]);
 
   const handleRefresh = useCallback(() => {
-    console.log('[UpcomingEventsScreen] Refreshing events...');
-    dispatch(fetchUpcomingEventsThunk({ page: 1 }));
+    console.log('[OngoingEventsScreen] Refreshing events...');
+    dispatch(fetchOngoingEventsThunk({ page: 1 }));
   }, [dispatch]);
+
+  const handleViewUpcoming = useCallback(() => {
+    // Navigate to Upcoming tab
+    nav?.navigate('Upcoming');
+  }, [nav]);
 
   // Charger les événements au montage
   useEffect(() => {
-    console.log('[UpcomingEventsScreen] Component mounted, loading events...');
-    dispatch(fetchUpcomingEventsThunk({ page: 1 }));
-  }, [dispatch]); // Charger à chaque montage
+    console.log('[OngoingEventsScreen] Component mounted, loading events...');
+    dispatch(fetchOngoingEventsThunk({ page: 1 }));
+  }, [dispatch]);
 
   const renderFooter = useCallback(() => {
     if (!isLoadingMore) return null;
@@ -92,42 +98,17 @@ export const UpcomingEventsScreen: React.FC<UpcomingEventsScreenProps> = ({
   }, [isLoadingMore, theme.colors.brand, theme.colors.text.secondary]);
 
   const renderEventCard = ({ item }: { item: Event }) => {
-    // Détecter si l'événement est aujourd'hui
-    const today = new Date();
-    const eventDate = new Date(item.startDate);
-    const isToday = 
-      eventDate.getDate() === today.getDate() &&
-      eventDate.getMonth() === today.getMonth() &&
-      eventDate.getFullYear() === today.getFullYear();
-
     return (
       <TouchableOpacity onPress={() => handleEventPress(item)} activeOpacity={0.7}>
-        <Card 
-          style={[
-            { marginBottom: theme.spacing.md },
-            ...(isToday ? [{
-              backgroundColor: theme.colors.brand[50],
-              borderLeftWidth: 4,
-              borderLeftColor: theme.colors.brand[600],
-            }] : [])
-          ]}
-        >
+        <Card style={{ marginBottom: theme.spacing.md }}>
           <View style={styles.eventCard}>
             {/* Colonne de gauche : Date et heure */}
             <View style={styles.dateColumn}>
-              {isToday && (
-                <View style={[styles.todayBadge, { backgroundColor: theme.colors.brand[600] }]}>
-                  <Text style={[styles.todayBadgeText, { color: '#FFFFFF' }]}>
-                    AUJOURD'HUI
-                  </Text>
-                </View>
-              )}
               <Text
                 style={{
                   fontSize: theme.fontSize.xs,
-                  color: isToday ? theme.colors.brand[700] : theme.colors.text.tertiary,
+                  color: theme.colors.text.tertiary,
                   textAlign: 'center',
-                  fontWeight: isToday ? theme.fontWeight.semibold : theme.fontWeight.normal,
                 }}
               >
                 {formatDate(item.startDate)}
@@ -135,7 +116,7 @@ export const UpcomingEventsScreen: React.FC<UpcomingEventsScreenProps> = ({
               <Text
                 style={{
                   fontSize: theme.fontSize.sm,
-                  color: isToday ? theme.colors.brand[700] : theme.colors.text.primary,
+                  color: theme.colors.text.primary,
                   fontWeight: theme.fontWeight.semibold,
                   textAlign: 'center',
                   marginTop: 4,
@@ -146,7 +127,7 @@ export const UpcomingEventsScreen: React.FC<UpcomingEventsScreenProps> = ({
               <Text
                 style={{
                   fontSize: theme.fontSize.xs,
-                  color: isToday ? theme.colors.brand[600] : theme.colors.text.tertiary,
+                  color: theme.colors.text.tertiary,
                   textAlign: 'center',
                   marginTop: 4,
                 }}
@@ -161,7 +142,7 @@ export const UpcomingEventsScreen: React.FC<UpcomingEventsScreenProps> = ({
                 style={{
                   fontSize: theme.fontSize.lg,
                   fontWeight: theme.fontWeight.bold,
-                  color: isToday ? theme.colors.brand[700] : theme.colors.text.primary,
+                  color: theme.colors.text.primary,
                   marginBottom: 4,
                 }}
                 numberOfLines={2}
@@ -170,24 +151,16 @@ export const UpcomingEventsScreen: React.FC<UpcomingEventsScreenProps> = ({
                 {item.name || 'Événement sans titre'}
               </Text>
 
-              <View style={[styles.upcomingBadge, { backgroundColor: theme.colors.brand[600], alignSelf: 'flex-start', paddingVertical: 2, marginBottom: 0 }]}>
-                <Text style={[styles.upcomingBadgeText, { color: '#FFFFFF' }]}>
-                  {(() => {
-                    const now = new Date();
-                    const start = new Date(item.startDate);
-                    const diffTime = start.getTime() - now.getTime();
-                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                    if (diffDays === 0) return 'AUJOURD\'HUI';
-                    if (diffDays === 1) return 'DEMAIN';
-                    return `DANS ${diffDays} JOURS`;
-                  })()}
+              <View style={[styles.ongoingBadge, { backgroundColor: theme.colors.brand[600], alignSelf: 'flex-start', paddingVertical: 2, marginBottom: 0 }]}>
+                <Text style={[styles.ongoingBadgeText, { color: '#FFFFFF' }]}>
+                  EN COURS
                 </Text>
               </View>
 
               <Text
                 style={{
                   fontSize: theme.fontSize.sm,
-                  color: isToday ? theme.colors.brand[600] : theme.colors.text.secondary,
+                  color: theme.colors.text.secondary,
                   lineHeight: 18,
                 }}
                 numberOfLines={1}
@@ -221,12 +194,23 @@ export const UpcomingEventsScreen: React.FC<UpcomingEventsScreenProps> = ({
         keyExtractor={(item, index) => item.id || `event-${index}`}
         contentContainerStyle={{ padding: theme.spacing.lg }}
         ListEmptyComponent={
-          <EmptyState
-            title={t('events.noUpcomingEvents')}
-            description={t('events.noUpcomingEventsDescription')}
-            actionLabel={t('common.refresh')}
-            onAction={handleRefresh}
-          />
+          <View style={styles.emptyStateContainer}>
+            <Text style={[styles.emptyTitle, { color: theme.colors.text.primary }]}>
+              Aucun événement en cours
+            </Text>
+            <Text style={[styles.emptyDescription, { color: theme.colors.text.secondary }]}>
+              Il n'y a actuellement aucun événement en cours.
+            </Text>
+            <TouchableOpacity
+              style={[styles.ctaButton, { backgroundColor: theme.colors.brand[600] }]}
+              onPress={handleViewUpcoming}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.ctaButtonText, { color: '#FFFFFF' }]}>
+                Voir les événements à venir
+              </Text>
+            </TouchableOpacity>
+          </View>
         }
         ListFooterComponent={renderFooter}
         onEndReached={handleLoadMore}
@@ -261,42 +245,50 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-start',
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 48,
-  },
   footerLoader: {
     paddingVertical: 20,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  todayBadge: {
+  ongoingBadge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
     marginBottom: 8,
   },
-  todayBadgeText: {
+  ongoingBadgeText: {
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.5,
   },
-  upcomingBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 64,
+    paddingHorizontal: 24,
   },
-  upcomingBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  emptyDescription: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  ctaButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  ctaButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

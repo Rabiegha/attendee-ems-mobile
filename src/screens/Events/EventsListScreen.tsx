@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
 import { SearchBar } from '../../components/ui/SearchBar';
 import Icons from '../../assets/icons';
+import { OngoingEventsScreen } from './OngoingEventsScreen';
 import { UpcomingEventsScreen } from './UpcomingEventsScreen';
 import { PastEventsScreen } from './PastEventsScreen';
 import { EventSearchProvider, useEventSearch } from '../../contexts/EventSearchContext';
@@ -96,6 +97,14 @@ const EventsListContent: React.FC<EventsListScreenProps> = ({ navigation }) => {
           animationEnabled: true,
         }}
       >
+        <Tab.Screen 
+          name="Ongoing" 
+          options={{
+            tabBarLabel: 'En cours',
+          }}
+          component={OngoingEventsScreen}
+          initialParams={{ navigation }}
+        />
         <Tab.Screen 
           name="Upcoming" 
           options={{

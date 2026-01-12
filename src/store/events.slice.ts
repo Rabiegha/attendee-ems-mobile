@@ -23,6 +23,7 @@ interface EventsListState {
 }
 
 interface EventsState {
+  ongoing: EventsListState;
   upcoming: EventsListState;
   past: EventsListState;
   currentEvent: Event | null;
@@ -47,6 +48,7 @@ const initialListState: EventsListState = {
 };
 
 const initialState: EventsState = {
+  ongoing: { ...initialListState },
   upcoming: { ...initialListState },
   past: { ...initialListState },
   currentEvent: null,
@@ -57,13 +59,51 @@ const initialState: EventsState = {
 };
 
 // Thunks avec protection contre les appels multiples
+
+// Événements EN COURS (startDate < now < endDate)
+export const fetchOngoingEventsThunk = createAsyncThunk(
+  'events/fetchOngoingEvents',
+  async (params: { page?: number; limit?: number; search?: string } | undefined, { rejectWithValue, getState }) => {
+    try {
+      const state = getState() as { events: EventsState };
+      
+      if (state.events.ongoing.isLoading && !params?.page) {
+        console.log('[EventsSlice] fetchOngoingEventsThunk - Already loading, skipping');
+        return rejectWithValue('Already loading');
+      }
+      
+      const page = params?.page ?? state.events.ongoing.pagination.page;
+      const limit = params?.limit ?? state.events.ongoing.pagination.limit;
+      const search = params?.search;
+      
+      const now = new Date();
+      
+      const requestParams: any = { 
+        page, 
+        limit, 
+        search,
+        startBefore: now.toISOString(), // startDate < now
+        endAfter: now.toISOString()     // endDate > now
+      };
+      
+      console.log('[EventsSlice] fetchOngoingEventsThunk - Starting with params:', requestParams);
+      const response = await eventsService.getEvents(requestParams);
+      console.log('[EventsSlice] fetchOngoingEventsThunk - Success:', response.meta);
+      return response;
+    } catch (error: any) {
+      console.error('[EventsSlice] fetchOngoingEventsThunk - Error:', error);
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
+// Événements À VENIR (startDate > now)
 export const fetchUpcomingEventsThunk = createAsyncThunk(
   'events/fetchUpcomingEvents',
   async (params: { page?: number; limit?: number; search?: string } | undefined, { rejectWithValue, getState }) => {
     try {
       const state = getState() as { events: EventsState };
       
-      // Protection : éviter les appels multiples
       if (state.events.upcoming.isLoading && !params?.page) {
         console.log('[EventsSlice] fetchUpcomingEventsThunk - Already loading, skipping');
         return rejectWithValue('Already loading');
@@ -73,15 +113,13 @@ export const fetchUpcomingEventsThunk = createAsyncThunk(
       const limit = params?.limit ?? state.events.upcoming.pagination.limit;
       const search = params?.search;
       
-      // Événements à partir d'aujourd'hui 00:00 (inclus aujourd'hui)
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const now = new Date();
       
       const requestParams: any = { 
         page, 
         limit, 
         search,
-        startAfter: today.toISOString() // Événements futurs (aujourd'hui et après)
+        startAfter: now.toISOString() // startDate > now
       };
       
       console.log('[EventsSlice] fetchUpcomingEventsThunk - Starting with params:', requestParams);
@@ -95,13 +133,13 @@ export const fetchUpcomingEventsThunk = createAsyncThunk(
   }
 );
 
+// Événements TERMINÉS (endDate < now)
 export const fetchPastEventsThunk = createAsyncThunk(
   'events/fetchPastEvents',
   async (params: { page?: number; limit?: number; search?: string } | undefined, { rejectWithValue, getState }) => {
     try {
       const state = getState() as { events: EventsState };
       
-      // Protection : éviter les appels multiples
       if (state.events.past.isLoading && !params?.page) {
         console.log('[EventsSlice] fetchPastEventsThunk - Already loading, skipping');
         return rejectWithValue('Already loading');
@@ -111,15 +149,13 @@ export const fetchPastEventsThunk = createAsyncThunk(
       const limit = params?.limit ?? state.events.past.pagination.limit;
       const search = params?.search;
       
-      // Événements jusqu'à hier (pas aujourd'hui)
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const now = new Date();
       
       const requestParams: any = { 
         page, 
         limit, 
         search,
-        startBefore: today.toISOString() // Événements passés (hier et avant)
+        endBefore: now.toISOString() // endDate < now
       };
       
       console.log('[EventsSlice] fetchPastEventsThunk - Starting with params:', requestParams);
@@ -128,6 +164,42 @@ export const fetchPastEventsThunk = createAsyncThunk(
       return response;
     } catch (error: any) {
       console.error('[EventsSlice] fetchPastEventsThunk - Error:', error);
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
+export const fetchMoreOngoingEventsThunk = createAsyncThunk(
+  'events/fetchMoreOngoingEvents',
+  async (params: { search?: string } | undefined, { rejectWithValue, getState }) => {
+    try {
+      const state = getState() as { events: EventsState };
+      
+      if (state.events.ongoing.isLoadingMore || !state.events.ongoing.hasMore) {
+        console.log('[EventsSlice] fetchMoreOngoingEventsThunk - Already loading or no more data');
+        return rejectWithValue('Already loading or no more data');
+      }
+      
+      const nextPage = state.events.ongoing.pagination.page + 1;
+      const limit = state.events.ongoing.pagination.limit;
+      const search = params?.search;
+      
+      const now = new Date();
+      
+      const requestParams: any = { 
+        page: nextPage, 
+        limit, 
+        search,
+        startBefore: now.toISOString(),
+        endAfter: now.toISOString()
+      };
+      
+      console.log('[EventsSlice] fetchMoreOngoingEventsThunk - Loading page', nextPage);
+      const response = await eventsService.getEvents(requestParams);
+      console.log('[EventsSlice] fetchMoreOngoingEventsThunk - Success:', response.meta);
+      return response;
+    } catch (error: any) {
+      console.error('[EventsSlice] fetchMoreOngoingEventsThunk - Error:', error);
       return rejectWithValue(error.response?.data || error.message);
     }
   }
@@ -149,15 +221,13 @@ export const fetchMoreUpcomingEventsThunk = createAsyncThunk(
       const limit = state.events.upcoming.pagination.limit;
       const search = params?.search;
       
-      // Événements à partir d'aujourd'hui 00:00 (inclus aujourd'hui)
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const now = new Date();
       
       const requestParams: any = { 
         page: nextPage, 
         limit, 
         search,
-        startAfter: today.toISOString()
+        startAfter: now.toISOString()
       };
       
       console.log('[EventsSlice] fetchMoreUpcomingEventsThunk - Loading page', nextPage);
@@ -187,15 +257,13 @@ export const fetchMorePastEventsThunk = createAsyncThunk(
       const limit = state.events.past.pagination.limit;
       const search = params?.search;
       
-      // Événements jusqu'à hier (pas aujourd'hui)
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const now = new Date();
       
       const requestParams: any = { 
         page: nextPage, 
         limit, 
         search,
-        startBefore: today.toISOString()
+        endBefore: now.toISOString()
       };
       
       console.log('[EventsSlice] fetchMorePastEventsThunk - Loading page', nextPage);
@@ -340,6 +408,9 @@ const eventsSlice = createSlice({
     setCurrentEvent: (state, action: PayloadAction<Event | null>) => {
       state.currentEvent = action.payload;
     },
+    clearOngoingEvents: (state) => {
+      state.ongoing = { ...initialListState };
+    },
     clearUpcomingEvents: (state) => {
       state.upcoming = { ...initialListState };
     },
@@ -347,11 +418,45 @@ const eventsSlice = createSlice({
       state.past = { ...initialListState };
     },
     clearError: (state) => {
+      state.ongoing.error = null;
       state.upcoming.error = null;
       state.past.error = null;
     },
   },
   extraReducers: (builder) => {
+    // Fetch ongoing events
+    builder
+      .addCase(fetchOngoingEventsThunk.pending, (state) => {
+        state.ongoing.isLoading = true;
+        state.ongoing.error = null;
+      })
+      .addCase(fetchOngoingEventsThunk.fulfilled, (state, action) => {
+        state.ongoing.isLoading = false;
+        state.ongoing.events = action.payload.data;
+        state.ongoing.pagination = action.payload.meta;
+        state.ongoing.hasMore = action.payload.meta.page < action.payload.meta.totalPages;
+      })
+      .addCase(fetchOngoingEventsThunk.rejected, (state, action) => {
+        state.ongoing.isLoading = false;
+        state.ongoing.error = (action.payload as any)?.detail || action.error.message || 'Erreur lors du chargement';
+      });
+
+    // Fetch more ongoing events
+    builder
+      .addCase(fetchMoreOngoingEventsThunk.pending, (state) => {
+        state.ongoing.isLoadingMore = true;
+      })
+      .addCase(fetchMoreOngoingEventsThunk.fulfilled, (state, action) => {
+        state.ongoing.isLoadingMore = false;
+        state.ongoing.events = [...state.ongoing.events, ...action.payload.data];
+        state.ongoing.pagination = action.payload.meta;
+        state.ongoing.hasMore = action.payload.meta.page < action.payload.meta.totalPages;
+      })
+      .addCase(fetchMoreOngoingEventsThunk.rejected, (state, action) => {
+        state.ongoing.isLoadingMore = false;
+        state.ongoing.error = (action.payload as any)?.detail || action.error.message || 'Erreur lors du chargement';
+      });
+
     // Fetch upcoming events
     builder
       .addCase(fetchUpcomingEventsThunk.pending, (state) => {
