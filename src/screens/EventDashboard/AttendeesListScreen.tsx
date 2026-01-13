@@ -25,6 +25,7 @@ import { fetchEventAttendeeTypesThunk } from '../../store/events.slice';
 import { Registration } from '../../types/attendee';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { Header } from '../../components/ui/Header';
+import { ProfileButton } from '../../components/ui/ProfileButton';
 import { HighlightedText } from '../../components/ui/HighlightedText';
 import { Swipeable } from 'react-native-gesture-handler';
 import { APP_CONFIG } from '../../config/app.config';
@@ -940,6 +941,7 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
       <Header
         title={t('Liste des participants')}
         onBack={() => navigation.goBack()}
+        rightComponent={<ProfileButton />}
       />
 
       {/* Barre de recherche avec toggle intégré */}

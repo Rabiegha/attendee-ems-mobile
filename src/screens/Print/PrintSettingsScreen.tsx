@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useTranslation } from 'react-i18next';
 import { Header } from '../../components/ui/Header';
+import { ProfileButton } from '../../components/ui/ProfileButton';
 import Icons from '../../assets/icons';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -44,6 +45,7 @@ export const PrintSettingsScreen: React.FC<PrintSettingsScreenProps> = ({ naviga
       <Header
         title="Paramètres d'impression"
         onBack={() => navigation.goBack()}
+        rightComponent={<ProfileButton />}
       />
 
       <View style={[styles.content, { paddingHorizontal: theme.spacing.lg }]}>

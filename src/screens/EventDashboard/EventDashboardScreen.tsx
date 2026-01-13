@@ -13,6 +13,8 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { fetchEventByIdThunk } from '../../store/events.slice';
 import { Ionicons } from '@expo/vector-icons';
+import { Header } from '../../components/ui/Header';
+import { ProfileButton } from '../../components/ui/ProfileButton';
 
 const Tab = createMaterialTopTabNavigator();
 
@@ -69,58 +71,13 @@ export const EventDashboardScreen: React.FC<EventDashboardScreenProps> = ({ rout
         }
       ]}
     >
-      {/* Header avec titre et bouton retour */}
-      <View 
-        style={[
-          styles.header, 
-        ]}
-      >
-        <View style={styles.headerLeft}>
-          <TouchableOpacity 
-            onPress={() => navigation.goBack()}
-            style={[styles.backButton, { backgroundColor: theme.colors.background }]}
-            activeOpacity={0.7}
-          >
-            <Ionicons 
-              name="chevron-back" 
-              size={34} 
-              color={theme.colors.brand[600]} 
-            />
-          </TouchableOpacity>
-        </View>
-        
-        <View style={styles.headerCenter}>
-          <Text 
-            style={[
-              styles.eventTitle, 
-              { 
-                color: theme.colors.text.primary,
-                fontSize: theme.fontSize.lg,
-                fontWeight: theme.fontWeight.bold,
-              }
-            ]}
-            numberOfLines={1}
-          >
-            {event?.name || 'Événement'}
-          </Text>
-          <View style={styles.dateContainer}>
-            <Text 
-              style={[
-                styles.eventDate, 
-                { 
-                  color: theme.colors.brand[600],
-                  fontSize: theme.fontSize.sm,
-                  fontWeight: theme.fontWeight.medium,
-                }
-              ]}
-            >
-              {formatEventDate(event?.startDate)}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.headerRight} />
-      </View>
+      {/* Header unifié */}
+      <Header
+        title={event?.name || 'Événement'}
+        subtitle={formatEventDate(event?.startDate)}
+        onBack={() => navigation.goBack()}
+        rightComponent={<ProfileButton />}
+      />
 
       {/* Material Top Tabs */}
       <Tab.Navigator
@@ -169,51 +126,5 @@ export const EventDashboardScreen: React.FC<EventDashboardScreenProps> = ({ rout
 };const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 16,
-  },
-  headerLeft: {
-    width: 48,
-    alignItems: 'flex-start',
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerRight: {
-    width: 48,
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  backIcon: {
-    width: 20,
-    height: 20,
-  },
-  eventTitle: {
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  dateContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  eventDate: {
   },
 });

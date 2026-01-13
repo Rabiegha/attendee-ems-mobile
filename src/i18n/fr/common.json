@@ -167,6 +167,9 @@
     "apply": "Appliquer",
     "loading": "Chargement des imprimantes..."
   },
+  "profile": {
+    "title": "Profil"
+  },
   "settings": {
     "title": "Paramètres",
     "theme": "Apparence",
@@ -191,7 +194,8 @@
     "add": "Ajouter",
     "scan": "Scanner",
     "print": "Imprimer",
-    "settings": "Paramètres"
+    "settings": "Paramètres",
+    "profile": "Profil"
   },
   "errors": {
     "network": "Erreur de connexion. Vérifiez votre connexion internet.",

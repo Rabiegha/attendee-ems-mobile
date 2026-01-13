@@ -6,13 +6,13 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EventsListScreen } from '../screens/Events/EventsListScreen';
-import { SettingsScreen } from '../screens/Settings/SettingsScreen';
+import { ProfileScreen } from '../screens/Profile/ProfileScreen';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../theme/ThemeProvider';
 
 export type EventsStackParamList = {
   EventsList: undefined;
-  Settings: undefined;
+  Profile: undefined;
 };
 
 const Stack = createNativeStackNavigator<EventsStackParamList>();
@@ -39,10 +39,10 @@ export const EventsNavigator: React.FC = () => {
         component={EventsListScreen}
       />
       <Stack.Screen
-        name="Settings"
-        component={SettingsScreen}
+        name="Profile"
+        component={ProfileScreen}
         options={{ 
-          headerShown: false, // Pas de header, il est géré par SettingsScreen lui-même
+          headerShown: false, // Pas de header, il est géré par ProfileScreen lui-même
         }}
       />
     </Stack.Navigator>

@@ -15,6 +15,8 @@ import { createMaterialTopTabNavigator } from '@react-navigation/material-top-ta
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeProvider';
 import { SearchBar } from '../../components/ui/SearchBar';
+import { Header } from '../../components/ui/Header';
+import { ProfileButton } from '../../components/ui/ProfileButton';
 import Icons from '../../assets/icons';
 import { OngoingEventsScreen } from './OngoingEventsScreen';
 import { UpcomingEventsScreen } from './UpcomingEventsScreen';
@@ -44,22 +46,12 @@ const EventsListContent: React.FC<EventsListScreenProps> = ({ navigation }) => {
         }
       ]}
     >
-      {/* Header personnalisé */}
-      <View style={[styles.header, ]}>
-        <Text style={[styles.headerTitle, { color: theme.colors.text.primary }]}>
-          {t('events.title')}
-        </Text>
-        <TouchableOpacity
-          onPress={() => navigation.navigate('Settings')}
-          style={styles.headerButton}
-        >
-          <Image 
-            source={Icons.Outils} 
-            style={{ width: 24, height: 24 }} 
-            tintColor={theme.colors.brand[600]}
-          />
-        </TouchableOpacity>
-      </View>
+      {/* Header unifié */}
+      <Header
+        title={t('events.title')}
+        showBackButton={false}
+        rightComponent={<ProfileButton />}
+      />
 
       {/* Barre de recherche */}
       <View style={styles.searchContainer}>
@@ -137,20 +129,6 @@ export const EventsListScreen: React.FC<EventsListScreenProps> = ({ navigation }
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-  },
-  headerButton: {
-    padding: 4,
   },
   searchContainer: {
     paddingHorizontal: 16,

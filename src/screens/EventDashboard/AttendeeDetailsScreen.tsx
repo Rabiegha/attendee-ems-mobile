@@ -12,6 +12,7 @@ import { fetchRegistrationByIdThunk } from '../../store/registrations.slice';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Header } from '../../components/ui/Header';
+import { ProfileButton } from '../../components/ui/ProfileButton';
 import useNodePrint from '../../printing/hooks/useNodePrint';
 
 interface AttendeeDetailsScreenProps {
@@ -111,6 +112,7 @@ export const AttendeeDetailsScreen: React.FC<AttendeeDetailsScreenProps> = ({ na
       <Header
         title={t('attendees.details')}
         onBack={() => navigation.goBack()}
+        rightComponent={<ProfileButton />}
       />
       <ScrollView style={{ flex: 1 }}>
         <View style={{ padding: theme.spacing.lg }}>

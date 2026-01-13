@@ -1,5 +1,6 @@
 /**
  * Composant Header réutilisable avec bouton retour et titre
+ * Layout unifié avec dimensions fixes pour éviter les déplacements
  */
 
 import React from 'react';
@@ -9,6 +10,7 @@ import { useTheme } from '../../theme/ThemeProvider';
 
 interface HeaderProps {
   title: string;
+  subtitle?: string;
   onBack?: () => void;
   showBackButton?: boolean;
   rightComponent?: React.ReactNode;
@@ -17,6 +19,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ 
   title, 
+  subtitle,
   onBack, 
   showBackButton = true,
   rightComponent,
@@ -31,36 +34,55 @@ export const Header: React.FC<HeaderProps> = ({
         style
       ]}
     >
-      {showBackButton && onBack && (
-        <TouchableOpacity 
-          onPress={onBack}
-          style={styles.backButton}
+      {/* Zone gauche - Bouton retour (largeur fixe) */}
+      <View style={styles.leftContainer}>
+        {showBackButton && onBack ? (
+          <TouchableOpacity 
+            onPress={onBack}
+            style={styles.backButton}
+            activeOpacity={0.7}
+          >
+            <Ionicons 
+              name="chevron-back" 
+              size={28} 
+              color={theme.colors.brand[600]} 
+            />
+          </TouchableOpacity>
+        ) : null}
+      </View>
+      
+      {/* Zone centrale - Titre */}
+      <View style={styles.centerContainer}>
+        <Text 
+          style={[
+            styles.headerTitle, 
+            { 
+              color: theme.colors.text.primary,
+            }
+          ]}
+          numberOfLines={1}
         >
-          <Ionicons 
-            name="chevron-back" 
-            size={34} 
-            color={theme.colors.brand[600]} 
-          />
-        </TouchableOpacity>
-      )}
+          {title}
+        </Text>
+        {subtitle && (
+          <Text 
+            style={[
+              styles.headerSubtitle, 
+              { 
+                color: theme.colors.brand[600],
+              }
+            ]}
+            numberOfLines={1}
+          >
+            {subtitle}
+          </Text>
+        )}
+      </View>
       
-      <Text 
-        style={[
-          styles.headerTitle, 
-          { 
-            color: theme.colors.text.primary,
-            textAlign: 'center',
-          }
-        ]}
-      >
-        {title}
-      </Text>
-      
-      {rightComponent && (
-        <View style={styles.rightContainer}>
-          {rightComponent}
-        </View>
-      )}
+      {/* Zone droite - Composant custom (largeur fixe) */}
+      <View style={styles.rightContainer}>
+        {rightComponent}
+      </View>
     </View>
   );
 };
@@ -71,19 +93,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
+    height: 68, // Hauteur fixe pour tous les headers (avec ou sans subtitle)
+  },
+  leftContainer: {
+    width: 48, // Largeur fixe pour alignement
+    alignItems: 'flex-start',
+    justifyContent: 'center',
   },
   backButton: {
-    padding: 8,
-    position: 'absolute',
-    left: 8,
-    zIndex: 1,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  centerContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    minHeight: 44, // Hauteur minimale pour centrer le contenu
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '600',
-    flex: 1,
+    textAlign: 'center',
+  },
+  headerSubtitle: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 2,
+    textAlign: 'center',
   },
   rightContainer: {
-    marginLeft: 8,
+    width: 48, // Largeur fixe pour alignement
+    alignItems: 'flex-end',
+    justifyContent: 'center',
   },
 });

@@ -10,6 +10,7 @@ export { Header } from './Header';
 export { HighlightedText } from './HighlightedText';
 export { EmptyState } from './EmptyState';
 export { ErrorState } from './ErrorState';
+export { ProfileButton } from './ProfileButton';
 export { 
   Skeleton, 
   EventCardSkeleton, 

@@ -14,14 +14,12 @@ import { EventDashboardNavigator } from './EventDashboardNavigator';
 import { AttendeeAddScreen } from '../screens/Attendees/AttendeeAddScreen';
 import { ScanScreen } from '../screens/Scan/ScanScreen';
 import { PrintNavigator } from './PrintNavigator';
-import { SettingsScreen } from '../screens/Settings/SettingsScreen';
 
 export type EventInnerTabsParamList = {
   Dashboard: { eventId: string };
   Attendees: { eventId: string };
   Scan: { eventId: string };
   Print: undefined;
-  Settings: undefined;
 };
 
 const Tab = createBottomTabNavigator<EventInnerTabsParamList>();
@@ -128,22 +126,6 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
           tabBarIcon: ({ color }) => (
             <Image 
               source={Icons.Print} 
-              style={[styles.tabIcon, { tintColor: color }]}
-              resizeMode="contain"
-              fadeDuration={0}
-            />
-          ),
-        }}
-      />
-
-      <Tab.Screen
-        name="Settings"
-        component={SettingsScreen}
-        options={{
-          tabBarLabel: t('navigation.settings'),
-          tabBarIcon: ({ color }) => (
-            <Image 
-              source={Icons.Outils} 
               style={[styles.tabIcon, { tintColor: color }]}
               resizeMode="contain"
               fadeDuration={0}

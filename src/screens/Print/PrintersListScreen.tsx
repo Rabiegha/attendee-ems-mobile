@@ -28,6 +28,7 @@ import {
 import { Printer } from '../../api/printNode/printers.service';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { Header } from '../../components/ui/Header';
+import { ProfileButton } from '../../components/ui/ProfileButton';
 import { Ionicons } from '@expo/vector-icons';
 
 type PrinterStatusFilter = 'online' | 'offline';
@@ -297,6 +298,7 @@ export const PrintersListScreen: React.FC<PrintersListScreenProps> = ({ navigati
       <Header
         title="Imprimantes"
         onBack={() => navigation.goBack()}
+        rightComponent={<ProfileButton />}
       />
 
       {/* Barre de recherche */}

@@ -12,6 +12,7 @@ import { AuthNavigator } from './AuthNavigator';
 import { EventsNavigator } from './EventsNavigator';
 import { EventInnerTabs } from './EventInnerTabs';
 import { AttendeeDetailsScreen } from '../screens/EventDashboard/AttendeeDetailsScreen';
+import { ProfileScreen } from '../screens/Profile/ProfileScreen';
 import { View, ActivityIndicator, Text } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
 
@@ -20,6 +21,7 @@ export type RootStackParamList = {
   Events: undefined;
   EventInner: { eventId: string; eventName: string };
   AttendeeDetails: { registrationId: string; eventId: string };
+  Profile: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -129,6 +131,15 @@ export const AppNavigator: React.FC = () => {
               options={{
                 headerShown: false,
                 animation: 'none',
+                presentation: 'card',
+              }}
+            />
+            <Stack.Screen
+              name="Profile"
+              component={ProfileScreen}
+              options={{
+                headerShown: false,
+                animation: 'slide_from_right',
                 presentation: 'card',
               }}
             />

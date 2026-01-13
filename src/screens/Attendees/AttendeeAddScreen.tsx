@@ -22,6 +22,7 @@ import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Header } from '../../components/ui/Header';
+import { ProfileButton } from '../../components/ui/ProfileButton';
 import { createRegistrationThunk } from '../../store/registrations.slice';
 import { fetchEventAttendeeTypesThunk, fetchEventRegistrationFieldsThunk } from '../../store/events.slice';
 
@@ -488,6 +489,7 @@ export const AttendeeAddScreen: React.FC<AttendeeAddScreenProps> = ({ navigation
             navigation.goBack();
           }
         }}
+        rightComponent={<ProfileButton />}
       />
       
       {isLoadingRegistrationFields || isLoadingAttendeeTypes ? (
