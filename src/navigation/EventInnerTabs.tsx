@@ -71,6 +71,8 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
         initialParams={{ eventId }}
         options={{
           tabBarLabel: t('navigation.participants'),
+          tabBarButton: () => null, 
+          tabBarItemStyle: { display: 'none' }, // Ensure it takes no space
           tabBarIcon: ({ color }) => (
             <Image 
               source={Icons.Participant} 

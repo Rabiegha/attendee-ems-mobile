@@ -21,10 +21,11 @@ import { useAppDispatch } from '../../store/hooks';
 import { checkInRegistrationThunk, checkOutRegistrationThunk } from '../../store/registrations.slice';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useTranslation } from 'react-i18next';
+import { SessionsService } from '../../api/backend/sessions.service';
 
 type RootStackParamList = {
   EventInner: { eventId: string };
-  Scan: { eventId: string };
+  Scan: { eventId: string; sessionId?: string; sessionName?: string };
 };
 
 type ScanScreenRouteProp = RouteProp<RootStackParamList, 'Scan'>;
@@ -43,6 +44,8 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation: navProp, rou
   const { t } = useTranslation();
 
   const eventId = route.params?.eventId || routeProp?.params?.eventId;
+  const sessionId = route.params?.sessionId || routeProp?.params?.sessionId;
+  const sessionName = route.params?.sessionName || routeProp?.params?.sessionName;
 
   const [permission, requestPermission] = useCameraPermissions();
   const [scanMode, setScanMode] = useState<'check-in' | 'check-out'>('check-in');
@@ -138,8 +141,32 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation: navProp, rou
     const registrationId = data;
 
     try {
-      if (scanMode === 'check-in') {
-        // MODE CHECK-IN
+      if (sessionId) {
+        // --- MODE SESSION ---
+        console.log(`[ScanScreen] Session ${scanMode} for session: ${sessionId}`);
+        
+        const result = await SessionsService.scanParticipant(eventId, sessionId, {
+          registrationId,
+          scanType: scanMode === 'check-in' ? 'IN' : 'OUT'
+        });
+
+        console.log('[ScanScreen] Session scan successful:', result);
+
+        try {
+          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        } catch (e) {
+          console.warn('[ScanScreen] Haptics not available:', e);
+        }
+        
+        const attendee = result.registration?.attendee;
+        const fullName = attendee ? `${attendee.first_name} ${attendee.last_name}` : 'Participant';
+        const actionText = scanMode === 'check-in' ? 'Entrée confirmée' : 'Sortie confirmée';
+        
+        showFeedback(`✓ ${fullName} - ${actionText}`, 'success');
+        setTimeout(() => resetScan(), 3000);
+
+      } else if (scanMode === 'check-in') {
+        // --- MODE EVENT CHECK-IN ---
         const result = await dispatch(
           checkInRegistrationThunk({
             registrationId,
@@ -204,7 +231,12 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation: navProp, rou
       console.log('[ScanScreen] Parsed error message:', errorMessage);
       
       // Messages spécifiques selon le type d'erreur
-      if (errorMessage.includes('QR Code mismatch') || errorMessage.includes('pas pour cet événement') || errorMessage.includes('not match')) {
+      // Messages spécifiques session
+      if (errorMessage.includes('Session is full')) {
+        showFeedback('⛔ Session complète (Capacité atteinte)', 'error');
+      } else if (errorMessage.includes('Access denied for this attendee type')) {
+        showFeedback('⛔ Accès refusé : Type de participant non autorisé', 'error');
+      } else if (errorMessage.includes('QR Code mismatch') || errorMessage.includes('pas pour cet événement') || errorMessage.includes('not match')) {
         showFeedback('⚠️ Ce QR Code est pour un autre événement', 'warning');
       } else if (errorMessage.includes('Already checked-in') || errorMessage.includes('déjà enregistré')) {
         showFeedback(t('scan.alreadyCheckedIn'), 'warning');
@@ -283,6 +315,14 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation: navProp, rou
 
       {/* Overlay avec cadre de scan */}
       <View style={styles.overlay}>
+        {/* Close Button - Position absolue pour ne pas gêner le centrage */}
+        <TouchableOpacity
+          style={styles.closeButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="close" size={28} color="#FFFFFF" />
+        </TouchableOpacity>
+
         <View style={styles.header}>
           {/* Sélecteur de mode */}
           <View style={styles.modeSelectorContainer}>
@@ -345,13 +385,6 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation: navProp, rou
               </TouchableOpacity>
             </View>
           </View>
-
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons name="close" size={28} color="#FFFFFF" />
-          </TouchableOpacity>
         </View>
 
         <View style={styles.scanAreaContainer}>
@@ -363,9 +396,11 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation: navProp, rou
           </View>
 
           <Text style={styles.instructionText}>
-            {isProcessing
+            {sessionName ? `Scanner pour : ${sessionName}` : (
+              isProcessing
               ? 'Vérification en cours...'
-              : 'Scannez le QR Code du participant'}
+              : 'Scannez le QR Code du participant'
+            )}
           </Text>
 
           {isProcessing && (
@@ -452,15 +487,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   header: {
-    paddingTop: 60,
+    paddingTop: 80,
     paddingHorizontal: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    width: '100%',
+    alignItems: 'center',
   },
   modeSelectorContainer: {
-    flex: 1,
-    marginRight: 12,
+    width: '100%',
   },
   modeSelectorLabel: {
     color: '#FFFFFF',
@@ -500,12 +533,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   closeButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
     width: 40,
     height: 40,
     borderRadius: 20,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 10,
   },
   scanAreaContainer: {
     flex: 1,

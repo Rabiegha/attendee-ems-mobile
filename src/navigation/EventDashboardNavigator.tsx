@@ -7,11 +7,13 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { EventDashboardScreen } from '../screens/EventDashboard/EventDashboardScreen';
 import { AttendeesListScreen } from '../screens/EventDashboard/AttendeesListScreen';
+import { SessionDetailsScreen } from '../screens/EventDashboard/SessionDetailsScreen';
 import { useTheme } from '../theme/ThemeProvider';
 
 export type EventDashboardStackParamList = {
   DashboardTabs: { eventId?: string };
   AttendeesList: { eventId: string };
+  SessionDetails: { eventId: string; sessionId: string; sessionName: string };
 };
 
 const Stack = createNativeStackNavigator<EventDashboardStackParamList>();
@@ -42,6 +44,17 @@ export const EventDashboardNavigator: React.FC<EventDashboardNavigatorProps> = (
         component={AttendeesListScreen}
         options={{
           headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="SessionDetails"
+        component={SessionDetailsScreen}
+        options={{
+          headerShown: true,
+          title: 'Détails de la session',
+          headerBackTitle: 'Retour',
+          headerStyle: { backgroundColor: theme.colors.surface },
+          headerTintColor: theme.colors.text.primary,
         }}
       />
     </Stack.Navigator>
