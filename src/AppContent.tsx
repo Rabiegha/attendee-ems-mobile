@@ -11,9 +11,21 @@ import { AppNavigator } from './navigation/AppNavigator';
 import { useTokenRestoration } from './hooks/useTokenRestoration';
 import { useSocketSync } from './hooks/useSocketSync';
 import { ToastContainer } from './components/ui/ToastContainer';
+import { useAppDispatch } from './store/hooks';
+import { clearAuth } from './store/auth.slice';
+import { setOnAuthFailure } from './api/backend/axiosClient';
 
 export const AppContent: React.FC = () => {
   const { theme, colorScheme } = useTheme();
+  const dispatch = useAppDispatch();
+  
+  // Configurer le callback de déconnexion automatique en cas d'échec d'auth
+  useEffect(() => {
+    setOnAuthFailure(() => {
+      console.log('[AppContent] Auth failure detected, clearing auth state...');
+      dispatch(clearAuth());
+    });
+  }, [dispatch]);
   
   // Restaurer le token au démarrage
   useTokenRestoration();

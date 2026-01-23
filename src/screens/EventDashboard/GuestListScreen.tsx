@@ -8,7 +8,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchRegistrationsThunk } from '../../store/registrations.slice';
-import { fetchEventByIdThunk } from '../../store/events.slice';
 import { Card } from '../../components/ui/Card';
 
 interface GuestListScreenProps {
@@ -22,6 +21,7 @@ export const GuestListScreen: React.FC<GuestListScreenProps> = ({ navigation, ro
   const { registrations, pagination } = useAppSelector((state) => state.registrations);
   const { currentEvent } = useAppSelector((state) => state.events);
   const [refreshing, setRefreshing] = useState(false);
+  const isLoadingRef = React.useRef(false);
 
   const eventId = route.params?.eventId || currentEvent?.id;
   
@@ -37,27 +37,23 @@ export const GuestListScreen: React.FC<GuestListScreenProps> = ({ navigation, ro
 
   // Fonction pour charger/recharger les données
   const loadData = useCallback(async () => {
-    if (eventId) {
+    if (eventId && !isLoadingRef.current) {
+      isLoadingRef.current = true;
       console.log('[GuestListScreen] Loading data for event:', eventId);
-      await Promise.all([
-        dispatch(fetchRegistrationsThunk({ eventId })),
-        dispatch(fetchEventByIdThunk(eventId)) // Recharger l'événement pour avoir les stats à jour
-      ]);
+      
+      try {
+        // Charger uniquement les registrations, l'event est déjà chargé par EventDashboardScreen
+        await dispatch(fetchRegistrationsThunk({ eventId }));
+      } finally {
+        isLoadingRef.current = false;
+      }
     }
   }, [eventId, dispatch]);
 
-  // Chargement initial
+  // Chargement initial uniquement
   useEffect(() => {
     loadData();
   }, [eventId]); // Charger seulement quand eventId change
-
-  // Recharger à chaque fois que l'écran devient actif (pour voir les modifications)
-  useFocusEffect(
-    useCallback(() => {
-      console.log('[GuestListScreen] Screen focused - reloading data');
-      loadData();
-    }, [loadData])
-  );
 
   // Pull-to-refresh handler
   const onRefresh = useCallback(async () => {

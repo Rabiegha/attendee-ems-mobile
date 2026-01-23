@@ -7,7 +7,7 @@ import { AppState, AppStateStatus } from 'react-native';
 import { setAuthTokens, getAccessToken } from '../api/backend/axiosClient';
 import { secureStorage, STORAGE_KEYS } from '../utils/storage';
 import { useAppDispatch } from '../store/hooks';
-import { fetchUserProfileThunk } from '../store/auth.slice';
+import { fetchUserProfileThunk, clearAuth } from '../store/auth.slice';
 import axios from 'axios';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
@@ -90,10 +90,12 @@ const restoreToken = async (dispatch: any) => {
       data: error.response?.data,
     });
     
-    // Si le refresh échoue, nettoyer le refresh token invalide
+    // Si le refresh échoue, nettoyer le refresh token invalide et déconnecter
     if (error.response?.status === 401) {
-      console.log('[useTokenRestoration] 🗑️ Refresh token expired, clearing storage');
+      console.log('[useTokenRestoration] 🗑️ Refresh token expired, clearing storage and auth state');
       await secureStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+      // Déconnecter l'utilisateur automatiquement
+      dispatch(clearAuth());
     }
   } finally {
     isRestoring = false;
@@ -104,17 +106,15 @@ const restoreToken = async (dispatch: any) => {
 export const useTokenRestoration = () => {
   const dispatch = useAppDispatch();
   const appState = useRef(AppState.currentState);
-  const renderCount = useRef(0);
+  const hasRestoredOnce = useRef(false);
 
   useEffect(() => {
-    renderCount.current += 1;
-    
-    // Restaurer au montage initial
-    console.log('[useTokenRestoration] 🚀 Hook effect triggered (render #' + renderCount.current + ')');
-    
-    // TOUJOURS tenter une restauration au montage/remontage du composant
-    // Cela couvre aussi le hot reload en dev
-    restoreToken(dispatch);
+    // Restaurer au montage initial (une seule fois)
+    if (!hasRestoredOnce.current) {
+      console.log('[useTokenRestoration] 🚀 Hook mounted, attempting token restoration...');
+      hasRestoredOnce.current = true;
+      restoreToken(dispatch);
+    }
 
     // Écouter les changements d'état de l'app (foreground/background)
     const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
@@ -131,5 +131,5 @@ export const useTokenRestoration = () => {
     return () => {
       subscription.remove();
     };
-  }); // PAS de dépendances → s'exécute à chaque render (pour capturer le hot reload)
+  }, [dispatch]); // Dépendance dispatch uniquement
 };

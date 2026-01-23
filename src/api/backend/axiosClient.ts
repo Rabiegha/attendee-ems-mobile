@@ -41,6 +41,13 @@ const axiosClient: AxiosInstance = axios.create({
 let accessToken: string | null = null;
 let expiresAt: number | null = null;
 
+// Callback pour déconnecter l'utilisateur en cas d'échec de refresh
+let onAuthFailureCallback: (() => void) | null = null;
+
+export const setOnAuthFailure = (callback: () => void) => {
+  onAuthFailureCallback = callback;
+};
+
 export const setAuthTokens = async (token: string, expiresIn: number) => {
   accessToken = token;
   expiresAt = Date.now() + expiresIn * 1000;
@@ -111,6 +118,13 @@ const refreshAccessToken = async (): Promise<string | null> => {
     // Nettoyer les tokens en cas d'échec
     clearAuthTokens();
     await secureStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+    
+    // Appeler le callback de déconnexion pour nettoyer Redux
+    if (onAuthFailureCallback) {
+      console.log('[axiosClient] 🚪 Calling auth failure callback (logout)');
+      onAuthFailureCallback();
+    }
+    
     throw error;
   }
 };

@@ -15,6 +15,7 @@ import { fetchEventByIdThunk } from '../../store/events.slice';
 import { Ionicons } from '@expo/vector-icons';
 import { Header } from '../../components/ui/Header';
 import { ProfileButton } from '../../components/ui/ProfileButton';
+import { GuestListSkeleton } from '../../components/skeletons/GuestListSkeleton';
 
 const Tab = createMaterialTopTabNavigator();
 
@@ -39,14 +40,24 @@ export const EventDashboardScreen: React.FC<EventDashboardScreenProps> = ({ rout
   console.log('[EventDashboardScreen] stats:', currentEvent?.stats);
   
   // Charger l'événement si on a un ID (les stats sont incluses)
+  // Utiliser une ref pour éviter les chargements multiples
+  const loadingRef = React.useRef(false);
+  
   useEffect(() => {
-    if (eventId && (!currentEvent || currentEvent.id !== eventId)) {
+    if (eventId && (!currentEvent || currentEvent.id !== eventId) && !loadingRef.current) {
       console.log('[EventDashboardScreen] Loading event with stats:', eventId);
-      dispatch(fetchEventByIdThunk(eventId));
+      loadingRef.current = true;
+      
+      dispatch(fetchEventByIdThunk(eventId)).finally(() => {
+        loadingRef.current = false;
+      });
     }
-  }, [eventId, dispatch]);
+  }, [eventId, currentEvent?.id, dispatch]);
   
   const event = currentEvent;
+  
+  // Vérifier si on affiche le bon événement
+  const isLoadingWrongEvent = !currentEvent || currentEvent.id !== eventId;
   
   // Formater la date
   const formatEventDate = (dateString?: string) => {
@@ -79,8 +90,13 @@ export const EventDashboardScreen: React.FC<EventDashboardScreenProps> = ({ rout
         rightComponent={<ProfileButton />}
       />
 
-      {/* Material Top Tabs */}
-      <Tab.Navigator
+      {/* Afficher un loader si on charge un nouvel événement */}
+      {isLoadingWrongEvent ? (
+        <GuestListSkeleton />
+      ) : (
+        <>
+          {/* Material Top Tabs */}
+          <Tab.Navigator
         screenOptions={{
           tabBarActiveTintColor: theme.colors.brand[600],
           tabBarInactiveTintColor: theme.colors.text.tertiary,
@@ -121,6 +137,8 @@ export const EventDashboardScreen: React.FC<EventDashboardScreenProps> = ({ rout
         }}
       />
       </Tab.Navigator>
+        </>
+      )}
     </View>
   );
 };const styles = StyleSheet.create({

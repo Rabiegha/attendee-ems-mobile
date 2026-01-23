@@ -408,6 +408,9 @@ const eventsSlice = createSlice({
     setCurrentEvent: (state, action: PayloadAction<Event | null>) => {
       state.currentEvent = action.payload;
     },
+    clearCurrentEvent: (state) => {
+      state.currentEvent = null;
+    },
     clearOngoingEvents: (state) => {
       state.ongoing = { ...initialListState };
     },
@@ -582,5 +585,5 @@ const eventsSlice = createSlice({
   },
 });
 
-export const { setCurrentEvent, clearUpcomingEvents, clearPastEvents, clearError } = eventsSlice.actions;
+export const { setCurrentEvent, clearCurrentEvent, clearUpcomingEvents, clearPastEvents, clearError } = eventsSlice.actions;
 export default eventsSlice.reducer;
