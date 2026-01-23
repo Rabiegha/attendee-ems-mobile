@@ -258,7 +258,7 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
       // checkedIn sera filtré côté client
       
       dispatch(fetchRegistrationsThunk(params));
-      checkIn.refreshStats(eventId);
+      // Note: Stats calculées automatiquement depuis Redux
     }
   }, [eventId, searchQuery, filters, dispatch, checkIn]);
 
@@ -404,10 +404,7 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
           })).unwrap();
           
           toast.success(t('attendees.checkOutSuccess'));
-          // Rafraîchir les stats
-          if (eventId) {
-            checkIn.refreshStats(eventId);
-          }
+          // Note: Stats calculées automatiquement depuis Redux
         } catch (error: any) {
           const errorMessage = error?.detail || error?.message || t('attendees.checkOutError');
           toast.error(errorMessage);
@@ -441,10 +438,7 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
           })).unwrap();
           
           toast.success('Check-out annulé');
-          // Rafraîchir les stats
-          if (eventId) {
-            checkIn.refreshStats(eventId);
-          }
+          // Note: Stats calculées automatiquement depuis Redux
         } catch (error: any) {
           const errorMessage = error?.detail || error?.message || 'Erreur lors de l\'annulation';
           toast.error(errorMessage);

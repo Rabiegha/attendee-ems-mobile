@@ -29,14 +29,13 @@ export interface UseCheckInResult {
   checkInOnly: (registration: Registration, onSuccess?: (message: string) => void, onError?: (message: string) => void) => Promise<void>;
   undoCheckIn: (registration: Registration, onSuccess?: (message: string) => void, onError?: (message: string) => void) => Promise<void>;
 
-  // Statistiques dynamiques
+  // Statistiques dynamiques (calculées en temps réel depuis Redux)
   stats: {
     total: number;
     checkedIn: number;
     percentage: number;
     isLoading: boolean;
   };
-  refreshStats: (eventId: string) => Promise<void>;
 }
 
 export const useCheckIn = (): UseCheckInResult => {
@@ -51,6 +50,10 @@ export const useCheckIn = (): UseCheckInResult => {
   // Récupérer l'imprimante sélectionnée depuis le store Redux
   const selectedPrinter = useAppSelector(state => state.printers.selectedPrinter);
   const printersState = useAppSelector(state => state.printers);
+
+  // Récupérer les registrations depuis Redux pour calculer les stats en temps réel
+  const registrations = useAppSelector(state => state.registrations.registrations);
+  const paginationTotal = useAppSelector(state => state.registrations.pagination.total);
 
   // Debug logging pour l'état des imprimantes
   console.log('[useCheckIn] Printers state:', {
@@ -117,37 +120,26 @@ export const useCheckIn = (): UseCheckInResult => {
     };
   }, [ensurePrinterLoaded]);
 
-  // État des statistiques
-  const [stats, setStats] = useState({
-    total: 0,
-    checkedIn: 0,
-    percentage: 0,
-    isLoading: false,
-  });
+  // Calculer les statistiques en temps réel depuis les registrations Redux
+  const stats = useMemo(() => {
+    const total = paginationTotal || registrations.length;
+    const checkedIn = registrations.filter(reg => reg.checked_in_at !== null).length;
+    const percentage = total > 0 ? Math.round((checkedIn / total) * 100) : 0;
 
-  // Fonction pour mettre à jour les statistiques
-  const refreshStats = useCallback(async (eventId: string) => {
-    setStats(prev => ({ ...prev, isLoading: true }));
-    try {
-      const response = await registrationsService.getEventStats(eventId);
-      console.log('[useCheckIn] Stats received:', response);
-      setStats({
-        total: response.total || 0,
-        checkedIn: response.checkedIn || 0,
-        percentage: response.percentage || 0,
-        isLoading: false,
-      });
-    } catch (error) {
-      console.error('Failed to fetch event stats:', error);
-      // En cas d'erreur, réinitialiser à des valeurs saines
-      setStats({
-        total: 0,
-        checkedIn: 0,
-        percentage: 0,
-        isLoading: false,
-      });
-    }
-  }, []);
+    console.log('[useCheckIn] Stats calculated from Redux:', {
+      total,
+      checkedIn,
+      percentage,
+      registrationsCount: registrations.length,
+    });
+
+    return {
+      total,
+      checkedIn,
+      percentage,
+      isLoading: false,
+    };
+  }, [registrations, paginationTotal]);
 
   // Fonction utilitaire pour initialiser l'état
   const initializeState = useCallback((attendee: Registration) => {
@@ -376,11 +368,7 @@ export const useCheckIn = (): UseCheckInResult => {
         dispatch(updateRegistration(result.registration));
       }
       
-      // Rafraîchir les statistiques si on a un eventId
-      if (registration.event_id) {
-        console.log('[useCheckIn] 🔄 Refreshing stats...');
-        await refreshStats(registration.event_id);
-      }
+      // Note: Les stats sont calculées automatiquement depuis Redux (useMemo)
       
       if (onSuccess) {
         onSuccess(`${registration.attendee.first_name} ${registration.attendee.last_name} enregistré(e)`);
@@ -401,7 +389,7 @@ export const useCheckIn = (): UseCheckInResult => {
         onError(errorMsg);
       }
     }
-  }, [initializeState, refreshStats]);
+  }, [initializeState, dispatch]);
 
   // Fonction pour annuler le check-in
   const undoCheckIn = useCallback(async (
@@ -443,11 +431,7 @@ export const useCheckIn = (): UseCheckInResult => {
         dispatch(updateRegistration(result.registration));
       }
       
-      // Rafraîchir les statistiques si on a un eventId
-      if (registration.event_id) {
-        console.log('[useCheckIn] 🔄 Refreshing stats after undo...');
-        await refreshStats(registration.event_id);
-      }
+      // Note: Les stats sont calculées automatiquement depuis Redux (useMemo)
       
       if (onSuccess) {
         onSuccess(`Check-in annulé pour ${registration.attendee.first_name} ${registration.attendee.last_name}`);
@@ -468,7 +452,7 @@ export const useCheckIn = (): UseCheckInResult => {
         onError(errorMsg);
       }
     }
-  }, [initializeState, refreshStats]);
+  }, [initializeState, dispatch]);
 
   // Fonction principale : imprimer ET faire le check-in
   const printAndCheckIn = useCallback(async (
@@ -623,10 +607,7 @@ export const useCheckIn = (): UseCheckInResult => {
       
       setProgress(90);
       
-      // Rafraîchir les statistiques
-      if (registration.event_id) {
-        await refreshStats(registration.event_id);
-      }
+      // Note: Les stats sont calculées automatiquement depuis Redux (useMemo)
 
       setProgress(100);
       setStatus('success');
@@ -650,7 +631,7 @@ export const useCheckIn = (): UseCheckInResult => {
         onError(errorMsg);
       }
     }
-  }, [initializeState, ensurePrinterLoaded, printOnly, refreshStats]);
+  }, [initializeState, ensurePrinterLoaded, printOnly, dispatch]);
 
   // Mémoriser l'objet retourné pour éviter les re-rendus
   return useMemo(() => ({
@@ -666,9 +647,8 @@ export const useCheckIn = (): UseCheckInResult => {
     checkInOnly,
     undoCheckIn,
 
-    // Statistiques
+    // Statistiques (calculées automatiquement depuis Redux)
     stats,
-    refreshStats,
   }), [
     status,
     currentAttendee,
@@ -679,6 +659,5 @@ export const useCheckIn = (): UseCheckInResult => {
     checkInOnly,
     undoCheckIn,
     stats,
-    refreshStats,
   ]);
 };

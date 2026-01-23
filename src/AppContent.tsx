@@ -9,6 +9,7 @@ import * as NavigationBar from 'expo-navigation-bar';
 import { useTheme } from './theme/ThemeProvider';
 import { AppNavigator } from './navigation/AppNavigator';
 import { useTokenRestoration } from './hooks/useTokenRestoration';
+import { useSocketSync } from './hooks/useSocketSync';
 import { ToastContainer } from './components/ui/ToastContainer';
 
 export const AppContent: React.FC = () => {
@@ -16,6 +17,9 @@ export const AppContent: React.FC = () => {
   
   // Restaurer le token au démarrage
   useTokenRestoration();
+  
+  // Synchroniser les données via WebSocket
+  useSocketSync();
   
   // Configurer les barres système selon le thème
   useEffect(() => {

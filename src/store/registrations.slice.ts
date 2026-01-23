@@ -317,6 +317,47 @@ const registrationsSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
+    // WebSocket events
+    builder.addCase('registrations/created' as any, (state, action: PayloadAction<Registration>) => {
+      console.log('[RegistrationsSlice] WebSocket - Registration created:', action.payload.id);
+      // Ajouter la nouvelle registration au début de la liste
+      state.registrations.unshift(action.payload);
+      state.pagination.total += 1;
+    });
+    
+    builder.addCase('registrations/updated' as any, (state, action: PayloadAction<Registration>) => {
+      console.log('[RegistrationsSlice] WebSocket - Registration updated:', action.payload.id);
+      const index = state.registrations.findIndex(reg => reg.id === action.payload.id);
+      if (index !== -1) {
+        state.registrations[index] = {
+          ...state.registrations[index],
+          ...action.payload,
+          eventAttendeeType: action.payload.eventAttendeeType || state.registrations[index].eventAttendeeType,
+          attendee: action.payload.attendee || state.registrations[index].attendee,
+        };
+      }
+    });
+    
+    builder.addCase('registrations/deleted' as any, (state, action: PayloadAction<{ id: string }>) => {
+      console.log('[RegistrationsSlice] WebSocket - Registration deleted:', action.payload.id);
+      state.registrations = state.registrations.filter(reg => reg.id !== action.payload.id);
+      state.pagination.total -= 1;
+    });
+    
+    builder.addCase('registrations/checkedIn' as any, (state, action: PayloadAction<Registration>) => {
+      console.log('[RegistrationsSlice] WebSocket - Registration checked-in:', action.payload.id);
+      const index = state.registrations.findIndex(reg => reg.id === action.payload.id);
+      if (index !== -1) {
+        state.registrations[index] = {
+          ...state.registrations[index],
+          ...action.payload,
+          // Préserver les relations si elles ne sont pas dans le payload
+          eventAttendeeType: action.payload.eventAttendeeType || state.registrations[index].eventAttendeeType,
+          attendee: action.payload.attendee || state.registrations[index].attendee,
+        };
+      }
+    });
+    
     // Fetch registrations
     builder
       .addCase(fetchRegistrationsThunk.pending, (state) => {

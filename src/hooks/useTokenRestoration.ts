@@ -72,7 +72,7 @@ const restoreToken = async (dispatch: any) => {
 
     console.log('[useTokenRestoration] 💾 Calling setAuthTokens...');
     // Mettre à jour les tokens
-    setAuthTokens(access_token, expires_in);
+    await setAuthTokens(access_token, expires_in);
     
     console.log('[useTokenRestoration] 💾 Saving new refresh token to storage...');
     await secureStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken);

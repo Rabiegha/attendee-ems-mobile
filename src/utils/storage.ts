@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Clés de stockage
 export const STORAGE_KEYS = {
+  ACCESS_TOKEN: 'access_token',
   REFRESH_TOKEN: 'refresh_token',
   USER_PREFERENCES: 'user_preferences',
   THEME_MODE: 'theme_mode',

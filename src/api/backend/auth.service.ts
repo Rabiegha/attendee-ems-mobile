@@ -35,7 +35,7 @@ export const authService = {
         : JSON.stringify(refresh_token);
 
       // Stocker les tokens
-      setAuthTokens(access_token, expires_in);
+      await setAuthTokens(access_token, expires_in);
       
       try {
         await secureStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshTokenString);
@@ -80,7 +80,7 @@ export const authService = {
         : JSON.stringify(newRefreshToken);
 
       // Mettre à jour les tokens
-      setAuthTokens(access_token, expires_in);
+      await setAuthTokens(access_token, expires_in);
       await secureStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshTokenString);
 
       return response.data;
@@ -106,7 +106,7 @@ export const authService = {
       console.error('[AuthService] Logout API call failed:', error.response?.data || error.message);
     } finally {
       // Nettoyer les tokens localement
-      clearAuthTokens();
+      await clearAuthTokens();
       await secureStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
       console.log('[AuthService] Tokens cleared from storage');
     }

@@ -41,16 +41,28 @@ const axiosClient: AxiosInstance = axios.create({
 let accessToken: string | null = null;
 let expiresAt: number | null = null;
 
-export const setAuthTokens = (token: string, expiresIn: number) => {
+export const setAuthTokens = async (token: string, expiresIn: number) => {
   accessToken = token;
   expiresAt = Date.now() + expiresIn * 1000;
+  // Stocker aussi dans le secure storage pour le WebSocket
+  try {
+    await secureStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, token);
+  } catch (error) {
+    console.error('[axiosClient] Error storing access token:', error);
+  }
 };
 
 export const getAccessToken = () => accessToken;
 
-export const clearAuthTokens = () => {
+export const clearAuthTokens = async () => {
   accessToken = null;
   expiresAt = null;
+  // Supprimer aussi du secure storage
+  try {
+    await secureStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
+  } catch (error) {
+    console.error('[axiosClient] Error clearing access token:', error);
+  }
 };
 
 // Fonction de refresh du token
@@ -85,7 +97,7 @@ const refreshAccessToken = async (): Promise<string | null> => {
     const { access_token, refresh_token: newRefreshToken, expires_in } = response.data;
 
     // Mettre à jour les tokens
-    setAuthTokens(access_token, expires_in);
+    await setAuthTokens(access_token, expires_in);
     await secureStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken);
 
     console.log('[axiosClient] ✅ Tokens updated successfully');
