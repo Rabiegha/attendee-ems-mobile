@@ -64,7 +64,7 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation: navProp, rou
   const [printOnScan, setPrintOnScan] = useState(false);
 
   // Récupérer le printer sélectionné depuis le store
-  const selectedPrinter = useAppSelector((state) => state.printer.selectedPrinter);
+  const selectedPrinter = useAppSelector((state) => state.printers.selectedPrinter);
 
   // Demander la permission caméra au montage
   useEffect(() => {
