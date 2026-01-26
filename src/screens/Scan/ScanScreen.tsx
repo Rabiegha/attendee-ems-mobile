@@ -68,11 +68,19 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation: navProp, rou
 
   // Demander la permission caméra au montage
   useEffect(() => {
-    if (!permission) {
-      console.log('[ScanScreen] Requesting camera permission...');
-      requestPermission();
-    }
-  }, [permission]);
+    const requestCameraPermission = async () => {
+      try {
+        if (!permission) {
+          console.log('[ScanScreen] Requesting camera permission...');
+          await requestPermission();
+        }
+      } catch (error) {
+        console.error('[ScanScreen] Error requesting permission:', error);
+      }
+    };
+    
+    requestCameraPermission();
+  }, [permission, requestPermission]);
 
   // Charger la préférence d'impression au scan
   useEffect(() => {
@@ -390,14 +398,16 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation: navProp, rou
   // Interface de scan
   return (
     <View style={styles.container}>
-      <CameraView
-        style={StyleSheet.absoluteFillObject}
-        facing="back"
-        barcodeScannerSettings={{
-          barcodeTypes: ['qr'],
-        }}
-        onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
-      />
+      {permission?.granted && (
+        <CameraView
+          style={StyleSheet.absoluteFillObject}
+          facing="back"
+          barcodeScannerSettings={{
+            barcodeTypes: ['qr'],
+          }}
+          onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+        />
+      )}
 
       {/* Overlay avec cadre de scan */}
       <View style={styles.overlay}>
