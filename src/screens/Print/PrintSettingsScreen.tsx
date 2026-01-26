@@ -2,15 +2,18 @@
  * Écran des paramètres d'impression
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useTranslation } from 'react-i18next';
 import { Header } from '../../components/ui/Header';
 import { ProfileButton } from '../../components/ui/ProfileButton';
 import Icons from '../../assets/icons';
 import { Ionicons } from '@expo/vector-icons';
+
+const PRINT_ON_SCAN_KEY = '@print_settings:print_on_scan';
 
 interface PrintSettingsScreenProps {
   navigation: any;
@@ -21,11 +24,38 @@ export const PrintSettingsScreen: React.FC<PrintSettingsScreenProps> = ({ naviga
   const { t } = useTranslation();
 
   const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait');
-  const [autoPrint, setAutoPrint] = useState(false);
+  const [printOnScan, setPrintOnScan] = useState(false);
   const [printQuality, setPrintQuality] = useState(100);
 
+  // Charger les préférences au montage
+  useEffect(() => {
+    loadPrintOnScanPreference();
+  }, []);
+
+  const loadPrintOnScanPreference = async () => {
+    try {
+      const value = await AsyncStorage.getItem(PRINT_ON_SCAN_KEY);
+      if (value !== null) {
+        setPrintOnScan(value === 'true');
+        console.log('[PrintSettings] Loaded printOnScan preference:', value);
+      }
+    } catch (error) {
+      console.error('[PrintSettings] Error loading printOnScan preference:', error);
+    }
+  };
+
+  const handlePrintOnScanToggle = async (value: boolean) => {
+    try {
+      await AsyncStorage.setItem(PRINT_ON_SCAN_KEY, value.toString());
+      setPrintOnScan(value);
+      console.log('[PrintSettings] Saved printOnScan preference:', value);
+    } catch (error) {
+      console.error('[PrintSettings] Error saving printOnScan preference:', error);
+    }
+  };
+
   const handleApply = () => {
-    console.log('Applying settings:', { orientation, autoPrint, printQuality });
+    console.log('Applying settings:', { orientation, printQuality });
     // TODO: Save settings and navigate back
     navigation.goBack();
   };
@@ -43,7 +73,7 @@ export const PrintSettingsScreen: React.FC<PrintSettingsScreenProps> = ({ naviga
       edges={['top', 'left', 'right']}
     >
       <Header
-        title="Paramètres d'impression"
+        title="Paramètres"
         onBack={() => navigation.goBack()}
         rightComponent={<ProfileButton />}
       />
@@ -174,7 +204,7 @@ export const PrintSettingsScreen: React.FC<PrintSettingsScreenProps> = ({ naviga
           </View>
         </View>
 
-        {/* Auto Print - Switch */}
+        {/* Imprimer le badge au scan - Switch */}
         <View
           style={[
             styles.switchRow,
@@ -187,18 +217,29 @@ export const PrintSettingsScreen: React.FC<PrintSettingsScreenProps> = ({ naviga
             },
           ]}
         >
-          <Text
-            style={{
-              fontSize: theme.fontSize.base,
-              fontWeight: theme.fontWeight.medium,
-              color: theme.colors.text.primary,
-            }}
-          >
-            Auto Print
-          </Text>
+          <View style={{ flex: 1, marginRight: theme.spacing.md }}>
+            <Text
+              style={{
+                fontSize: theme.fontSize.base,
+                fontWeight: theme.fontWeight.medium,
+                color: theme.colors.text.primary,
+                marginBottom: 4,
+              }}
+            >
+              Imprimer le badge au scan
+            </Text>
+            <Text
+              style={{
+                fontSize: theme.fontSize.sm,
+                color: theme.colors.text.secondary,
+              }}
+            >
+              Impression automatique lors du check-in par QR code
+            </Text>
+          </View>
           <Switch
-            value={autoPrint}
-            onValueChange={setAutoPrint}
+            value={printOnScan}
+            onValueChange={handlePrintOnScanToggle}
             trackColor={{ 
               false: theme.colors.neutral[300], 
               true: theme.colors.brand[500] 

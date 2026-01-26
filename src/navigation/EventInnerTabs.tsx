@@ -124,10 +124,10 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
         name="Print"
         component={PrintNavigator}
         options={{
-          tabBarLabel: t('navigation.print'),
+          tabBarLabel: 'Paramètres',
           tabBarIcon: ({ color }) => (
             <Image 
-              source={Icons.Print} 
+              source={Icons.Outils} 
               style={[styles.tabIcon, { tintColor: color }]}
               resizeMode="contain"
               fadeDuration={0}

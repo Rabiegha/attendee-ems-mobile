@@ -17,11 +17,17 @@ import * as Haptics from 'expo-haptics';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import { useAppDispatch } from '../../store/hooks';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { checkInRegistrationThunk, checkOutRegistrationThunk } from '../../store/registrations.slice';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useTranslation } from 'react-i18next';
 import { SessionsService } from '../../api/backend/sessions.service';
+import { getBadgePdfBase64 } from '../../api/backend/badges.service';
+import { sendPrintJob } from '../../api/printNode/printers.service';
+import { PrintJob } from '../../printing/types';
+
+const PRINT_ON_SCAN_KEY = '@print_settings:print_on_scan';
 
 type RootStackParamList = {
   EventInner: { eventId: string };
@@ -55,6 +61,10 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation: navProp, rou
   const [feedbackType, setFeedbackType] = useState<'success' | 'error' | 'warning' | null>(null);
   const fadeAnim = useState(new Animated.Value(0))[0];
   const scaleAnim = useState(new Animated.Value(0))[0];
+  const [printOnScan, setPrintOnScan] = useState(false);
+
+  // Récupérer le printer sélectionné depuis le store
+  const selectedPrinter = useAppSelector((state) => state.printer.selectedPrinter);
 
   // Demander la permission caméra au montage
   useEffect(() => {
@@ -63,6 +73,23 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation: navProp, rou
       requestPermission();
     }
   }, [permission]);
+
+  // Charger la préférence d'impression au scan
+  useEffect(() => {
+    loadPrintOnScanPreference();
+  }, []);
+
+  const loadPrintOnScanPreference = async () => {
+    try {
+      const value = await AsyncStorage.getItem(PRINT_ON_SCAN_KEY);
+      if (value !== null) {
+        setPrintOnScan(value === 'true');
+        console.log('[ScanScreen] Print on scan enabled:', value === 'true');
+      }
+    } catch (error) {
+      console.error('[ScanScreen] Error loading print preference:', error);
+    }
+  };
 
   // Afficher feedback visuel
   const showFeedback = (message: string, type: 'success' | 'error' | 'warning') => {
@@ -102,6 +129,61 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation: navProp, rou
         setFeedbackType(null);
       });
     }, 3000);
+  };
+
+  // Fonction pour imprimer le badge automatiquement
+  const autoPrintBadge = async (registration: any) => {
+    if (!printOnScan) {
+      console.log('[ScanScreen] Auto-print disabled');
+      return;
+    }
+
+    if (!selectedPrinter) {
+      console.log('[ScanScreen] No printer selected, skipping auto-print');
+      return;
+    }
+
+    try {
+      console.log('[ScanScreen] Starting auto-print for registration:', registration.id);
+      
+      // Extraire le badge ID depuis l'URL
+      const badgeUrl = registration.badge_pdf_url;
+      if (!badgeUrl) {
+        console.log('[ScanScreen] No badge URL, skipping auto-print');
+        return;
+      }
+
+      const badgeIdMatch = badgeUrl.match(/\/badges\/([a-f0-9-]+)\//i);
+      if (!badgeIdMatch) {
+        console.error('[ScanScreen] Cannot extract badge ID from URL:', badgeUrl);
+        return;
+      }
+      
+      const badgeId = badgeIdMatch[1];
+      console.log('[ScanScreen] Fetching badge PDF base64 for:', badgeId);
+      
+      const badgeBase64 = await getBadgePdfBase64(badgeId);
+      console.log('[ScanScreen] Badge PDF fetched, length:', badgeBase64.length);
+
+      const printJob: PrintJob = {
+        printerId: selectedPrinter.id,
+        title: `Badge - ${registration.attendee.first_name} ${registration.attendee.last_name}`,
+        contentType: 'pdf_base64',
+        content: badgeBase64,
+        source: 'EMS Mobile App - Auto Print',
+        options: {
+          copies: 1,
+          fitToPage: true,
+        },
+      };
+
+      const printResult = await sendPrintJob(printJob);
+      console.log('[ScanScreen] Auto-print successful:', printResult.id);
+      
+    } catch (error) {
+      console.error('[ScanScreen] Auto-print failed:', error);
+      // Ne pas afficher d'erreur à l'utilisateur pour ne pas perturber le flux de scan
+    }
   };
 
   // Handler pour le scan du QR Code
@@ -183,6 +265,10 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation: navProp, rou
         }
         const fullName = `${result.attendee?.first_name} ${result.attendee?.last_name}`;
         showFeedback(`✓ ${fullName} - ${t('scan.checkInSuccess')}`, 'success');
+        
+        // Impression automatique si activée
+        await autoPrintBadge(result);
+        
         setTimeout(() => resetScan(), 3000);
       } else {
         // MODE CHECK-OUT

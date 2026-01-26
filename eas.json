@@ -6,6 +6,10 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.attendee.fr",
+        "EXPO_PUBLIC_PRINTNODE_API_KEY": "PrDdPPH6bJJpWSYwONmfapRUCCkL-770o5ZTsWSyY7g"
+      },
       "android": {
         "gradleCommand": ":app:assembleDebug",
         "buildType": "apk"
@@ -17,6 +21,10 @@
     "preview": {
       "distribution": "internal",
       "node": "20.19.4",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.attendee.fr",
+        "EXPO_PUBLIC_PRINTNODE_API_KEY": "PrDdPPH6bJJpWSYwONmfapRUCCkL-770o5ZTsWSyY7g"
+      },
       "android": {
         "buildType": "apk",
         "image": "latest"
@@ -24,7 +32,8 @@
     },
     "production": {
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.attendee.fr"
+        "EXPO_PUBLIC_API_URL": "https://api.attendee.fr",
+        "EXPO_PUBLIC_PRINTNODE_API_KEY": "PrDdPPH6bJJpWSYwONmfapRUCCkL-770o5ZTsWSyY7g"
       },
       "android": {
         "buildType": "apk"

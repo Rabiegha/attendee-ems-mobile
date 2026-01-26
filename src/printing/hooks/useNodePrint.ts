@@ -1,33 +1,20 @@
 import { useCallback, useState } from 'react';
 import { useAppSelector } from '../../store/hooks';
 import { sendPrintJob } from '../../api/printNode/printers.service';
+import { getBadgePdfBase64 } from '../../api/backend/badges.service';
 import { Registration } from '../../types/attendee';
 
 /**
- * Télécharge un fichier et le convertit en Base64
+ * Extrait le badge ID depuis l'URL du badge
+ * Format: /api/badges/{badgeId}/pdf
  */
-const downloadFileAsBase64 = async (url: string): Promise<string> => {
+const extractBadgeId = (badgePdfUrl: string): string | null => {
   try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Failed to download file: ${response.status}`);
-    }
-    
-    const blob = await response.blob();
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
-        // Retirer le préfixe "data:...;base64,"
-        const base64Data = base64.split(',')[1] || base64;
-        resolve(base64Data);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
+    const match = badgePdfUrl.match(/\/badges\/([a-f0-9-]+)\//i);
+    return match ? match[1] : null;
   } catch (error) {
-    console.error('[useNodePrint] Error downloading file:', error);
-    throw error;
+    console.error('[useNodePrint] Error extracting badge ID:', error);
+    return null;
   }
 };
 
@@ -47,11 +34,22 @@ export const useNodePrint = () => {
 
       setIsPrinting(true);
       try {
-        console.log('[useNodePrint] Downloading badge PDF from:', registration.badge_pdf_url);
+        console.log('[useNodePrint] Getting badge PDF base64...');
+        console.log('[useNodePrint] Badge PDF URL:', registration.badge_pdf_url);
         
-        // Télécharger le PDF et le convertir en Base64
-        const pdfBase64 = await downloadFileAsBase64(registration.badge_pdf_url);
+        // Extraire le badge ID depuis l'URL
+        const badgeId = extractBadgeId(registration.badge_pdf_url);
+        
+        if (!badgeId) {
+          throw new Error('Could not extract badge ID from URL');
+        }
 
+        console.log('[useNodePrint] Badge ID:', badgeId);
+        
+        // Récupérer le PDF en base64 depuis le backend
+        const pdfBase64 = await getBadgePdfBase64(badgeId);
+
+        console.log('[useNodePrint] PDF base64 received:', pdfBase64.length, 'chars');
         console.log('[useNodePrint] Sending print job to PrintNode...');
         
         const job = await sendPrintJob({

@@ -7,12 +7,14 @@ import { useState, useCallback, useMemo } from 'react';
 import { Registration } from '../types/attendee';
 import { registrationsService } from '../api/backend/registrations.service';
 import { sendPrintJob, PrintJob } from '../api/printNode/printers.service';
+import { getBadgePdfBase64 } from '../api/backend/badges.service';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import { loadSelectedPrinterThunk } from '../store/printers.slice';
 import { updateRegistration } from '../store/registrations.slice';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { debugPrinterStorage } from '../utils/printerDebug';
 import { hapticSuccess, hapticError, hapticLight } from '../utils/haptics';
+import axiosClient from '../api/backend/axiosClient';
 
 export type CheckInStatus = 'idle' | 'printing' | 'checkin' | 'undoing' | 'success' | 'error';
 
@@ -256,35 +258,41 @@ export const useCheckIn = (): UseCheckInResult => {
         }
       }
 
-      // 3. Télécharger le badge en base64
-      console.log('[useCheckIn] � Downloading badge...');
+      // 3. Récupérer le badge PDF en base64 via la nouvelle API
+      console.log('[useCheckIn] 📥 Step 2: Getting badge PDF base64 from API...');
+      console.log('[useCheckIn] Badge URL:', badgeUrl.substring(0, 100) + '...');
       setProgress(20);
       
-      const response = await fetch(badgeUrl);
-      if (!response.ok) {
-        throw new Error('Impossible de télécharger le badge');
+      // Extraire le badge ID depuis l'URL
+      // Format: /api/badges/{badgeId}/pdf
+      const badgeIdMatch = badgeUrl.match(/\/badges\/([a-f0-9-]+)\//i);
+      if (!badgeIdMatch) {
+        throw new Error('Impossible d\'extraire l\'ID du badge depuis l\'URL');
       }
+      const badgeId = badgeIdMatch[1];
+      console.log('[useCheckIn] Badge ID extracted:', badgeId);
       
-      const badgeBlob = await response.blob();
-      const badgeBase64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const base64 = (reader.result as string).split(',')[1];
-          resolve(base64);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(badgeBlob);
-      });
+      // Récupérer le PDF en base64 via la nouvelle API
+      console.log('[useCheckIn] 🌐 Fetching PDF base64 from /badge-generation/:id/pdf-base64...');
+      const badgeBase64 = await getBadgePdfBase64(badgeId);
+      console.log('[useCheckIn] ✅ Base64 received, length:', badgeBase64.length);
 
       setProgress(50);
 
       // 4. Envoyer le job d'impression à PrintNode
       console.log('[useCheckIn] 🔄 Sending print job to PrintNode...');
+      console.log('[useCheckIn] Print job details:', {
+        printerId: printer.id,
+        printerName: printer.name,
+        contentType: 'pdf_base64',
+        contentLength: badgeBase64.length,
+        title: `Badge - ${registration.attendee.first_name} ${registration.attendee.last_name}`,
+      });
       
       const printJob: PrintJob = {
         printerId: printer.id,
         title: `Badge - ${registration.attendee.first_name} ${registration.attendee.last_name}`,
-        contentType: badgeUrl.includes('.pdf') ? 'pdf_base64' : 'png_base64',
+        contentType: 'pdf_base64',
         content: badgeBase64,
         source: 'EMS Mobile App',
         options: {
@@ -293,8 +301,9 @@ export const useCheckIn = (): UseCheckInResult => {
         }
       };
 
+      console.log('[useCheckIn] 📤 Calling sendPrintJob...');
       const printResult = await sendPrintJob(printJob);
-      console.log('[useCheckIn] ✅ Print job sent successfully:', printResult.id);
+      console.log('[useCheckIn] ✅ Print job sent successfully:', printResult);
 
       setProgress(80);
 
@@ -316,10 +325,13 @@ export const useCheckIn = (): UseCheckInResult => {
       hapticError();
       const errorMsg = error.message || 'Erreur lors de l\'impression du badge';
       setErrorMessage(errorMsg);
-      console.error('[useCheckIn] ❌ Print failed:', {
-        error: error.message,
+      console.error('[useCheckIn] ❌ Print failed:', error);
+      console.error('[useCheckIn] ❌ Error details:', {
+        message: error?.message || 'No message',
+        name: error?.name || 'No name',
+        stack: error?.stack || 'No stack',
         registrationId: registration.id,
-        stack: error.stack,
+        fullError: JSON.stringify(error, null, 2),
       });
       
       if (onError) {
@@ -546,34 +558,29 @@ export const useCheckIn = (): UseCheckInResult => {
       }
 
       setProgress(20);
-      console.log('[useCheckIn] 📥 Step 2: Downloading badge from:', badgeUrl.substring(0, 80) + '...');
+      console.log('[useCheckIn] 📥 Step 2: Getting badge PDF base64 from API...');
+      console.log('[useCheckIn] Badge URL:', badgeUrl.substring(0, 80) + '...');
 
-      // Télécharger et imprimer le badge
-      const response = await fetch(badgeUrl);
-      if (!response.ok) {
-        console.error('[useCheckIn] ❌ Badge download failed:', response.status, response.statusText);
-        throw new Error(`Impossible de télécharger le badge (${response.status})`);
+      // Extraire le badge ID depuis l'URL
+      // Format: /api/badges/{badgeId}/pdf
+      const badgeIdMatch = badgeUrl.match(/\/badges\/([a-f0-9-]+)\//i);
+      if (!badgeIdMatch) {
+        throw new Error('Impossible d\'extraire l\'ID du badge depuis l\'URL');
       }
+      const badgeId = badgeIdMatch[1];
+      console.log('[useCheckIn] Badge ID extracted:', badgeId);
       
-      console.log('[useCheckIn] ✅ Badge downloaded successfully, converting to base64...');
-      
-      const badgeBlob = await response.blob();
-      const badgeBase64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const base64 = (reader.result as string).split(',')[1];
-          resolve(base64);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(badgeBlob);
-      });
+      // Récupérer le PDF en base64 via la nouvelle API
+      console.log('[useCheckIn] 🌐 Fetching PDF base64 from /badge-generation/:id/pdf-base64...');
+      const badgeBase64 = await getBadgePdfBase64(badgeId);
+      console.log('[useCheckIn] ✅ Base64 received, length:', badgeBase64.length);
 
       setProgress(40);
 
       const printJob: PrintJob = {
         printerId: printer.id,
         title: `Badge - ${registration.attendee.first_name} ${registration.attendee.last_name}`,
-        contentType: badgeUrl.includes('.pdf') ? 'pdf_base64' : 'png_base64',
+        contentType: 'pdf_base64',
         content: badgeBase64,
         source: 'EMS Mobile App',
         options: {
