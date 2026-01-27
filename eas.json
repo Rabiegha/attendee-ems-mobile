@@ -7,7 +7,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.attendee.fr",
+        "EXPO_PUBLIC_API_URL": "https://api.attendee.fr/api",
         "EXPO_PUBLIC_PRINTNODE_API_KEY": "PrDdPPH6bJJpWSYwONmfapRUCCkL-770o5ZTsWSyY7g"
       },
       "android": {
@@ -22,7 +22,7 @@
       "distribution": "internal",
       "node": "20.19.4",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.attendee.fr",
+        "EXPO_PUBLIC_API_URL": "https://api.attendee.fr/api",
         "EXPO_PUBLIC_PRINTNODE_API_KEY": "PrDdPPH6bJJpWSYwONmfapRUCCkL-770o5ZTsWSyY7g"
       },
       "android": {
@@ -32,7 +32,7 @@
     },
     "production": {
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.attendee.fr",
+        "EXPO_PUBLIC_API_URL": "https://api.attendee.fr/api",
         "EXPO_PUBLIC_PRINTNODE_API_KEY": "PrDdPPH6bJJpWSYwONmfapRUCCkL-770o5ZTsWSyY7g"
       },
       "android": {
