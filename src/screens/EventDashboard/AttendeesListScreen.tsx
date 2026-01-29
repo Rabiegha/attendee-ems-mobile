@@ -629,19 +629,27 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
                         ? theme.colors.neutral[100]
                         : item.status === 'approved' 
                         ? theme.colors.success[50] 
-                        : item.status === 'pending' 
+                        : item.status === 'awaiting' 
                         ? theme.colors.warning[50] 
                         : item.status === 'checked-in'
                         ? theme.colors.brand[50]
+                        : item.status === 'refused'
+                        ? theme.colors.error[50]
+                        : item.status === 'cancelled'
+                        ? theme.colors.neutral[100]
                         : theme.colors.error[50],
                       borderColor: item.checked_out_at
                         ? theme.colors.neutral[500]
                         : item.status === 'approved' 
                         ? theme.colors.success[500] 
-                        : item.status === 'pending' 
+                        : item.status === 'awaiting' 
                         ? theme.colors.warning[500] 
                         : item.status === 'checked-in'
                         ? theme.colors.brand[500]
+                        : item.status === 'refused'
+                        ? theme.colors.error[500]
+                        : item.status === 'cancelled'
+                        ? theme.colors.neutral[400]
                         : theme.colors.error[500],
                     },
                   ]}
@@ -652,10 +660,14 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
                         ? theme.colors.neutral[600]
                         : item.status === 'approved' 
                         ? theme.colors.success[600] 
-                        : item.status === 'pending' 
+                        : item.status === 'awaiting' 
                         ? theme.colors.warning[600] 
                         : item.status === 'checked-in'
                         ? theme.colors.brand[600]
+                        : item.status === 'refused'
+                        ? theme.colors.error[600]
+                        : item.status === 'cancelled'
+                        ? theme.colors.neutral[700]
                         : theme.colors.error[600],
                       fontSize: theme.fontSize.xs,
                       fontWeight: theme.fontWeight.medium,
@@ -663,8 +675,10 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
                   >
                     {item.checked_out_at ? t('attendees.checkedOut') :
                      item.status === 'approved' ? 'Approuvé' : 
-                     item.status === 'pending' ? 'En attente' : 
-                     item.status === 'checked-in' ? 'Présent' : 'Refusé'}
+                     item.status === 'awaiting' ? 'En attente' : 
+                     item.status === 'refused' ? 'Refusé' :
+                     item.status === 'cancelled' ? 'Annulé' :
+                     item.status === 'checked-in' ? 'Présent' : item.status}
                   </Text>
                 </View>
               </View>
@@ -760,19 +774,27 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
                         ? theme.colors.neutral[100]
                         : item.status === 'approved' 
                         ? theme.colors.success[50] 
-                        : item.status === 'pending' 
+                        : item.status === 'awaiting' 
                         ? theme.colors.warning[50] 
                         : item.status === 'checked-in'
                         ? theme.colors.brand[50]
+                        : item.status === 'refused'
+                        ? theme.colors.error[50]
+                        : item.status === 'cancelled'
+                        ? theme.colors.neutral[100]
                         : theme.colors.error[50],
                       borderColor: item.checked_out_at
                         ? theme.colors.neutral[500]
                         : item.status === 'approved' 
                         ? theme.colors.success[500] 
-                        : item.status === 'pending' 
+                        : item.status === 'awaiting' 
                         ? theme.colors.warning[500] 
                         : item.status === 'checked-in'
                         ? theme.colors.brand[500]
+                        : item.status === 'refused'
+                        ? theme.colors.error[500]
+                        : item.status === 'cancelled'
+                        ? theme.colors.neutral[400]
                         : theme.colors.error[500],
                     },
                   ]}
@@ -783,10 +805,14 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
                         ? theme.colors.neutral[600]
                         : item.status === 'approved' 
                         ? theme.colors.success[600] 
-                        : item.status === 'pending' 
+                        : item.status === 'awaiting' 
                         ? theme.colors.warning[600] 
                         : item.status === 'checked-in'
                         ? theme.colors.brand[600]
+                        : item.status === 'refused'
+                        ? theme.colors.error[600]
+                        : item.status === 'cancelled'
+                        ? theme.colors.neutral[700]
                         : theme.colors.error[600],
                       fontSize: theme.fontSize.xs,
                       fontWeight: theme.fontWeight.medium,
@@ -794,8 +820,10 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
                   >
                     {item.checked_out_at ? t('attendees.checkedOut') :
                      item.status === 'approved' ? 'Approuvé' : 
-                     item.status === 'pending' ? 'En attente' : 
-                     item.status === 'checked-in' ? 'Présent' : 'Refusé'}
+                     item.status === 'awaiting' ? 'En attente' : 
+                     item.status === 'refused' ? 'Refusé' :
+                     item.status === 'cancelled' ? 'Annulé' :
+                     item.status === 'checked-in' ? 'Présent' : item.status}
                   </Text>
                 </View>
               </View>

@@ -80,10 +80,12 @@ export const AttendeeDetailsScreen: React.FC<AttendeeDetailsScreenProps> = ({ na
         return 'Enregistré';
       case 'approved':
         return 'Approuvé';
-      case 'pending':
+      case 'awaiting':
         return 'En attente';
-      case 'rejected':
+      case 'refused':
         return 'Refusé';
+      case 'cancelled':
+        return 'Annulé';
       default:
         return status;
     }
@@ -95,9 +97,11 @@ export const AttendeeDetailsScreen: React.FC<AttendeeDetailsScreenProps> = ({ na
         return theme.colors.success[600];
       case 'approved':
         return theme.colors.brand[600];
-      case 'pending':
+      case 'awaiting':
         return theme.colors.warning[600];
-      case 'rejected':
+      case 'refused':
+        return theme.colors.error[600];
+      case 'cancelled':
         return theme.colors.error[600];
       default:
         return theme.colors.text.primary;
