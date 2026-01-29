@@ -98,7 +98,7 @@ export const GuestListScreen: React.FC<GuestListScreenProps> = ({ navigation, ro
       if (reg.eventAttendeeType?.attendeeType) {
         typeId = reg.eventAttendeeType.attendeeType.id;
         typeName = reg.eventAttendeeType.attendeeType.name;
-        typeColor = reg.eventAttendeeType.attendeeType.color_hex || '#94a3b8';
+        typeColor = reg.eventAttendeeType.color_hex || reg.eventAttendeeType.attendeeType.color_hex || '#94a3b8';
       }
 
       if (!typeCounts[typeId]) {
@@ -172,7 +172,7 @@ export const GuestListScreen: React.FC<GuestListScreenProps> = ({ navigation, ro
         if (reg.eventAttendeeType?.attendeeType) {
           typeId = reg.eventAttendeeType.attendeeType.id;
           typeName = reg.eventAttendeeType.attendeeType.name;
-          typeColor = reg.eventAttendeeType.attendeeType.color_hex || '#94a3b8';
+          typeColor = reg.eventAttendeeType.color_hex || reg.eventAttendeeType.attendeeType.color_hex || '#94a3b8';
         }
 
         if (!typeCounts[typeId]) {
