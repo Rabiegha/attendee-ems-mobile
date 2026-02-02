@@ -624,6 +624,62 @@ const eventsSlice = createSlice({
         state.isLoadingRegistrationFields = false;
         state.currentEventRegistrationFields = [];
       });
+
+    // WebSocket events - Mettre à jour les stats en temps réel
+    builder.addCase('registrations/checkedIn' as any, (state, action: PayloadAction<any>) => {
+      console.log('[EventsSlice] WebSocket - Registration checked-in event, updating stats');
+      if (state.currentEventStats) {
+        // Vérifier si c'est un check-in ou un undo (checked_in_at === null signifie undo)
+        const isCheckIn = action.payload.checked_in_at !== null;
+        const isUndoCheckIn = action.payload.checked_in_at === null;
+        
+        if (isCheckIn) {
+          console.log('[EventsSlice] WebSocket - Check-in detected, incrementing stats');
+          state.currentEventStats = {
+            ...state.currentEventStats,
+            checkedIn: state.currentEventStats.checkedIn + 1,
+            checkedInPercentage: Math.round(((state.currentEventStats.checkedIn + 1) / state.currentEventStats.totalRegistrations) * 100),
+          };
+        } else if (isUndoCheckIn) {
+          console.log('[EventsSlice] WebSocket - Undo check-in detected, decrementing stats');
+          state.currentEventStats = {
+            ...state.currentEventStats,
+            checkedIn: Math.max(0, state.currentEventStats.checkedIn - 1),
+            checkedInPercentage: Math.round((Math.max(0, state.currentEventStats.checkedIn - 1) / state.currentEventStats.totalRegistrations) * 100),
+          };
+        }
+      }
+    });
+
+    builder.addCase('registrations/updated' as any, (state, action: PayloadAction<any>) => {
+      console.log('[EventsSlice] WebSocket - Registration updated');
+      // Si le statut a changé, recalculer les stats (pour simplifier, on recharge)
+      // En production, vous pourriez vouloir comparer l'ancien et le nouveau statut
+    });
+
+    builder.addCase('registrations/created' as any, (state, action: PayloadAction<any>) => {
+      console.log('[EventsSlice] WebSocket - Registration created, updating stats');
+      if (state.currentEventStats) {
+        state.currentEventStats = {
+          ...state.currentEventStats,
+          totalRegistrations: state.currentEventStats.totalRegistrations + 1,
+          checkedInPercentage: Math.round((state.currentEventStats.checkedIn / (state.currentEventStats.totalRegistrations + 1)) * 100),
+        };
+      }
+    });
+
+    builder.addCase('registrations/deleted' as any, (state, action: PayloadAction<any>) => {
+      console.log('[EventsSlice] WebSocket - Registration deleted, updating stats');
+      if (state.currentEventStats) {
+        state.currentEventStats = {
+          ...state.currentEventStats,
+          totalRegistrations: Math.max(0, state.currentEventStats.totalRegistrations - 1),
+          checkedInPercentage: state.currentEventStats.totalRegistrations > 1 
+            ? Math.round((state.currentEventStats.checkedIn / (state.currentEventStats.totalRegistrations - 1)) * 100)
+            : 0,
+        };
+      }
+    });
   },
 });
 

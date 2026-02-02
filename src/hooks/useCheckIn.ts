@@ -401,7 +401,30 @@ export const useCheckIn = (): UseCheckInResult => {
     } catch (error: any) {
       setStatus('error');
       hapticError();
-      const errorMsg = error.message || 'Erreur lors du check-in';
+      
+      // Extraire le message d'erreur du backend
+      let errorMsg = 'Erreur lors du check-in';
+      
+      if (error?.response?.data?.detail) {
+        // Message du backend
+        const detail = error.response.data.detail;
+        
+        // Traduire les messages en français
+        if (detail.includes('refused')) {
+          errorMsg = 'Cette inscription a été refusée. Veuillez contacter un administrateur.';
+        } else if (detail.includes('cancelled')) {
+          errorMsg = 'Cette inscription a été annulée.';
+        } else if (detail.includes('Already checked-in')) {
+          errorMsg = 'Cette personne est déjà enregistrée.';
+        } else if (detail.includes('disabled')) {
+          errorMsg = 'Le check-in est désactivé pour cet événement.';
+        } else {
+          errorMsg = detail;
+        }
+      } else if (error?.message) {
+        errorMsg = error.message;
+      }
+      
       setErrorMessage(errorMsg);
       console.error('[useCheckIn] ❌ Check-in failed:', {
         error: error.message,

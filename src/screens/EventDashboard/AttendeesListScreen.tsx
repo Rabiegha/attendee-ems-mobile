@@ -800,8 +800,11 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
               borderColor: '#818CF8',
             }}
             onPress={() => {
-              // TODO: Navigation vers écran d'édition
-              console.log('Edit registration:', item.id);
+              navigation.navigate('AttendeeDetails', {
+                registrationId: item.id,
+                eventId: currentEvent?.id,
+                startInEditMode: true,
+              });
             }}
             activeOpacity={0.7}
           >

@@ -338,4 +338,40 @@ export const registrationsService = {
       throw error;
     }
   },
+
+  /**
+   * Mettre à jour une registration et son attendee
+   */
+  updateRegistration: async (
+    registrationId: string,
+    data: {
+      attendee?: {
+        first_name?: string;
+        last_name?: string;
+        email?: string;
+        phone?: string;
+        company?: string;
+        job_title?: string;
+        country?: string;
+      };
+      comment?: string;
+      status?: string;
+      attendance_type?: string;
+      event_attendee_type_id?: string;
+    }
+  ): Promise<Registration> => {
+    try {
+      console.log('[RegistrationsService] Updating registration:', { registrationId, data });
+      const response = await axiosClient.patch(`/registrations/${registrationId}`, data);
+      console.log('[RegistrationsService] Registration updated successfully');
+      return response.data;
+    } catch (error: any) {
+      console.error('[RegistrationsService] Error updating registration:', {
+        registrationId,
+        error: error.response?.data || error.message,
+        status: error.response?.status,
+      });
+      throw error;
+    }
+  },
 };

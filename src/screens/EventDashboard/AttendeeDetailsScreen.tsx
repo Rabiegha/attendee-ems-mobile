@@ -3,14 +3,14 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, TextInput } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchRegistrationByIdThunk, checkOutRegistrationThunk, undoCheckOutThunk } from '../../store/registrations.slice';
-import { fetchEventStatsThunk } from '../../store/events.slice';
+import { fetchEventStatsThunk, fetchEventAttendeeTypesThunk } from '../../store/events.slice';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Header } from '../../components/ui/Header';
@@ -18,6 +18,7 @@ import { ProfileButton } from '../../components/ui/ProfileButton';
 import { useCheckIn } from '../../hooks/useCheckIn';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { useToast } from '../../contexts/ToastContext';
+import { registrationsService } from '../../api/backend/registrations.service';
 
 interface AttendeeDetailsScreenProps {
   navigation: any;
@@ -28,18 +29,22 @@ export const AttendeeDetailsScreen: React.FC<AttendeeDetailsScreenProps> = ({ na
   const { t } = useTranslation();
   const { theme } = useTheme();
   const dispatch = useAppDispatch();
+  const insets = useSafeAreaInsets();
   const { currentRegistration, isLoading } = useAppSelector((state) => state.registrations);
-  const { currentEvent } = useAppSelector((state) => state.events);
+  const { currentEvent, currentEventAttendeeTypes } = useAppSelector((state) => state.events);
 
   const registrationId = route.params?.registrationId;
   const eventId = route.params?.eventId || currentEvent?.id;
+  const startInEditMode = route.params?.startInEditMode || false;
 
   const checkIn = useCheckIn();
   const toast = useToast();
 
   // État pour le mode édition
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(startInEditMode);
   const [editedData, setEditedData] = useState<any>({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   // État pour le dialog de confirmation
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -65,6 +70,7 @@ export const AttendeeDetailsScreen: React.FC<AttendeeDetailsScreenProps> = ({ na
   useEffect(() => {
     if (registrationId && eventId) {
       dispatch(fetchRegistrationByIdThunk({ eventId, registrationId }));
+      dispatch(fetchEventAttendeeTypesThunk(eventId));
     }
   }, [registrationId, eventId]);
 
@@ -80,9 +86,28 @@ export const AttendeeDetailsScreen: React.FC<AttendeeDetailsScreenProps> = ({ na
         job_title: currentRegistration.attendee.job_title || '',
         country: currentRegistration.attendee.country || '',
         comment: currentRegistration.comment || '',
+        status: currentRegistration.status,
+        event_attendee_type_id: currentRegistration.event_attendee_type_id,
       });
     }
   }, [currentRegistration]);
+
+  // Écouter les événements du clavier
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      'keyboardDidShow',
+      () => setKeyboardVisible(true)
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      'keyboardDidHide',
+      () => setKeyboardVisible(false)
+    );
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
 
   if (isLoading || !currentRegistration) {
     return (
@@ -233,11 +258,37 @@ export const AttendeeDetailsScreen: React.FC<AttendeeDetailsScreenProps> = ({ na
     });
   };
 
-  const handleSaveEdit = () => {
-    // TODO: Implémenter la sauvegarde avec une API call
-    console.log('Saving edited data:', editedData);
-    toast.success('Modifications enregistrées');
-    setIsEditing(false);
+  const handleSaveEdit = async () => {
+    setIsSaving(true);
+    try {
+      await registrationsService.updateRegistration(currentRegistration.id, {
+        attendee: {
+          first_name: editedData.first_name,
+          last_name: editedData.last_name,
+          email: editedData.email,
+          phone: editedData.phone,
+          company: editedData.company,
+          job_title: editedData.job_title,
+          country: editedData.country,
+        },
+        comment: editedData.comment,
+        status: editedData.status,
+        event_attendee_type_id: editedData.event_attendee_type_id,
+      });
+      
+      toast.success('Modifications enregistrées');
+      setIsEditing(false);
+      
+      // Recharger les données
+      if (eventId) {
+        dispatch(fetchRegistrationByIdThunk({ eventId, registrationId }));
+      }
+    } catch (error: any) {
+      console.error('Error saving registration:', error);
+      toast.error(error?.response?.data?.message || 'Erreur lors de la sauvegarde');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCancelEdit = () => {
@@ -251,6 +302,8 @@ export const AttendeeDetailsScreen: React.FC<AttendeeDetailsScreenProps> = ({ na
       job_title: attendee.job_title || '',
       country: attendee.country || '',
       comment: currentRegistration.comment || '',
+      status: currentRegistration.status,
+      event_attendee_type_id: currentRegistration.event_attendee_type_id,
     });
     setIsEditing(false);
   };
@@ -328,8 +381,17 @@ export const AttendeeDetailsScreen: React.FC<AttendeeDetailsScreenProps> = ({ na
           </TouchableOpacity>
         }
       />
-      <ScrollView style={{ flex: 1 }}>
-        <View style={{ padding: theme.spacing.lg }}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={0}
+      >
+        <ScrollView 
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingBottom: 40 }}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={{ padding: theme.spacing.lg }}>
         {/* Avatar / Nom */}
         <Card style={{ alignItems: 'center', marginBottom: theme.spacing.lg }}>
           <View
@@ -444,11 +506,14 @@ export const AttendeeDetailsScreen: React.FC<AttendeeDetailsScreenProps> = ({ na
               title="Annuler"
               onPress={handleCancelEdit}
               variant="secondary"
+              disabled={isSaving}
               style={{ flex: 1, marginRight: theme.spacing.sm }}
             />
             <Button
               title="Enregistrer"
               onPress={handleSaveEdit}
+              loading={isSaving}
+              disabled={isSaving}
               style={{ flex: 1, marginLeft: theme.spacing.sm }}
             />
           </View>
@@ -759,20 +824,113 @@ export const AttendeeDetailsScreen: React.FC<AttendeeDetailsScreenProps> = ({ na
             ) : null}
           </View>
 
-          <View style={[styles.infoRow, { marginTop: theme.spacing.lg }]}>
-            <Text style={{ color: theme.colors.text.secondary, fontSize: theme.fontSize.sm }}>
+          <View style={[styles.infoRow, { marginTop: theme.spacing.lg }]}>            <Text style={{ color: theme.colors.text.secondary, fontSize: theme.fontSize.sm }}>
               {t('attendees.status')}
             </Text>
-            <Text
-              style={{
-                color: getStatusColor(currentRegistration.status),
-                fontSize: theme.fontSize.base,
-                marginTop: theme.spacing.xs,
-                fontWeight: theme.fontWeight.medium,
-              }}
-            >
-              {getStatusLabel(currentRegistration.status)}
+            {isEditing ? (
+              <View style={{ marginTop: theme.spacing.xs, gap: 8 }}>
+                {['approved', 'awaiting', 'refused', 'cancelled'].map((status) => (
+                  <TouchableOpacity
+                    key={status}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      padding: theme.spacing.sm,
+                      borderRadius: theme.radius.md,
+                      borderWidth: 2,
+                      borderColor: editedData.status === status ? getStatusColor(status) : theme.colors.border,
+                      backgroundColor: editedData.status === status ? getStatusColor(status) + '20' : 'transparent',
+                    }}
+                    onPress={() => setEditedData({ ...editedData, status })}
+                  >
+                    <Ionicons
+                      name={editedData.status === status ? 'radio-button-on' : 'radio-button-off'}
+                      size={20}
+                      color={editedData.status === status ? getStatusColor(status) : theme.colors.text.secondary}
+                      style={{ marginRight: theme.spacing.sm }}
+                    />
+                    <Text
+                      style={{
+                        color: editedData.status === status ? getStatusColor(status) : theme.colors.text.primary,
+                        fontSize: theme.fontSize.base,
+                        fontWeight: editedData.status === status ? theme.fontWeight.medium : theme.fontWeight.normal,
+                      }}
+                    >
+                      {getStatusLabel(status)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : (
+              <Text
+                style={{
+                  color: getStatusColor(currentRegistration.status),
+                  fontSize: theme.fontSize.base,
+                  marginTop: theme.spacing.xs,
+                  fontWeight: theme.fontWeight.medium,
+                }}
+              >
+                {getStatusLabel(currentRegistration.status)}
+              </Text>
+            )}
+          </View>
+
+          {/* Type de participant */}
+          <View style={[styles.infoRow, { marginTop: theme.spacing.lg }]}>
+            <Text style={{ color: theme.colors.text.secondary, fontSize: theme.fontSize.sm }}>
+              Type de participant
             </Text>
+            {isEditing ? (
+              <View style={{ marginTop: theme.spacing.xs, gap: 8 }}>
+                {currentEventAttendeeTypes.map((eventAttendeeType) => {
+                  const bgColor = eventAttendeeType.color_hex || eventAttendeeType.attendeeType.color_hex || theme.colors.neutral[200];
+                  const textColor = eventAttendeeType.text_color_hex || eventAttendeeType.attendeeType.text_color_hex || theme.colors.text.primary;
+                  
+                  return (
+                    <TouchableOpacity
+                      key={eventAttendeeType.id}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        padding: theme.spacing.sm,
+                        borderRadius: theme.radius.md,
+                        borderWidth: 2,
+                        borderColor: editedData.event_attendee_type_id === eventAttendeeType.id ? bgColor : theme.colors.border,
+                        backgroundColor: editedData.event_attendee_type_id === eventAttendeeType.id ? bgColor + '20' : 'transparent',
+                      }}
+                      onPress={() => setEditedData({ ...editedData, event_attendee_type_id: eventAttendeeType.id })}
+                    >
+                      <Ionicons
+                        name={editedData.event_attendee_type_id === eventAttendeeType.id ? 'radio-button-on' : 'radio-button-off'}
+                        size={20}
+                        color={editedData.event_attendee_type_id === eventAttendeeType.id ? bgColor : theme.colors.text.secondary}
+                        style={{ marginRight: theme.spacing.sm }}
+                      />
+                      <Text
+                        style={{
+                          color: editedData.event_attendee_type_id === eventAttendeeType.id ? textColor : theme.colors.text.primary,
+                          fontSize: theme.fontSize.base,
+                          fontWeight: editedData.event_attendee_type_id === eventAttendeeType.id ? theme.fontWeight.medium : theme.fontWeight.normal,
+                        }}
+                      >
+                        {eventAttendeeType.attendeeType.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ) : (
+              <Text
+                style={{
+                  color: getAttendeeTypeColor(),
+                  fontSize: theme.fontSize.base,
+                  marginTop: theme.spacing.xs,
+                  fontWeight: theme.fontWeight.medium,
+                }}
+              >
+                {currentRegistration.eventAttendeeType?.attendeeType?.name || 'N/A'}
+              </Text>
+            )}
           </View>
 
           <View style={[styles.infoRow, { marginTop: theme.spacing.lg }]}>
@@ -790,8 +948,46 @@ export const AttendeeDetailsScreen: React.FC<AttendeeDetailsScreenProps> = ({ na
             </Text>
           </View>
         </Card>
-        </View>
-      </ScrollView>
+          </View>
+        </ScrollView>
+
+        {/* Bouton de sauvegarde fixe en mode édition */}
+        {isEditing && (
+          <View
+            style={[
+              styles.saveButtonContainer,
+              {
+                backgroundColor: theme.colors.background,
+                borderTopColor: theme.colors.border,
+                paddingBottom: keyboardVisible ? 12 : Math.max(insets.bottom, 16),
+              },
+            ]}
+          >
+            <TouchableOpacity
+              style={[
+                styles.saveButton,
+                {
+                  backgroundColor: theme.colors.brand[600],
+                  opacity: isSaving ? 0.6 : 1,
+                },
+              ]}
+              onPress={handleSaveEdit}
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons name="checkmark" size={24} color="#FFFFFF" />
+                  <Text style={[styles.saveButtonText, { marginLeft: theme.spacing.sm }]}>
+                    Enregistrer les modifications
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+      </KeyboardAvoidingView>
 
       {/* Dialog de confirmation pour les actions */}
       <ConfirmDialog
@@ -835,5 +1031,29 @@ const styles = StyleSheet.create({
   infoRow: {},
   input: {
     fontSize: 16,
+  },
+  saveButtonContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 16,
+    borderTopWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  saveButton: {
+    height: 56,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  saveButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

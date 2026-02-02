@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "attendee-ems-mobile",
+    "name": "Attendee",
     "slug": "attendee-ems-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -27,7 +27,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.anonymous.attendeeemsmobile"
+      "package": "com.yourcompany.attendee"
     },
     "web": {
       "favicon": "./assets/favicon.png"
