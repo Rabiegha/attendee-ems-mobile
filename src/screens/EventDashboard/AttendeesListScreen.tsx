@@ -2,7 +2,7 @@
  * Écran de liste des participants (registrations)
  */
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -21,7 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchRegistrationsThunk, fetchMoreRegistrationsThunk, checkOutRegistrationThunk, undoCheckOutThunk } from '../../store/registrations.slice';
-import { fetchEventAttendeeTypesThunk } from '../../store/events.slice';
+import { fetchEventAttendeeTypesThunk, fetchEventStatsThunk } from '../../store/events.slice';
 import { Registration } from '../../types/attendee';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { Header } from '../../components/ui/Header';
@@ -47,6 +47,10 @@ interface AttendeesListScreenProps {
 
 // Configuration de la recherche depuis le fichier global
 const SEARCH_DEBOUNCE_DELAY = APP_CONFIG.SEARCH.DEBOUNCE_DELAY;
+
+// Hauteurs fixes des items pour optimiser le rendu
+const ITEM_HEIGHT_SWIPEABLE = 84; // Hauteur avec swipe (mode compact)
+const ITEM_HEIGHT_BUTTONS = 150;  // Hauteur avec boutons visibles
 
 export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ navigation, route }) => {
   const { t } = useTranslation();
@@ -80,6 +84,7 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
   });
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasUserInteracted = useRef(false);
+  const isLoadingMoreRef = useRef(false);
 
   // Charger l'état du toggle depuis AsyncStorage au montage
   useEffect(() => {
@@ -218,13 +223,46 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
   
   // Référence pour garder trace du swipeable ouvert
   const openSwipeableRef = React.useRef<Swipeable | null>(null);
+  // Map stable pour les refs Swipeable (évite recréation)
+  const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
+
+  // Mémoriser les registrations filtrées pour éviter les recalculs
+  const filteredRegistrations = useMemo(() => {
+    return registrations.filter(reg => {
+      if (reg.status === 'rejected') return false;
+      if (filters.attendeeTypeIds.length > 0 && !filters.attendeeTypeIds.includes(reg.event_attendee_type_id)) {
+        return false;
+      }
+      if (filters.statuses.length > 0 && !filters.statuses.includes(reg.status)) {
+        return false;
+      }
+      if (filters.checkedIn === 'checked-in' && !reg.checked_in_at) {
+        return false;
+      }
+      if (filters.checkedIn === 'not-checked-in' && reg.checked_in_at) {
+        return false;
+      }
+      return true;
+    });
+  }, [registrations, filters]);
+
+  // Fonction getItemLayout pour optimiser le calcul de layout avec hauteur fixe
+  const getItemLayout = useCallback((_data: any, index: number) => {
+    const itemHeight = showActions ? ITEM_HEIGHT_BUTTONS : ITEM_HEIGHT_SWIPEABLE;
+    return {
+      length: itemHeight,
+      offset: itemHeight * index,
+      index,
+    };
+  }, [showActions]);
 
   // Synchroniser l'état local avec le store
   useEffect(() => {
     if (!isLoading) {
       setIsSearching(false);
     }
-  }, [isLoading]);
+    isLoadingMoreRef.current = isLoadingMore;
+  }, [isLoading, isLoadingMore]);
 
   console.log('[AttendeesListScreen] Render with state:', {
     registrationsCount: registrations.length,
@@ -242,9 +280,14 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
   const loadAllData = useCallback(() => {
     if (eventId) {
       console.log('[AttendeesListScreen] Loading all data for eventId:', eventId);
+      
+      // Charger les stats de l'événement depuis l'API pour avoir les chiffres exacts
+      dispatch(fetchEventStatsThunk(eventId));
+      
       const params: any = { 
         eventId, 
-        page: 1, 
+        page: 1,
+        limit: 100,
         search: searchQuery
       };
       
@@ -258,9 +301,9 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
       // checkedIn sera filtré côté client
       
       dispatch(fetchRegistrationsThunk(params));
-      // Note: Stats calculées automatiquement depuis Redux
+      // Note: Stats maintenant chargées depuis l'API via fetchEventStatsThunk
     }
-  }, [eventId, searchQuery, filters, dispatch, checkIn]);
+  }, [eventId, searchQuery, filters, dispatch]);
 
   // Chargement initial
   useEffect(() => {
@@ -272,30 +315,17 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
     loadAllData();
   }, [loadAllData]);
 
-  const handleLoadMore = () => {
-    console.log('[AttendeesListScreen] handleLoadMore called', {
-      isLoadingMore,
-      hasMore,
-      eventId,
-      currentPage: pagination.page,
-      totalPages: pagination.totalPages,
-    });
-    
-    if (!isLoadingMore && hasMore && eventId) {
-      console.log('[AttendeesListScreen] Loading more registrations...');
-      dispatch(fetchMoreRegistrationsThunk({ 
-        eventId, 
-        search: searchQuery
-        // Supprimer le filtre par statut pour charger tous les participants
-      }));
-    } else {
-      console.log('[AttendeesListScreen] Skipping load more:', {
-        isLoadingMore,
-        hasMore,
-        eventId,
-      });
+  const handleLoadMore = useCallback(() => {
+    if (isLoadingMoreRef.current || !hasMore || !eventId || isLoading) {
+      return;
     }
-  };
+    
+    isLoadingMoreRef.current = true;
+    dispatch(fetchMoreRegistrationsThunk({ 
+      eventId, 
+      search: searchQuery
+    }));
+  }, [hasMore, eventId, searchQuery, dispatch, isLoading]);
 
   const handleRegistrationPress = (registration: Registration) => {
     navigation.navigate('AttendeeDetails', { registrationId: registration.id });
@@ -316,11 +346,16 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
         // Fermer le swipeable ouvert
         if (openSwipeableRef.current) {
           openSwipeableRef.current.close();
-          openSwipeableRef.current = null;
         }
         checkIn.printAndCheckIn(
           registration,
-          (message) => toast.success(message),
+          (message) => {
+            toast.success(message);
+            // Recharger les stats après l'impression + check-in
+            if (eventId) {
+              dispatch(fetchEventStatsThunk(eventId));
+            }
+          },
           (message) => toast.error(message)
         );
       },
@@ -342,11 +377,16 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
         // Fermer le swipeable ouvert
         if (openSwipeableRef.current) {
           openSwipeableRef.current.close();
-          openSwipeableRef.current = null;
         }
         checkIn.checkInOnly(
           registration,
-          (message) => toast.success(message),
+          (message) => {
+            toast.success(message);
+            // Recharger les stats après le check-in
+            if (eventId) {
+              dispatch(fetchEventStatsThunk(eventId));
+            }
+          },
           (message) => toast.error(message)
         );
       },
@@ -368,11 +408,16 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
         // Fermer le swipeable ouvert
         if (openSwipeableRef.current) {
           openSwipeableRef.current.close();
-          openSwipeableRef.current = null;
         }
         checkIn.undoCheckIn(
           registration,
-          (message) => toast.success(message),
+          (message) => {
+            toast.success(message);
+            // Recharger les stats après l'annulation
+            if (eventId) {
+              dispatch(fetchEventStatsThunk(eventId));
+            }
+          },
           (message) => toast.error(message)
         );
       },
@@ -394,7 +439,6 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
         // Fermer le swipeable ouvert
         if (openSwipeableRef.current) {
           openSwipeableRef.current.close();
-          openSwipeableRef.current = null;
         }
         
         try {
@@ -428,7 +472,6 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
         // Fermer le swipeable ouvert
         if (openSwipeableRef.current) {
           openSwipeableRef.current.close();
-          openSwipeableRef.current = null;
         }
         
         try {
@@ -498,7 +541,7 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
           >
             <Ionicons name={isCheckedIn ? 'arrow-undo' : 'checkmark-circle'} size={20} color="#FFFFFF" />
             <Text style={[styles.actionText, { color: '#FFFFFF', fontSize: 11 }]}>
-              {isCheckedIn ? 'Undo' : 'Check'}
+              {isCheckedIn ? 'Un check' : 'Check'}
             </Text>
           </TouchableOpacity>
         )}
@@ -540,54 +583,59 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
     );
   };
 
-  const getAttendeeTypeColor = (registration: Registration) => {
-    // Utiliser la couleur spécifique à l'événement (peut être personnalisée)
-    // Fallback sur la couleur globale du type si pas de couleur spécifique
+  const getAttendeeTypeColor = useCallback((registration: Registration) => {
     return registration.eventAttendeeType?.color_hex || 
            registration.eventAttendeeType?.attendeeType?.color_hex || 
            theme.colors.neutral[400];
-  };
+  }, [theme.colors.neutral]);
 
-  const renderRegistrationItem = ({ item }: { item: Registration }) => {
+  const renderRegistrationItem = useCallback(({ item }: { item: Registration }) => {
     const isCheckedIn = item.status === 'checked-in' || item.checked_in_at;
 
     // Si showActions est false, utiliser le swipe classique
     if (!showActions) {
-      let swipeableRef: Swipeable | null = null;
-
       const handleSwipeableWillOpen = () => {
-        setIsUserInteracting(true);
-        if (openSwipeableRef.current && openSwipeableRef.current !== swipeableRef) {
+        const currentRef = swipeableRefs.current.get(item.id);
+        if (openSwipeableRef.current && openSwipeableRef.current !== currentRef) {
           openSwipeableRef.current.close();
         }
-        openSwipeableRef.current = swipeableRef;
+        openSwipeableRef.current = currentRef;
       };
 
       const handleSwipeableClose = () => {
-        setIsUserInteracting(false);
         openSwipeableRef.current = null;
       };
 
       return (
         <Swipeable
-          ref={(ref) => { swipeableRef = ref; }}
+          ref={(ref) => {
+            if (ref) {
+              swipeableRefs.current.set(item.id, ref);
+            } else {
+              swipeableRefs.current.delete(item.id);
+            }
+          }}
           renderRightActions={(progress) => renderRightActions(item, progress)}
           overshootRight={false}
           onSwipeableWillOpen={handleSwipeableWillOpen}
           onSwipeableClose={handleSwipeableClose}
+          enabled={!isLoadingMore}
+          friction={2}
+          overshootFriction={8}
         >
-          <TouchableOpacity
-            style={[
-              styles.registrationItem,
-              {
-                backgroundColor: theme.colors.card,
-                borderRadius: theme.radius.lg,
-                marginBottom: theme.spacing.sm,
-              },
-            ]}
-            onPress={() => handleRegistrationPress(item)}
-            activeOpacity={0.7}
-          >
+        <TouchableOpacity
+          style={[
+            styles.registrationItem,
+            {
+              backgroundColor: theme.colors.card,
+              borderRadius: theme.radius.lg,
+              marginBottom: theme.spacing.sm,
+              height: ITEM_HEIGHT_SWIPEABLE,
+            },
+          ]}
+          onPress={() => handleRegistrationPress(item)}
+          activeOpacity={0.7}
+        >
             {/* Barre colorée inclinée sur le côté gauche */}
             <View
               style={[
@@ -614,73 +662,6 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
                     color: theme.colors.brand[700],
                   }}
                 />
-                
-                {/* Badge de statut */}
-                <View
-                  style={[
-                    {
-                      paddingHorizontal: 8,
-                      paddingVertical: 4,
-                      borderRadius: 12,
-                      borderWidth: 1,
-                    },
-                    {
-                      backgroundColor: item.checked_out_at
-                        ? theme.colors.neutral[100]
-                        : item.status === 'approved' 
-                        ? theme.colors.success[50] 
-                        : item.status === 'awaiting' 
-                        ? theme.colors.warning[50] 
-                        : item.status === 'checked-in'
-                        ? theme.colors.brand[50]
-                        : item.status === 'refused'
-                        ? theme.colors.error[50]
-                        : item.status === 'cancelled'
-                        ? theme.colors.neutral[100]
-                        : theme.colors.error[50],
-                      borderColor: item.checked_out_at
-                        ? theme.colors.neutral[500]
-                        : item.status === 'approved' 
-                        ? theme.colors.success[500] 
-                        : item.status === 'awaiting' 
-                        ? theme.colors.warning[500] 
-                        : item.status === 'checked-in'
-                        ? theme.colors.brand[500]
-                        : item.status === 'refused'
-                        ? theme.colors.error[500]
-                        : item.status === 'cancelled'
-                        ? theme.colors.neutral[400]
-                        : theme.colors.error[500],
-                    },
-                  ]}
-                >
-                  <Text
-                    style={{
-                      color: item.checked_out_at
-                        ? theme.colors.neutral[600]
-                        : item.status === 'approved' 
-                        ? theme.colors.success[600] 
-                        : item.status === 'awaiting' 
-                        ? theme.colors.warning[600] 
-                        : item.status === 'checked-in'
-                        ? theme.colors.brand[600]
-                        : item.status === 'refused'
-                        ? theme.colors.error[600]
-                        : item.status === 'cancelled'
-                        ? theme.colors.neutral[700]
-                        : theme.colors.error[600],
-                      fontSize: theme.fontSize.xs,
-                      fontWeight: theme.fontWeight.medium,
-                    }}
-                  >
-                    {item.checked_out_at ? t('attendees.checkedOut') :
-                     item.status === 'approved' ? 'Approuvé' : 
-                     item.status === 'awaiting' ? 'En attente' : 
-                     item.status === 'refused' ? 'Refusé' :
-                     item.status === 'cancelled' ? 'Annulé' :
-                     item.status === 'checked-in' ? 'Présent' : item.status}
-                  </Text>
-                </View>
               </View>
               
               {item.attendee.company && (
@@ -727,6 +708,7 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
             backgroundColor: theme.colors.card,
             borderRadius: theme.radius.lg,
             marginBottom: theme.spacing.sm,
+            height: ITEM_HEIGHT_BUTTONS,
           },
         ]}
         onPress={() => handleRegistrationPress(item)}
@@ -759,73 +741,6 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
                     color: theme.colors.brand[700],
                   }}
                 />
-                
-                {/* Badge de statut */}
-                <View
-                  style={[
-                    {
-                      paddingHorizontal: 8,
-                      paddingVertical: 4,
-                      borderRadius: 12,
-                      borderWidth: 1,
-                    },
-                    {
-                      backgroundColor: item.checked_out_at
-                        ? theme.colors.neutral[100]
-                        : item.status === 'approved' 
-                        ? theme.colors.success[50] 
-                        : item.status === 'awaiting' 
-                        ? theme.colors.warning[50] 
-                        : item.status === 'checked-in'
-                        ? theme.colors.brand[50]
-                        : item.status === 'refused'
-                        ? theme.colors.error[50]
-                        : item.status === 'cancelled'
-                        ? theme.colors.neutral[100]
-                        : theme.colors.error[50],
-                      borderColor: item.checked_out_at
-                        ? theme.colors.neutral[500]
-                        : item.status === 'approved' 
-                        ? theme.colors.success[500] 
-                        : item.status === 'awaiting' 
-                        ? theme.colors.warning[500] 
-                        : item.status === 'checked-in'
-                        ? theme.colors.brand[500]
-                        : item.status === 'refused'
-                        ? theme.colors.error[500]
-                        : item.status === 'cancelled'
-                        ? theme.colors.neutral[400]
-                        : theme.colors.error[500],
-                    },
-                  ]}
-                >
-                  <Text
-                    style={{
-                      color: item.checked_out_at
-                        ? theme.colors.neutral[600]
-                        : item.status === 'approved' 
-                        ? theme.colors.success[600] 
-                        : item.status === 'awaiting' 
-                        ? theme.colors.warning[600] 
-                        : item.status === 'checked-in'
-                        ? theme.colors.brand[600]
-                        : item.status === 'refused'
-                        ? theme.colors.error[600]
-                        : item.status === 'cancelled'
-                        ? theme.colors.neutral[700]
-                        : theme.colors.error[600],
-                      fontSize: theme.fontSize.xs,
-                      fontWeight: theme.fontWeight.medium,
-                    }}
-                  >
-                    {item.checked_out_at ? t('attendees.checkedOut') :
-                     item.status === 'approved' ? 'Approuvé' : 
-                     item.status === 'awaiting' ? 'En attente' : 
-                     item.status === 'refused' ? 'Refusé' :
-                     item.status === 'cancelled' ? 'Annulé' :
-                     item.status === 'checked-in' ? 'Présent' : item.status}
-                  </Text>
-                </View>
               </View>
               
               {item.attendee.company && (
@@ -934,7 +849,7 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
         </View>
       </TouchableOpacity>
     );
-  };
+  }, [showActions, isLoadingMore, theme, searchQuery, handleRegistrationPress, handlePrint, handleCheckIn, handleUndoCheckIn, getAttendeeTypeColor, t]);
 
   const renderFooter = () => {
     if (!isLoadingMore) return null;
@@ -1128,35 +1043,22 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
         />
       ) : (
         <FlatList
-          data={registrations.filter(reg => {
-            // Filtrer rejected par défaut
-            if (reg.status === 'rejected') return false;
-            
-            // Filtrer par type d'attendee (côté client pour multi-sélection)
-            if (filters.attendeeTypeIds.length > 0 && !filters.attendeeTypeIds.includes(reg.event_attendee_type_id)) {
-              return false;
-            }
-            
-            // Filtrer par statut (côté client pour multi-sélection)
-            if (filters.statuses.length > 0 && !filters.statuses.includes(reg.status)) {
-              return false;
-            }
-            
-            // Filtrer par check-in
-            if (filters.checkedIn === 'checked-in' && !reg.checked_in_at) {
-              return false;
-            }
-            if (filters.checkedIn === 'not-checked-in' && reg.checked_in_at) {
-              return false;
-            }
-            
-            return true;
-          })}
+          data={filteredRegistrations}
           renderItem={renderRegistrationItem}
           keyExtractor={(item) => item.id}
+          getItemLayout={getItemLayout}
+          extraData={showActions}
           contentContainerStyle={{ 
             padding: theme.spacing.lg,
-            paddingBottom: 120, // Espace pour la bottom tab bar (70px hauteur + 20px bottom + marge)
+            paddingBottom: 120,
+          }}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          updateCellsBatchingPeriod={100}
+          windowSize={10}
+          initialNumToRender={20}
+          maintainVisibleContentPosition={{
+            minIndexForVisible: 0,
           }}
           ListEmptyComponent={
             <EmptyState
@@ -1168,7 +1070,7 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
           }
           ListFooterComponent={renderFooter}
           onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.5}
+          onEndReachedThreshold={0.3}
           refreshing={isLoading}
           onRefresh={loadRegistrations}
         />

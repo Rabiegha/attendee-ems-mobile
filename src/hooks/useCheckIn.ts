@@ -56,6 +56,7 @@ export const useCheckIn = (): UseCheckInResult => {
   // Récupérer les registrations depuis Redux pour calculer les stats en temps réel
   const registrations = useAppSelector(state => state.registrations.registrations);
   const paginationTotal = useAppSelector(state => state.registrations.pagination.total);
+  const currentEventStats = useAppSelector(state => state.events.currentEventStats);
 
   // Debug logging pour l'état des imprimantes
   console.log('[useCheckIn] Printers state:', {
@@ -122,13 +123,25 @@ export const useCheckIn = (): UseCheckInResult => {
     };
   }, [ensurePrinterLoaded]);
 
-  // Calculer les statistiques en temps réel depuis les registrations Redux
+  // Calculer les statistiques depuis l'API (currentEventStats) ou fallback sur calcul local
   const stats = useMemo(() => {
+    // Si les stats API sont disponibles, les utiliser (données exactes)
+    if (currentEventStats) {
+      console.log('[useCheckIn] Using API stats:', currentEventStats);
+      return {
+        total: currentEventStats.totalRegistrations,
+        checkedIn: currentEventStats.checkedIn,
+        percentage: currentEventStats.checkedInPercentage,
+        isLoading: false,
+      };
+    }
+
+    // Fallback: calculer depuis les registrations paginées (moins précis)
     const total = paginationTotal || registrations.length;
     const checkedIn = registrations.filter(reg => reg.checked_in_at !== null).length;
     const percentage = total > 0 ? Math.round((checkedIn / total) * 100) : 0;
 
-    console.log('[useCheckIn] Stats calculated from Redux:', {
+    console.log('[useCheckIn] Using calculated stats (fallback):', {
       total,
       checkedIn,
       percentage,
@@ -141,7 +154,7 @@ export const useCheckIn = (): UseCheckInResult => {
       percentage,
       isLoading: false,
     };
-  }, [registrations, paginationTotal]);
+  }, [currentEventStats, registrations, paginationTotal]);
 
   // Fonction utilitaire pour initialiser l'état
   const initializeState = useCallback((attendee: Registration) => {

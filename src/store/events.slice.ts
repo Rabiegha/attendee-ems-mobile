@@ -27,10 +27,12 @@ interface EventsState {
   upcoming: EventsListState;
   past: EventsListState;
   currentEvent: Event | null;
+  currentEventStats: EventStats | null;
   currentEventAttendeeTypes: any[];
   currentEventRegistrationFields: any[];
   isLoadingAttendeeTypes: boolean;
   isLoadingRegistrationFields: boolean;
+  isLoadingStats: boolean;
 }
 
 const initialListState: EventsListState = {
@@ -52,10 +54,12 @@ const initialState: EventsState = {
   upcoming: { ...initialListState },
   past: { ...initialListState },
   currentEvent: null,
+  currentEventStats: null,
   currentEventAttendeeTypes: [],
   currentEventRegistrationFields: [],
   isLoadingAttendeeTypes: false,
   isLoadingRegistrationFields: false,
+  isLoadingStats: false,
 };
 
 // Thunks avec protection contre les appels multiples
@@ -360,6 +364,27 @@ export const fetchEventByIdThunk = createAsyncThunk(
   }
 );
 
+// Charger les statistiques d'un événement
+export const fetchEventStatsThunk = createAsyncThunk(
+  'events/fetchEventStats',
+  async (id: string, { rejectWithValue }) => {
+    try {
+      console.log('[EventsSlice] fetchEventStatsThunk - Starting for ID:', id);
+      const response = await eventsService.getEventStats(id);
+      console.log('[EventsSlice] fetchEventStatsThunk - Success:', response);
+      return response;
+    } catch (error: any) {
+      console.error('[EventsSlice] fetchEventStatsThunk - Error:', {
+        id,
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
 export const fetchEventAttendeeTypesThunk = createAsyncThunk(
   'events/fetchEventAttendeeTypes',
   async (eventId: string, { rejectWithValue }) => {
@@ -547,6 +572,23 @@ const eventsSlice = createSlice({
       })
       .addCase(fetchEventByIdThunk.rejected, (state, action) => {
         console.error('[EventsSlice] fetchEventByIdThunk.rejected:', action.payload || action.error);
+      });
+
+    // Fetch event stats
+    builder
+      .addCase(fetchEventStatsThunk.pending, (state) => {
+        console.log('[EventsSlice] fetchEventStatsThunk.pending');
+        state.isLoadingStats = true;
+      })
+      .addCase(fetchEventStatsThunk.fulfilled, (state, action) => {
+        console.log('[EventsSlice] fetchEventStatsThunk.fulfilled - Stats:', action.payload);
+        state.isLoadingStats = false;
+        state.currentEventStats = action.payload;
+      })
+      .addCase(fetchEventStatsThunk.rejected, (state, action) => {
+        console.error('[EventsSlice] fetchEventStatsThunk.rejected:', action.payload || action.error);
+        state.isLoadingStats = false;
+        state.currentEventStats = null;
       });
 
     // Fetch event attendee types

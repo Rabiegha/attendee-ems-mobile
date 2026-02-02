@@ -204,6 +204,9 @@ axiosClient.interceptors.request.use(
     // Ajouter le token d'authentification
     if (accessToken) {
       config.headers.Authorization = `Bearer ${accessToken}`;
+      console.log('[axiosClient] ✅ Added Authorization header to request:', config.url);
+    } else {
+      console.warn('[axiosClient] ⚠️ No access token available for request:', config.url);
     }
 
     return config;

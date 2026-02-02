@@ -14,11 +14,15 @@ import { EventDashboardNavigator } from './EventDashboardNavigator';
 import { AttendeeAddScreen } from '../screens/Attendees/AttendeeAddScreen';
 import { ScanScreen } from '../screens/Scan/ScanScreen';
 import { PrintNavigator } from './PrintNavigator';
+import { StatsScreenWrapper } from '../screens/Stats/StatsScreenWrapper';
+import { AttendeesListWrapper } from '../screens/Participants/AttendeesListWrapper';
 
 export type EventInnerTabsParamList = {
   Dashboard: { eventId: string };
+  Participants: { eventId: string };
   Attendees: { eventId: string };
   Scan: { eventId: string };
+  Stats: { eventId: string };
   Print: undefined;
 };
 
@@ -70,9 +74,17 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
         component={EventDashboardNavigator}
         initialParams={{ eventId }}
         options={{
-          tabBarLabel: t('navigation.participants'),
-          tabBarButton: () => null, 
-          tabBarItemStyle: { display: 'none' }, // Ensure it takes no space
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: 'none' },
+        }}
+      />
+
+      <Tab.Screen
+        name="Participants"
+        component={AttendeesListWrapper}
+        initialParams={{ eventId }}
+        options={{
+          tabBarLabel: 'Participants',
           tabBarIcon: ({ color }) => (
             <Image 
               source={Icons.Participant} 
@@ -116,6 +128,23 @@ export const EventInnerTabs: React.FC<EventInnerTabsProps> = ({ route }) => {
                 fadeDuration={0}
               />
             </View>
+          ),
+        }}
+      />
+
+      <Tab.Screen
+        name="Stats"
+        component={StatsScreenWrapper}
+        initialParams={{ eventId }}
+        options={{
+          tabBarLabel: 'Stats',
+          tabBarIcon: ({ color }) => (
+            <Image 
+              source={Icons.stats} 
+              style={[styles.tabIcon, { tintColor: color }]}
+              resizeMode="contain"
+              fadeDuration={0}
+            />
           ),
         }}
       />

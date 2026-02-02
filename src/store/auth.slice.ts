@@ -193,9 +193,18 @@ const authSlice = createSlice({
       .addCase(fetchUserProfileThunk.rejected, (state, action) => {
         console.error('[AuthSlice] fetchUserProfileThunk.rejected:', action.payload);
         state.isLoading = false;
-        state.isAuthenticated = false;
-        state.user = null;
-        state.organization = null;
+        
+        // Si l'utilisateur a déjà des données (redux-persist), ne pas les effacer
+        // Cela permet de continuer à utiliser l'app même avec un problème réseau temporaire
+        if (!state.user || !state.organization) {
+          console.warn('[AuthSlice] No cached user data, clearing auth state');
+          state.isAuthenticated = false;
+          state.user = null;
+          state.organization = null;
+        } else {
+          console.log('[AuthSlice] User data exists in cache, keeping auth state');
+          // Garder l'état d'authentification car les données sont déjà en cache
+        }
       });
   },
 });
