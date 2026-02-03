@@ -9,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export const STORAGE_KEYS = {
   ACCESS_TOKEN: 'access_token',
   REFRESH_TOKEN: 'refresh_token',
+  TOKEN_EXPIRES_AT: 'token_expires_at',
   USER_PREFERENCES: 'user_preferences',
   THEME_MODE: 'theme_mode',
 } as const;
@@ -47,7 +48,9 @@ export const secureStorage = {
   async clear(): Promise<void> {
     try {
       // Supprimer tous les items sensibles
+      await SecureStore.deleteItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
       await SecureStore.deleteItemAsync(STORAGE_KEYS.REFRESH_TOKEN);
+      await SecureStore.deleteItemAsync(STORAGE_KEYS.TOKEN_EXPIRES_AT);
     } catch (error) {
       console.error('Erreur lors du nettoyage du stockage sécurisé:', error);
     }

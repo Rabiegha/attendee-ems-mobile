@@ -32,21 +32,28 @@ const restoreToken = async (dispatch: any, getState: any) => {
     isAuthenticated: state.auth.isAuthenticated,
   });
 
-  // Vérifier si on a déjà un token en mémoire
+  // Vérifier l'expiration du token stocké
+  const storedExpiresAt = await secureStorage.getItem(STORAGE_KEYS.TOKEN_EXPIRES_AT);
+  if (storedExpiresAt) {
+    const expiresAt = parseInt(storedExpiresAt, 10);
+    const timeUntilExpiration = expiresAt - Date.now();
+    console.log('[useTokenRestoration] Token expiration check:', {
+      expiresAt: new Date(expiresAt).toISOString(),
+      timeUntilExpiration: Math.round(timeUntilExpiration / 1000) + 's',
+      isExpired: timeUntilExpiration <= 0,
+    });
+    
+    // Si le token n'est pas encore expiré et qu'on a les données user
+    if (timeUntilExpiration > 60000 && hasUserData) { // Plus de 1 minute restante
+      console.log('[useTokenRestoration] ✅ Token still valid, skipping restoration');
+      return;
+    }
+    
+    console.log('[useTokenRestoration] ⚠️ Token expired or expiring soon, will refresh');
+  }
+  
   const currentToken = getAccessToken();
   console.log('[useTokenRestoration] Current token in memory:', currentToken ? 'EXISTS' : 'NULL');
-  
-  if (currentToken && hasUserData) {
-    console.log('[useTokenRestoration] ✅ Access token and user data already available (from cache), skipping restoration');
-    return;
-  }
-  
-  if (currentToken && !hasUserData) {
-    console.log('[useTokenRestoration] ✅ Access token in memory but no user data, fetching user profile...');
-    // Token existe mais pas de données utilisateur, récupérer le profil
-    dispatch(fetchUserProfileThunk());
-    return;
-  }
 
   isRestoring = true;
   console.log('[useTokenRestoration] 🔒 Set isRestoring = true');
@@ -150,13 +157,20 @@ export const useTokenRestoration = () => {
     }
 
     // Écouter les changements d'état de l'app (foreground/background)
-    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+    const subscription = AppState.addEventListener('change', async (nextAppState: AppStateStatus) => {
       if (
         appState.current.match(/inactive|background/) &&
         nextAppState === 'active'
       ) {
-        console.log('[useTokenRestoration] 📱 App came to foreground, checking token...');
-        restoreToken(dispatch, store.getState);
+        console.log('[useTokenRestoration] 📱 App came to foreground, verifying token validity...');
+        
+        // Forcer la vérification du token en réinitialisant le flag
+        hasRestoredOnce.current = false;
+        
+        // Attendre un peu pour que l'app soit complètement en foreground
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        await restoreToken(dispatch, store.getState);
       }
       appState.current = nextAppState;
     });

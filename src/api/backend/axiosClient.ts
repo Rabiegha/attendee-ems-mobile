@@ -51,9 +51,11 @@ export const setOnAuthFailure = (callback: () => void) => {
 export const setAuthTokens = async (token: string, expiresIn: number) => {
   accessToken = token;
   expiresAt = Date.now() + expiresIn * 1000;
-  // Stocker aussi dans le secure storage pour le WebSocket
+  // Stocker aussi dans le secure storage pour le WebSocket et la persistance
   try {
     await secureStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, token);
+    await secureStorage.setItem(STORAGE_KEYS.TOKEN_EXPIRES_AT, expiresAt.toString());
+    console.log('[axiosClient] ✅ Token stored with expiration:', new Date(expiresAt).toISOString());
   } catch (error) {
     console.error('[axiosClient] Error storing access token:', error);
   }
@@ -67,6 +69,7 @@ export const clearAuthTokens = async () => {
   // Supprimer aussi du secure storage
   try {
     await secureStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
+    await secureStorage.removeItem(STORAGE_KEYS.TOKEN_EXPIRES_AT);
   } catch (error) {
     console.error('[axiosClient] Error clearing access token:', error);
   }
@@ -137,64 +140,96 @@ axiosClient.interceptors.request.use(
       return config;
     }
 
-    // Restaurer le token au premier appel si nécessaire
-    // On vérifie si on n'a pas de token en mémoire mais qu'on a un refresh token en storage
+    // Restaurer le token et son expiration au premier appel si nécessaire
     if (!accessToken) {
       try {
-        const refreshToken = await secureStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
-        if (refreshToken && !isRefreshing) {
-          console.log('[axiosClient] 🔄 No access token in memory, attempting restoration from refresh token...');
-          isRefreshing = true;
+        // Essayer de restaurer depuis le storage
+        const storedToken = await secureStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+        const storedExpiresAt = await secureStorage.getItem(STORAGE_KEYS.TOKEN_EXPIRES_AT);
+        
+        if (storedToken && storedExpiresAt) {
+          accessToken = storedToken;
+          expiresAt = parseInt(storedExpiresAt, 10);
+          console.log('[axiosClient] 📦 Restored token from storage, expires:', new Date(expiresAt).toISOString());
           
-          // Timeout de sécurité pour éviter que isRefreshing reste bloqué
-          const refreshTimeout = setTimeout(() => {
-            console.warn('[axiosClient] ⚠️ Refresh timeout, resetting flag');
-            isRefreshing = false;
-          }, 10000); // 10 secondes max
-          
-          try {
-            const newToken = await refreshAccessToken();
-            clearTimeout(refreshTimeout);
-            if (newToken) {
-              accessToken = newToken;
-              console.log('[axiosClient] ✅ Access token restored successfully');
-            }
-          } catch (error) {
-            clearTimeout(refreshTimeout);
-            console.warn('[axiosClient] ⚠️ Could not restore access token:', error);
-            // Si la restauration échoue, continuer sans token (401 sera géré par l'intercepteur de réponse)
-          } finally {
-            isRefreshing = false;
+          // Vérifier immédiatement si le token restauré est expiré
+          const timeUntilExpiration = expiresAt - Date.now();
+          if (timeUntilExpiration <= 0) {
+            console.log('[axiosClient] ⚠️ Restored token is expired, refreshing...');
+            accessToken = null;
+            expiresAt = null;
           }
-        } else if (isRefreshing) {
-          console.log('[axiosClient] ⏳ Refresh already in progress, waiting...');
+        }
+        
+        // Si pas de token en mémoire, tenter le refresh
+        if (!accessToken) {
+          const refreshToken = await secureStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+          if (refreshToken && !isRefreshing) {
+            console.log('[axiosClient] 🔄 No valid access token, attempting restoration from refresh token...');
+            isRefreshing = true;
+            
+            // Timeout de sécurité
+            const refreshTimeout = setTimeout(() => {
+              console.warn('[axiosClient] ⚠️ Refresh timeout, resetting flag');
+              isRefreshing = false;
+            }, 10000);
+            
+            try {
+              const newToken = await refreshAccessToken();
+              clearTimeout(refreshTimeout);
+              if (newToken) {
+                accessToken = newToken;
+                console.log('[axiosClient] ✅ Access token restored successfully');
+              }
+            } catch (error) {
+              clearTimeout(refreshTimeout);
+              console.warn('[axiosClient] ⚠️ Could not restore access token:', error);
+            } finally {
+              isRefreshing = false;
+            }
+          }
         }
       } catch (error) {
         console.warn('[axiosClient] Error checking refresh token:', error);
       }
     }
 
-    // Vérifier si le token expire bientôt
+    // Vérifier si le token expire bientôt ou est déjà expiré
     if (accessToken && expiresAt) {
       const timeUntilExpiration = expiresAt - Date.now();
+      const isExpired = timeUntilExpiration <= 0;
       const shouldRefresh = timeUntilExpiration <= TOKEN_REFRESH_THRESHOLD * 1000;
 
-      if (shouldRefresh && !isRefreshing) {
+      console.log('[axiosClient] Token expiration check:', {
+        timeUntilExpiration: Math.round(timeUntilExpiration / 1000) + 's',
+        isExpired,
+        shouldRefresh,
+      });
+
+      if ((shouldRefresh || isExpired) && !isRefreshing) {
+        console.log('[axiosClient] 🔄 Token expiring soon or expired, refreshing...');
         isRefreshing = true;
         try {
           const refreshToken = await secureStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
           if (!refreshToken) {
             console.warn('[axiosClient] No refresh token available for preventive refresh');
             isRefreshing = false;
+            // Si le token est expiré et pas de refresh token, nettoyer et rejeter
+            if (isExpired) {
+              await clearAuthTokens();
+              throw new Error('Access token expired and no refresh token available');
+            }
             return config;
           }
           
           const newToken = await refreshAccessToken();
           if (newToken) {
             accessToken = newToken;
+            console.log('[axiosClient] ✅ Token refreshed successfully');
           }
         } catch (error) {
-          console.error('Échec du refresh préventif:', error);
+          console.error('[axiosClient] ❌ Token refresh failed:', error);
+          // Si le refresh échoue, laisser l'intercepteur de réponse gérer le 401
         } finally {
           isRefreshing = false;
         }
