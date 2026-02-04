@@ -90,9 +90,9 @@ export const Button: React.FC<ButtonProps> = ({
 
     // Variant
     const variantStyles: Record<ButtonVariant, TextStyle> = {
-      primary: { color: '#FFFFFF' },
+      primary: { color: theme.colors.text.inverse },
       secondary: { color: theme.colors.text.primary },
-      destructive: { color: '#FFFFFF' },
+      destructive: { color: theme.colors.text.inverse },
       ghost: { color: theme.colors.brand[600] },
     };
 
@@ -113,7 +113,7 @@ export const Button: React.FC<ButtonProps> = ({
       {loading ? (
         <ActivityIndicator
           size="small"
-          color={variant === 'primary' || variant === 'destructive' ? '#FFFFFF' : theme.colors.brand[600]}
+          color={variant === 'primary' || variant === 'destructive' ? theme.colors.text.inverse : theme.colors.brand[600]}
         />
       ) : (
         <Text style={[getTextStyle(), textStyle]}>{title}</Text>

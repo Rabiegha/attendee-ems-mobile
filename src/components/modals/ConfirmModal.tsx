@@ -113,7 +113,9 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
               style={[
                 styles.button,
                 {
-                  backgroundColor: theme.colors.neutral[100],
+                  backgroundColor: theme.colors.cardHover,
+                  borderWidth: 1,
+                  borderColor: theme.colors.border,
                   borderRadius: theme.radius.lg,
                 },
               ]}
@@ -151,7 +153,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                 style={[
                   styles.buttonText,
                   {
-                    color: '#FFFFFF',
+                    color: theme.colors.text.inverse,
                     fontSize: theme.fontSize.base,
                     fontWeight: theme.fontWeight.semibold,
                   },

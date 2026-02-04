@@ -181,7 +181,7 @@ export const CheckInModal: React.FC<CheckInModalProps> = ({
                 <View
                   style={[
                     styles.progressBarBackground,
-                    { backgroundColor: theme.colors.neutral[200] }
+                    { backgroundColor: theme.colors.skeleton }
                   ]}
                 >
                   <View
@@ -214,7 +214,7 @@ export const CheckInModal: React.FC<CheckInModalProps> = ({
                 ]}
                 onPress={onRetry}
               >
-                <Text style={[styles.retryButtonText, { color: '#FFFFFF' }]}>
+                <Text style={[styles.retryButtonText, { color: theme.colors.text.inverse }]}>
                   Réessayer
                 </Text>
               </TouchableOpacity>
@@ -229,7 +229,7 @@ export const CheckInModal: React.FC<CheckInModalProps> = ({
                 ]}
                 onPress={onClose}
               >
-                <Text style={[styles.confirmButtonText, { color: '#FFFFFF' }]}>
+                <Text style={[styles.confirmButtonText, { color: theme.colors.text.inverse }]}>
                   Continuer
                 </Text>
               </TouchableOpacity>

@@ -24,6 +24,7 @@ import { Header } from '../../components/ui/Header';
 import { ProfileButton } from '../../components/ui/ProfileButton';
 import { createRegistrationThunk } from '../../store/registrations.slice';
 import { fetchEventAttendeeTypesThunk, fetchEventRegistrationFieldsThunk } from '../../store/events.slice';
+import { loadSelectedPrinterThunk } from '../../store/printers.slice';
 import { useToast } from '../../contexts/ToastContext';
 import { hapticSuccess, hapticError } from '../../utils/haptics';
 import { useNodePrint } from '../../printing/hooks/useNodePrint';
@@ -56,6 +57,7 @@ export const AttendeeAddScreen: React.FC<AttendeeAddScreenProps> = ({ navigation
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [refreshing, setRefreshing] = useState(false);
   const [lastFieldsUpdate, setLastFieldsUpdate] = useState<number>(0);
+  const [isPrinterLoaded, setIsPrinterLoaded] = useState(false);
   
   // État pour la navigation en 2 étapes
   const [currentStep, setCurrentStep] = useState<1 | 2>(1); // 1 = sélection type, 2 = formulaire
@@ -73,6 +75,15 @@ export const AttendeeAddScreen: React.FC<AttendeeAddScreenProps> = ({ navigation
       setLastFieldsUpdate(Date.now());
     }
   }, [eventId, dispatch]);
+
+  // Charger l'imprimante sélectionnée au montage
+  useEffect(() => {
+    const loadPrinter = async () => {
+      await dispatch(loadSelectedPrinterThunk());
+      setIsPrinterLoaded(true);
+    };
+    loadPrinter();
+  }, [dispatch]);
 
   // Charger les types d'attendee et les champs du formulaire au montage
   useEffect(() => {
@@ -547,14 +558,14 @@ export const AttendeeAddScreen: React.FC<AttendeeAddScreenProps> = ({ navigation
           <Button
             title={isPrinting ? '🖨️ Impression...' : isCreating ? 'Ajout en cours...' : '🖨️ Ajouter et imprimer'}
             onPress={() => handleSubmit(true)}
-            disabled={isCreating || isPrinting || !selectedPrinter}
+            disabled={isCreating || isPrinting || !selectedPrinter || !isPrinterLoaded}
             variant="secondary"
             style={{
-              opacity: selectedPrinter ? 1 : 0.6,
+              opacity: (selectedPrinter && isPrinterLoaded) ? 1 : 0.6,
             }}
           />
           
-          {!selectedPrinter && (
+          {isPrinterLoaded && !selectedPrinter && (
             <Text style={{
               fontSize: theme.fontSize.sm,
               color: theme.colors.text.tertiary,
@@ -564,6 +575,16 @@ export const AttendeeAddScreen: React.FC<AttendeeAddScreenProps> = ({ navigation
               Configurez une imprimante dans les paramètres pour imprimer
             </Text>
           )}
+          
+          <Button
+            title="Annuler"
+            onPress={() => {
+              resetForm();
+              navigation.goBack();
+            }}
+            disabled={isCreating || isPrinting}
+            variant="ghost"
+          />
         </View>
       </ScrollView>
     );

@@ -18,8 +18,7 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "UIViewControllerBasedStatusBarAppearance": false,
-        "UIStatusBarStyle": "UIStatusBarStyleDefault"
+        "UIViewControllerBasedStatusBarAppearance": true
       }
     },
     "android": {

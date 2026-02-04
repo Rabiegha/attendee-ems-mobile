@@ -46,7 +46,7 @@ export const theme = {
         primary: '#FFFFFF',
         secondary: colors.neutral[300],
         tertiary: colors.neutral[400],
-        inverse: colors.neutral[900],
+        inverse: '#FFFFFF', // Texte blanc sur boutons colorés
       },
       border: colors.neutral[700],
       divider: colors.neutral[700],

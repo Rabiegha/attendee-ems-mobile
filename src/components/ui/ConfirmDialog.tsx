@@ -106,9 +106,9 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                 {
                   paddingVertical: theme.spacing.md,
                   borderRadius: theme.radius.lg,
-                  backgroundColor: theme.colors.neutral[100],
+                  backgroundColor: theme.colors.cardHover,
                   borderWidth: 1,
-                  borderColor: theme.colors.neutral[300],
+                  borderColor: theme.colors.border,
                 }
               ]}
               onPress={onCancel}
@@ -119,7 +119,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                 {
                   fontSize: theme.fontSize.base,
                   fontWeight: theme.fontWeight.semibold as any,
-                  color: theme.colors.text.secondary,
+                  color: theme.colors.text.primary,
                 }
               ]}>
                 {cancelText}
@@ -144,7 +144,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                 {
                   fontSize: theme.fontSize.base,
                   fontWeight: theme.fontWeight.semibold as any,
-                  color: '#FFFFFF',
+                  color: theme.colors.text.inverse,
                 }
               ]}>
                 {confirmText}

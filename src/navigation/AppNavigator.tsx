@@ -113,7 +113,6 @@ export const AppNavigator: React.FC = () => {
               component={EventsNavigator}
               options={{
                 headerShown: false,
-                statusBarStyle: 'auto',
               }}
             />
             <Stack.Screen

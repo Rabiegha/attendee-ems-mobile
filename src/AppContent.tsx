@@ -3,8 +3,7 @@
  */
 
 import React, { useEffect } from 'react';
-import { Platform } from 'react-native';
-import { StatusBar, setStatusBarStyle, setStatusBarBackgroundColor } from 'expo-status-bar';
+import { Platform, StatusBar } from 'react-native';
 import * as NavigationBar from 'expo-navigation-bar';
 import { useTheme } from './theme/ThemeProvider';
 import { AppNavigator } from './navigation/AppNavigator';
@@ -35,26 +34,26 @@ export const AppContent: React.FC = () => {
   
   // Configurer les barres système selon le thème
   useEffect(() => {
-    const statusBarStyle = colorScheme === 'dark' ? 'light' : 'dark';
+    const barStyle = colorScheme === 'dark' ? 'light-content' : 'dark-content';
     
-    // Forcer le style de la status bar
-    setStatusBarStyle(statusBarStyle);
+    console.log('[AppContent] Updating status bar:', { colorScheme, barStyle });
+    
+    // Configurer la status bar avec l'API native
+    StatusBar.setBarStyle(barStyle, true);
+    StatusBar.setTranslucent(true);
     
     if (Platform.OS === 'android') {
-      // Configurer la status bar (barre du haut) sur Android
-      setStatusBarBackgroundColor(theme.colors.background, true);
-      
       // Configurer la navigation bar (barre du bas) sur Android
-      NavigationBar.setBackgroundColorAsync(theme.colors.background);
       NavigationBar.setButtonStyleAsync(colorScheme === 'dark' ? 'light' : 'dark');
     }
-  }, [theme.colors.background, colorScheme]);
+  }, [colorScheme]);
   
   return (
     <>
       <StatusBar 
-        style={colorScheme === 'dark' ? 'light' : 'dark'}
+        barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
         translucent={true}
+        backgroundColor="transparent"
       />
       <AppNavigator />
       <ToastContainer />

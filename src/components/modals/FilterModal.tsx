@@ -180,7 +180,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
               </Text>
               {activeFiltersCount > 0 && (
                 <View style={[styles.badge, { backgroundColor: theme.colors.brand[600] }]}>
-                  <Text style={styles.badgeText}>{activeFiltersCount}</Text>
+                  <Text style={[styles.badgeText, { color: theme.colors.text.inverse }]}>{activeFiltersCount}</Text>
                 </View>
               )}
             </View>
@@ -339,7 +339,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
               onPress={handleApply}
               activeOpacity={0.7}
             >
-              <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>
+              <Text style={[styles.buttonText, { color: theme.colors.text.inverse }]}>
                 Appliquer
               </Text>
             </TouchableOpacity>
@@ -390,7 +390,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   badgeText: {
-    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
   },
