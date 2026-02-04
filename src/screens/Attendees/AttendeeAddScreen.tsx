@@ -9,7 +9,6 @@ import {
   StyleSheet,
   ScrollView,
   TextInput,
-  Alert,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
@@ -25,6 +24,11 @@ import { Header } from '../../components/ui/Header';
 import { ProfileButton } from '../../components/ui/ProfileButton';
 import { createRegistrationThunk } from '../../store/registrations.slice';
 import { fetchEventAttendeeTypesThunk, fetchEventRegistrationFieldsThunk } from '../../store/events.slice';
+import { useToast } from '../../contexts/ToastContext';
+import { hapticSuccess, hapticError } from '../../utils/haptics';
+import { useNodePrint } from '../../printing/hooks/useNodePrint';
+import { generateBadge } from '../../api/backend/badges.service';
+import { Registration } from '../../types/attendee';
 
 interface AttendeeAddScreenProps {
   navigation: any;
@@ -35,9 +39,12 @@ export const AttendeeAddScreen: React.FC<AttendeeAddScreenProps> = ({ navigation
   const { t } = useTranslation();
   const { theme } = useTheme();
   const dispatch = useAppDispatch();
+  const toast = useToast();
+  const { printBadge, isPrinting } = useNodePrint();
   
   const { eventId } = route.params || {};
   const { isCreating } = useAppSelector((state) => state.registrations);
+  const selectedPrinter = useAppSelector((state) => state.printers.selectedPrinter);
   const { 
     currentEventAttendeeTypes, 
     currentEventRegistrationFields,
@@ -109,21 +116,38 @@ export const AttendeeAddScreen: React.FC<AttendeeAddScreenProps> = ({ navigation
     // Valider les champs requis
     for (const field of currentEventRegistrationFields) {
       if (field.required && !formData[field.id]) {
-        Alert.alert('Erreur', `Le champ "${field.label}" est requis`);
+        hapticError();
+        toast.error(`Le champ "${field.label}" est requis`);
         return false;
       }
     }
     return true;
   };
 
-  const handleSubmit = async () => {
+  // Fonction pour réinitialiser le formulaire
+  const resetForm = () => {
+    setFormData({});
+    setSelectedAttendeeTypeId(null);
+    setCurrentStep(1);
+  };
+
+  const handleSubmit = async (shouldPrint: boolean = false) => {
     if (!validateForm()) return;
     if (!eventId) {
-      Alert.alert('Erreur', 'ID de l\'événement manquant');
+      hapticError();
+      toast.error('ID de l\'événement manquant');
       return;
     }
     if (!selectedAttendeeTypeId) {
-      Alert.alert('Erreur', 'Type de participant non sélectionné');
+      hapticError();
+      toast.error('Type de participant non sélectionné');
+      return;
+    }
+    
+    // Vérifier l'imprimante si on veut imprimer
+    if (shouldPrint && !selectedPrinter) {
+      hapticError();
+      toast.error('Aucune imprimante sélectionnée');
       return;
     }
 
@@ -163,18 +187,66 @@ export const AttendeeAddScreen: React.FC<AttendeeAddScreenProps> = ({ navigation
       };
 
       console.log('[AttendeeAddScreen] Submitting registration:', payload);
-      await dispatch(createRegistrationThunk({ 
+      const result = await dispatch(createRegistrationThunk({ 
         eventId, 
         registrationData: payload 
       })).unwrap();
       
-      Alert.alert('Succès', 'Participant ajouté avec succès', [
-        { text: 'OK', onPress: () => navigation.goBack() }
-      ]);
+      // Succès - Feedback avec haptic et toast
+      hapticSuccess();
+      toast.success('✓ Participant ajouté avec succès');
+      
+      // Si l'impression est demandée, générer le badge puis imprimer
+      if (shouldPrint && result) {
+        console.log('[AttendeeAddScreen] Generating and printing badge for registration:', result.id);
+        try {
+          // 1. Générer le badge
+          toast.info('🎨 Génération du badge...');
+          const badge = await generateBadge(eventId, result.id);
+          console.log('[AttendeeAddScreen] Badge generated - Full object:', JSON.stringify(badge, null, 2));
+          
+          // 2. Attendre 3 secondes pour que Puppeteer génère le PDF
+          console.log('[AttendeeAddScreen] Waiting 3 seconds for PDF generation...');
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          
+          // 3. Construire l'URL du badge avec le bon ID
+          // Essayer différentes propriétés possibles
+          const badgeId = badge?.id || badge?.badgeId || badge?.badge?.id || badge?.data?.id;
+          console.log('[AttendeeAddScreen] Extracted badge ID:', badgeId);
+          
+          if (!badgeId) {
+            throw new Error('Badge ID not found in response. Check badge object structure.');
+          }
+          
+          const updatedResult = { 
+            ...result, 
+            badge_pdf_url: `/api/badges/${badgeId}/pdf` 
+          };
+          
+          // 4. Imprimer le badge
+          console.log('[AttendeeAddScreen] Printing badge with URL:', updatedResult.badge_pdf_url);
+          await printBadge(updatedResult as Registration);
+          toast.success('🖨️ Badge envoyé à l\'impression');
+        } catch (printError: any) {
+          console.error('[AttendeeAddScreen] Print error:', printError);
+          hapticError();
+          toast.error(printError.message || 'Erreur lors de l\'impression du badge');
+        }
+      }
+      
+      // Réinitialiser complètement le formulaire
+      resetForm();
+      
+      // Naviguer vers la liste des participants
+      navigation.navigate('Dashboard', {
+        screen: 'AttendeesList',
+        params: { eventId }
+      });
+      
     } catch (error: any) {
       console.error('[AttendeeAddScreen] Error creating registration:', error);
-      Alert.alert(
-        'Erreur',
+      hapticError();
+      toast.error(
         error.message || 'Une erreur est survenue lors de l\'ajout du participant'
       );
     }
@@ -463,12 +535,36 @@ export const AttendeeAddScreen: React.FC<AttendeeAddScreenProps> = ({ navigation
           )}
         </Card>
 
-        <Button
-          title={isCreating ? 'Ajout en cours...' : 'Ajouter le participant'}
-          onPress={handleSubmit}
-          disabled={isCreating}
-          style={{ marginTop: theme.spacing.lg }}
-        />
+        {/* Boutons d'action */}
+        <View style={{ marginTop: theme.spacing.lg, gap: theme.spacing.md }}>
+          <Button
+            title={isCreating ? 'Ajout en cours...' : 'Ajouter le participant'}
+            onPress={() => handleSubmit(false)}
+            disabled={isCreating || isPrinting}
+            variant="primary"
+          />
+          
+          <Button
+            title={isPrinting ? '🖨️ Impression...' : isCreating ? 'Ajout en cours...' : '🖨️ Ajouter et imprimer'}
+            onPress={() => handleSubmit(true)}
+            disabled={isCreating || isPrinting || !selectedPrinter}
+            variant="secondary"
+            style={{
+              opacity: selectedPrinter ? 1 : 0.6,
+            }}
+          />
+          
+          {!selectedPrinter && (
+            <Text style={{
+              fontSize: theme.fontSize.sm,
+              color: theme.colors.text.tertiary,
+              textAlign: 'center',
+              fontStyle: 'italic',
+            }}>
+              Configurez une imprimante dans les paramètres pour imprimer
+            </Text>
+          )}
+        </View>
       </ScrollView>
     );
   };

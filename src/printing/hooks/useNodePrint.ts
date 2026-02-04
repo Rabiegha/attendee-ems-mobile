@@ -22,6 +22,10 @@ export const useNodePrint = () => {
   const selectedPrinter = useAppSelector((s) => s.printers.selectedPrinter);
   const [isPrinting, setIsPrinting] = useState(false);
 
+  /**
+   * Imprime un badge en utilisant le PDF
+   * Génère le PDF via Puppeteer (peut prendre 10-30 secondes)
+   */
   const printBadge = useCallback(
     async (registration: Registration, options?: { copies?: number }) => {
       if (!selectedPrinter) {
@@ -76,7 +80,10 @@ export const useNodePrint = () => {
     [selectedPrinter]
   );
 
-  return { printBadge, isPrinting } as const;
+  return { 
+    printBadge, 
+    isPrinting 
+  } as const;
 };
 
 export default useNodePrint;

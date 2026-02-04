@@ -23,7 +23,7 @@ import { checkInRegistrationThunk, checkOutRegistrationThunk } from '../../store
 import { useTheme } from '../../theme/ThemeProvider';
 import { useTranslation } from 'react-i18next';
 import { SessionsService } from '../../api/backend/sessions.service';
-import { getBadgePdfBase64 } from '../../api/backend/badges.service';
+import { getBadgeHtml } from '../../api/backend/badges.service';
 import { sendPrintJob } from '../../api/printNode/printers.service';
 import { PrintJob } from '../../printing/types';
 
@@ -168,20 +168,21 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation: navProp, rou
       }
       
       const badgeId = badgeIdMatch[1];
-      console.log('[ScanScreen] Fetching badge PDF base64 for:', badgeId);
+      console.log('[ScanScreen] ⚡ Fetching badge HTML (FAST MODE) for:', badgeId);
       
-      const badgeBase64 = await getBadgePdfBase64(badgeId);
-      console.log('[ScanScreen] Badge PDF fetched, length:', badgeBase64.length);
+      const startTime = Date.now();
+      const badgeHtml = await getBadgeHtml(badgeId);
+      const fetchTime = Date.now() - startTime;
+      console.log(`[ScanScreen] ⚡ Badge HTML fetched in ${fetchTime}ms, length:`, badgeHtml.length);
 
       const printJob: PrintJob = {
         printerId: selectedPrinter.id,
         title: `Badge - ${registration.attendee.first_name} ${registration.attendee.last_name}`,
-        contentType: 'pdf_base64',
-        content: badgeBase64,
-        source: 'EMS Mobile App - Auto Print',
+        contentType: 'raw_html',
+        content: badgeHtml,
+        source: 'EMS Mobile App - Auto Print (HTML)',
         options: {
           copies: 1,
-          fitToPage: true,
         },
       };
 

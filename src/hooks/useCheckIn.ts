@@ -7,7 +7,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { Registration } from '../types/attendee';
 import { registrationsService } from '../api/backend/registrations.service';
 import { sendPrintJob, PrintJob } from '../api/printNode/printers.service';
-import { getBadgePdfBase64 } from '../api/backend/badges.service';
+import { getBadgeHtml } from '../api/backend/badges.service';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import { loadSelectedPrinterThunk } from '../store/printers.slice';
 import { updateRegistration } from '../store/registrations.slice';
@@ -285,38 +285,41 @@ export const useCheckIn = (): UseCheckInResult => {
       const badgeId = badgeIdMatch[1];
       console.log('[useCheckIn] Badge ID extracted:', badgeId);
       
-      // Récupérer le PDF en base64 via la nouvelle API
-      console.log('[useCheckIn] 🌐 Fetching PDF base64 from /badge-generation/:id/pdf-base64...');
-      const badgeBase64 = await getBadgePdfBase64(badgeId);
-      console.log('[useCheckIn] ✅ Base64 received, length:', badgeBase64.length);
+      // Récupérer le HTML du badge via la nouvelle API (RAPIDE!)
+      const startTime = Date.now();
+      console.log('[useCheckIn] ⚡ Fetching badge HTML (FAST MODE) from /badge-generation/:id/html...');
+      const badgeHtml = await getBadgeHtml(badgeId);
+      const fetchTime = Date.now() - startTime;
+      console.log(`[useCheckIn] ⚡ HTML received in ${fetchTime}ms, length:`, badgeHtml.length);
 
       setProgress(50);
 
-      // 4. Envoyer le job d'impression à PrintNode
-      console.log('[useCheckIn] 🔄 Sending print job to PrintNode...');
+      // 4. Envoyer le job d'impression à PrintNode avec HTML
+      console.log('[useCheckIn] 🔄 Sending print job to PrintNode (HTML mode)...');
       console.log('[useCheckIn] Print job details:', {
         printerId: printer.id,
         printerName: printer.name,
-        contentType: 'pdf_base64',
-        contentLength: badgeBase64.length,
+        contentType: 'raw_html',
+        contentLength: badgeHtml.length,
         title: `Badge - ${registration.attendee.first_name} ${registration.attendee.last_name}`,
       });
       
       const printJob: PrintJob = {
         printerId: printer.id,
         title: `Badge - ${registration.attendee.first_name} ${registration.attendee.last_name}`,
-        contentType: 'pdf_base64',
-        content: badgeBase64,
-        source: 'EMS Mobile App',
+        contentType: 'raw_html',
+        content: badgeHtml,
+        source: 'EMS Mobile App (HTML)',
         options: {
           copies: 1,
-          fitToPage: true,
         }
       };
 
       console.log('[useCheckIn] 📤 Calling sendPrintJob...');
+      const printStartTime = Date.now();
       const printResult = await sendPrintJob(printJob);
-      console.log('[useCheckIn] ✅ Print job sent successfully:', printResult);
+      const totalTime = Date.now() - startTime;
+      console.log(`[useCheckIn] ✅ Print job sent successfully in ${totalTime}ms:`, printResult);
 
       setProgress(80);
 
@@ -594,7 +597,7 @@ export const useCheckIn = (): UseCheckInResult => {
       }
 
       setProgress(20);
-      console.log('[useCheckIn] 📥 Step 2: Getting badge PDF base64 from API...');
+      console.log('[useCheckIn] 📥 Step 2: Getting badge HTML (FAST MODE)...');
       console.log('[useCheckIn] Badge URL:', badgeUrl.substring(0, 80) + '...');
 
       // Extraire le badge ID depuis l'URL
@@ -606,28 +609,31 @@ export const useCheckIn = (): UseCheckInResult => {
       const badgeId = badgeIdMatch[1];
       console.log('[useCheckIn] Badge ID extracted:', badgeId);
       
-      // Récupérer le PDF en base64 via la nouvelle API
-      console.log('[useCheckIn] 🌐 Fetching PDF base64 from /badge-generation/:id/pdf-base64...');
-      const badgeBase64 = await getBadgePdfBase64(badgeId);
-      console.log('[useCheckIn] ✅ Base64 received, length:', badgeBase64.length);
+      // Récupérer le HTML du badge via la nouvelle API (RAPIDE!)
+      const startTime = Date.now();
+      console.log('[useCheckIn] ⚡ Fetching HTML from /badge-generation/:id/html...');
+      const badgeHtml = await getBadgeHtml(badgeId);
+      const fetchTime = Date.now() - startTime;
+      console.log(`[useCheckIn] ⚡ HTML received in ${fetchTime}ms, length:`, badgeHtml.length);
 
       setProgress(40);
 
       const printJob: PrintJob = {
         printerId: printer.id,
         title: `Badge - ${registration.attendee.first_name} ${registration.attendee.last_name}`,
-        contentType: 'pdf_base64',
-        content: badgeBase64,
-        source: 'EMS Mobile App',
+        contentType: 'raw_html',
+        content: badgeHtml,
+        source: 'EMS Mobile App (HTML)',
         options: {
           copies: 1,
-          fitToPage: true,
         }
       };
 
-      console.log('[useCheckIn] 🖨️ Step 3: Sending print job to printer:', printer.name);
+      console.log('[useCheckIn] 🖨️ Step 3: Sending print job to printer (HTML mode):', printer.name);
+      const printStartTime = Date.now();
       const printResult = await sendPrintJob(printJob);
-      console.log('[useCheckIn] ✅ Print job sent successfully:', printResult.id);
+      const totalTime = Date.now() - startTime;
+      console.log(`[useCheckIn] ✅ Print job sent successfully in ${totalTime}ms:`, printResult.id);
       setProgress(60);
 
       console.log('[useCheckIn] 📝 Step 4: Marking badge as printed in backend...');

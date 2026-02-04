@@ -320,9 +320,15 @@ const registrationsSlice = createSlice({
     // WebSocket events
     builder.addCase('registrations/created' as any, (state, action: PayloadAction<Registration>) => {
       console.log('[RegistrationsSlice] WebSocket - Registration created:', action.payload.id);
-      // Ajouter la nouvelle registration au début de la liste
-      state.registrations.unshift(action.payload);
-      state.pagination.total += 1;
+      // Vérifier si la registration existe déjà avant de l'ajouter
+      const exists = state.registrations.some(reg => reg.id === action.payload.id);
+      if (!exists) {
+        // Ajouter la nouvelle registration au début de la liste
+        state.registrations.unshift(action.payload);
+        state.pagination.total += 1;
+      } else {
+        console.log('[RegistrationsSlice] Registration already exists, skipping add');
+      }
     });
     
     builder.addCase('registrations/updated' as any, (state, action: PayloadAction<Registration>) => {

@@ -43,13 +43,26 @@ const restoreToken = async (dispatch: any, getState: any) => {
       isExpired: timeUntilExpiration <= 0,
     });
     
-    // Si le token n'est pas encore expiré et qu'on a les données user
-    if (timeUntilExpiration > 60000 && hasUserData) { // Plus de 1 minute restante
-      console.log('[useTokenRestoration] ✅ Token still valid, skipping restoration');
+    // Si le token est encore valide (plus de 5 minutes restantes) et qu'on a les données user
+    if (timeUntilExpiration > 300000 && hasUserData) { // Plus de 5 minutes restantes
+      console.log('[useTokenRestoration] ✅ Token still valid and user data present, skipping restoration');
+      // Mais quand même restaurer le token en mémoire s'il n'y est pas
+      const currentToken = getAccessToken();
+      if (!currentToken) {
+        const storedToken = await secureStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+        if (storedToken) {
+          console.log('[useTokenRestoration] 📦 Restoring token to memory from storage');
+          await setAuthTokens(storedToken, Math.round(timeUntilExpiration / 1000));
+        }
+      }
       return;
     }
     
-    console.log('[useTokenRestoration] ⚠️ Token expired or expiring soon, will refresh');
+    if (timeUntilExpiration <= 0) {
+      console.log('[useTokenRestoration] ⚠️ Token expired, must refresh');
+    } else {
+      console.log('[useTokenRestoration] ⚠️ Token expiring soon, will refresh preventively');
+    }
   }
   
   const currentToken = getAccessToken();

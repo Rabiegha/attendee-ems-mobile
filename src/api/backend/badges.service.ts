@@ -51,3 +51,85 @@ export const getBadgePdfBase64 = async (badgeId: string): Promise<string> => {
     );
   }
 };
+
+/**
+ * Génère un badge pour une registration
+ * @param eventId - ID de l'événement
+ * @param registrationId - ID de la registration
+ * @returns Les informations du badge généré
+ */
+export const generateBadge = async (eventId: string, registrationId: string): Promise<any> => {
+  try {
+    console.log('[BadgesService] Generating badge for registration:', registrationId);
+    
+    const response = await axiosClient.post(
+      `/events/${eventId}/registrations/${registrationId}/generate-badge`
+    );
+
+    console.log('[BadgesService] Badge generated successfully:', response.data);
+
+    return response.data;
+  } catch (error: any) {
+    console.error('[BadgesService] Error generating badge:', error);
+    
+    if (error.response) {
+      console.error('[BadgesService] Response error:', {
+        status: error.response.status,
+        data: error.response.data,
+      });
+    }
+    
+    throw new Error(
+      error.response?.data?.message || 
+      error.message || 
+      'Failed to generate badge'
+    );
+  }
+};
+
+/**
+ * Récupère le HTML d'un badge
+ * BEAUCOUP PLUS RAPIDE que le PDF (pas de Puppeteer)
+ * @param badgeId - ID du badge
+ * @returns Le HTML complet du badge
+ */
+export const getBadgeHtml = async (badgeId: string): Promise<string> => {
+  try {
+    console.log('[BadgesService] Fetching HTML for badge:', badgeId);
+    
+    const response = await axiosClient.get<string>(
+      `/badge-generation/${badgeId}/html`,
+      {
+        headers: {
+          'Accept': 'text/html',
+        },
+      }
+    );
+
+    console.log('[BadgesService] HTML received:', {
+      badgeId,
+      htmlLength: response.data?.length || 0,
+    });
+
+    if (!response.data) {
+      throw new Error('No HTML data in response');
+    }
+
+    return response.data;
+  } catch (error: any) {
+    console.error('[BadgesService] Error fetching badge HTML:', error);
+    
+    if (error.response) {
+      console.error('[BadgesService] Response error:', {
+        status: error.response.status,
+        data: error.response.data,
+      });
+    }
+    
+    throw new Error(
+      error.response?.data?.message || 
+      error.message || 
+      'Failed to fetch badge HTML'
+    );
+  }
+};
