@@ -10,13 +10,15 @@ import { sendPrintJob, PrintJob } from '../api/printNode/printers.service';
 import { getBadgeHtml } from '../api/backend/badges.service';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import { loadSelectedPrinterThunk } from '../store/printers.slice';
+import { loadSelectedEmsPrinterThunk } from '../store/emsPrinters.slice';
 import { updateRegistration } from '../store/registrations.slice';
+import { setPrintStatus } from '../store/printStatus.slice';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { debugPrinterStorage } from '../utils/printerDebug';
 import { hapticSuccess, hapticError, hapticLight } from '../utils/haptics';
 import axiosClient from '../api/backend/axiosClient';
 import { getPrintMode } from '../printing/preferences/printMode';
-import { addToPrintQueue } from '../api/backend/printQueue.service';
+import { addToPrintQueue, getEmsClientStatus } from '../api/backend/printQueue.service';
 
 export type CheckInStatus = 'idle' | 'printing' | 'checkin' | 'undoing' | 'success' | 'error';
 
@@ -57,6 +59,7 @@ export const useCheckIn = (): UseCheckInResult => {
   // Récupérer l'imprimante sélectionnée depuis le store Redux
   const selectedPrinter = useAppSelector(state => state.printers.selectedPrinter);
   const printersState = useAppSelector(state => state.printers);
+  const selectedEmsPrinter = useAppSelector(state => state.emsPrinters.selectedPrinter);
 
   // Récupérer les registrations depuis Redux pour calculer les stats en temps réel
   const registrations = useAppSelector(state => state.registrations.registrations);
@@ -102,6 +105,26 @@ export const useCheckIn = (): UseCheckInResult => {
     console.log('[useCheckIn] ✅ Using printer from store:', selectedPrinter.name);
     return selectedPrinter;
   }, [selectedPrinter, dispatch]);
+
+  // Fonction pour s'assurer qu'une imprimante EMS est chargée
+  const ensureEmsPrinterLoaded = useCallback(async () => {
+    console.log('[useCheckIn] 🔍 Ensuring EMS printer is loaded...');
+    
+    if (selectedEmsPrinter) {
+      console.log('[useCheckIn] ✅ Using EMS printer from store:', selectedEmsPrinter.name);
+      return selectedEmsPrinter;
+    }
+
+    console.log('[useCheckIn] No EMS printer in store, loading from AsyncStorage...');
+    try {
+      const result = await dispatch(loadSelectedEmsPrinterThunk()).unwrap();
+      console.log('[useCheckIn] ✅ EMS printer loaded:', result?.name || 'null');
+      return result;
+    } catch (error) {
+      console.error('[useCheckIn] ❌ Failed to load EMS printer:', error);
+      return null;
+    }
+  }, [selectedEmsPrinter, dispatch]);
 
   // Fonction pour vérifier l'état de l'imprimante
   const checkPrinterStatus = useCallback(async () => {
@@ -297,13 +320,35 @@ export const useCheckIn = (): UseCheckInResult => {
           throw new Error('Utilisateur non connecté. Veuillez vous reconnecter.');
         }
 
+        const emsPrinter = await ensureEmsPrinterLoaded();
+        
+        // Bloquer si aucune imprimante n'est sélectionnée
+        if (!emsPrinter) {
+          throw new Error('Aucune imprimante sélectionnée. Allez dans Paramètres > Imprimantes pour en choisir une.');
+        }
+
+        const attendeeName = `${registration.attendee.first_name} ${registration.attendee.last_name}`;
+        
+        // Vérifier si EMS Client est connecté avant d'envoyer
+        const clientStatus = await getEmsClientStatus();
+        const isClientOnline = clientStatus.connected;
+        
+        // Afficher le statut approprié via le PrintStatusBanner
+        dispatch(setPrintStatus({
+          status: isClientOnline ? 'SENDING' : 'CLIENT_OFFLINE',
+          attendeeName,
+          printerName: emsPrinter.name,
+        }));
+
         const queueJob = await addToPrintQueue(
           registration.id,
           registration.event_id,
           user.id,
           badgeUrl,
+          emsPrinter.name,
+          isClientOnline ? undefined : 'OFFLINE',
         );
-        console.log('[useCheckIn] ✅ Job added to EMS print queue:', queueJob.id);
+        console.log('[useCheckIn] ✅ Job added to EMS print queue:', queueJob.id, 'printer:', emsPrinter.name, isClientOnline ? '(client online)' : '(client OFFLINE - will retry on reconnect)');
         setProgress(80);
 
         // Marquer comme imprimé dans le backend
@@ -362,11 +407,18 @@ export const useCheckIn = (): UseCheckInResult => {
       
       setProgress(100);
       setStatus('success');
-      hapticSuccess();
       console.log('[useCheckIn] ✅ Print completed successfully for:', registration.attendee.first_name);
       
-      if (onSuccess) {
-        onSuccess(`Badge imprimé pour ${registration.attendee.first_name} ${registration.attendee.last_name}`);
+      if (printMode === 'ems-client') {
+        // En mode EMS, le PrintStatusBanner gère le feedback via WebSocket
+        // Pas de haptic ici, le hook usePrintJobNotifications s'en charge
+        console.log('[useCheckIn] 📤 EMS mode: status banner will show real-time feedback');
+      } else {
+        // En mode PrintNode, le job est envoyé directement → feedback immédiat
+        hapticSuccess();
+        if (onSuccess) {
+          onSuccess(`Badge imprimé pour ${registration.attendee.first_name} ${registration.attendee.last_name}`);
+        }
       }
 
     } catch (error: any) {
@@ -645,13 +697,35 @@ export const useCheckIn = (): UseCheckInResult => {
           throw new Error('Utilisateur non connecté. Veuillez vous reconnecter.');
         }
 
+        const emsPrinter = await ensureEmsPrinterLoaded();
+        
+        // Bloquer si aucune imprimante n'est sélectionnée
+        if (!emsPrinter) {
+          throw new Error('Aucune imprimante sélectionnée. Allez dans Paramètres > Imprimantes pour en choisir une.');
+        }
+
+        const attendeeName = `${registration.attendee.first_name} ${registration.attendee.last_name}`;
+        
+        // Vérifier si EMS Client est connecté avant d'envoyer
+        const clientStatus = await getEmsClientStatus();
+        const isClientOnline = clientStatus.connected;
+        
+        // Afficher le statut approprié via le PrintStatusBanner
+        dispatch(setPrintStatus({
+          status: isClientOnline ? 'SENDING' : 'CLIENT_OFFLINE',
+          attendeeName,
+          printerName: emsPrinter.name,
+        }));
+
         const queueJob = await addToPrintQueue(
           registration.id,
           registration.event_id,
           user.id,
           badgeUrl,
+          emsPrinter.name,
+          isClientOnline ? undefined : 'OFFLINE',
         );
-        console.log('[useCheckIn] ✅ Job added to EMS print queue:', queueJob.id);
+        console.log('[useCheckIn] ✅ Job added to EMS print queue:', queueJob.id, 'printer:', emsPrinter.name, isClientOnline ? '(client online)' : '(client OFFLINE - will retry on reconnect)');
         setProgress(50);
 
         console.log('[useCheckIn] 📝 Marking badge as printed in backend...');
@@ -724,8 +798,18 @@ export const useCheckIn = (): UseCheckInResult => {
       setStatus('success');
       console.log('[useCheckIn] ✅ Print and check-in completed successfully for:', registration.attendee.first_name);
       
-      if (onSuccess) {
-        onSuccess(`${registration.attendee.first_name} ${registration.attendee.last_name} enregistré(e) et badge imprimé`);
+      if (printMode === 'ems-client') {
+        // En mode EMS, le check-in est confirmé mais l'impression est async
+        // Le PrintStatusBanner gère le feedback de l'impression via WebSocket
+        hapticSuccess();
+        if (onSuccess) {
+          onSuccess(`${registration.attendee.first_name} ${registration.attendee.last_name} enregistré(e)`);
+        }
+      } else {
+        // En mode PrintNode, tout est terminé
+        if (onSuccess) {
+          onSuccess(`${registration.attendee.first_name} ${registration.attendee.last_name} enregistré(e) et badge imprimé`);
+        }
       }
 
     } catch (error: any) {

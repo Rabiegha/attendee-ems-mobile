@@ -213,8 +213,7 @@ export const PrintSettingsScreen: React.FC<PrintSettingsScreenProps> = ({ naviga
           </View>
         </View>
 
-        {/* Imprimantes - Navigation (only relevant in PrintNode mode) */}
-        {currentPrintMode === 'printnode' && (
+        {/* Imprimantes - Navigation */}
         <TouchableOpacity
           style={[
             styles.menuItem,
@@ -226,7 +225,9 @@ export const PrintSettingsScreen: React.FC<PrintSettingsScreenProps> = ({ naviga
               paddingHorizontal: theme.spacing.lg,
             },
           ]}
-          onPress={() => navigation.navigate('PrintersList')}
+          onPress={() => navigation.navigate(
+            currentPrintMode === 'printnode' ? 'PrintersList' : 'EmsPrintersList'
+          )}
           activeOpacity={0.7}
         >
           <Text
@@ -240,7 +241,6 @@ export const PrintSettingsScreen: React.FC<PrintSettingsScreenProps> = ({ naviga
           </Text>
           <Ionicons name="chevron-forward" size={20} color={theme.colors.text.secondary} />
         </TouchableOpacity>
-        )}
 
         {/* Orientation - Toggle */}
         <View

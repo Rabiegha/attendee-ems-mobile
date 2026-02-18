@@ -28,6 +28,8 @@ import { sendPrintJob } from '../../api/printNode/printers.service';
 import { PrintJob } from '../../printing/types';
 import { getPrintMode } from '../../printing/preferences/printMode';
 import { addToPrintQueue } from '../../api/backend/printQueue.service';
+import { loadSelectedEmsPrinterThunk } from '../../store/emsPrinters.slice';
+import { setPrintStatus } from '../../store/printStatus.slice';
 
 const PRINT_ON_SCAN_KEY = '@print_settings:print_on_scan';
 
@@ -67,6 +69,7 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation: navProp, rou
 
   // Récupérer le printer sélectionné depuis le store
   const selectedPrinter = useAppSelector((state) => state.printers.selectedPrinter);
+  const selectedEmsPrinter = useAppSelector((state) => state.emsPrinters.selectedPrinter);
   // Récupérer l'utilisateur connecté depuis le store
   const user = useAppSelector((state) => state.auth.user);
 
@@ -89,6 +92,8 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation: navProp, rou
   // Charger la préférence d'impression au scan
   useEffect(() => {
     loadPrintOnScanPreference();
+    // Charger l'imprimante EMS sélectionnée depuis AsyncStorage
+    dispatch(loadSelectedEmsPrinterThunk());
   }, []);
 
   const loadPrintOnScanPreference = async () => {
@@ -167,14 +172,29 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation: navProp, rou
           return;
         }
 
+        if (!selectedEmsPrinter) {
+          console.log('[ScanScreen] No EMS printer selected, skipping auto-print');
+          return;
+        }
+
+        const attendeeName = `${registration.attendee?.first_name || ''} ${registration.attendee?.last_name || ''}`.trim();
+
+        // Afficher le statut "Envoi..." via le PrintStatusBanner
+        dispatch(setPrintStatus({
+          status: 'SENDING',
+          attendeeName,
+          printerName: selectedEmsPrinter.name,
+        }));
+
         console.log('[ScanScreen] Sending to EMS Print Queue:', registration.id);
         const queueJob = await addToPrintQueue(
           registration.id,
           registration.event_id || eventId,
           user.id,
           badgeUrl,
+          selectedEmsPrinter.name,
         );
-        console.log('[ScanScreen] Auto-print queued successfully:', queueJob.id);
+        console.log('[ScanScreen] Auto-print queued successfully:', queueJob.id, 'printer:', selectedEmsPrinter.name);
       } else {
         // === MODE PRINTNODE ===
         if (!selectedPrinter) {

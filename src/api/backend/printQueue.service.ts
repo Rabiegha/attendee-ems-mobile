@@ -13,12 +13,32 @@ export interface PrintQueueJob {
   event_id: string;
   user_id: string;
   badge_url: string;
-  status: 'PENDING' | 'PRINTING' | 'COMPLETED' | 'FAILED';
+  status: 'PENDING' | 'PRINTING' | 'COMPLETED' | 'FAILED' | 'OFFLINE';
   printer_name: string | null;
   error: string | null;
   created_at: string;
   updated_at: string;
 }
+
+export interface EmsClientStatus {
+  connected: boolean;
+  clientCount: number;
+}
+
+/**
+ * Vérifie si le EMS Print Client est connecté au backend
+ */
+export const getEmsClientStatus = async (): Promise<EmsClientStatus> => {
+  try {
+    const response = await axiosClient.get<EmsClientStatus>('/print-queue/client-status');
+    console.log('[PrintQueue] EMS Client status:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.warn('[PrintQueue] Could not check EMS Client status:', error.message);
+    // If we can't reach the backend at all, assume offline
+    return { connected: false, clientCount: 0 };
+  }
+};
 
 /**
  * Ajoute un job à la file d'impression EMS
@@ -29,21 +49,33 @@ export const addToPrintQueue = async (
   eventId: string,
   userId: string,
   badgeUrl: string,
+  printerName?: string,
+  status?: 'PENDING' | 'OFFLINE',
 ): Promise<PrintQueueJob> => {
   try {
     console.log('[PrintQueue] Adding job to EMS print queue:', {
       registrationId,
       eventId,
+      printerName: printerName || '(default)',
+      status: status || 'PENDING',
     });
 
-    const response = await axiosClient.post<PrintQueueJob>('/print-queue/add', {
+    const body: Record<string, string> = {
       registrationId,
       eventId,
       userId,
       badgeUrl,
-    });
+    };
+    if (printerName) {
+      body.printerName = printerName;
+    }
+    if (status) {
+      body.status = status;
+    }
 
-    console.log('[PrintQueue] Job created successfully:', response.data.id);
+    const response = await axiosClient.post<PrintQueueJob>('/print-queue/add', body);
+
+    console.log('[PrintQueue] Job created successfully:', response.data.id, '| printer_name in response:', response.data.printer_name || 'NULL');
     return response.data;
   } catch (error: any) {
     console.error('[PrintQueue] Error adding to print queue:', error);

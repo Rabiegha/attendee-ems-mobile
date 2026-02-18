@@ -9,7 +9,9 @@ import { useTheme } from './theme/ThemeProvider';
 import { AppNavigator } from './navigation/AppNavigator';
 import { useTokenRestoration } from './hooks/useTokenRestoration';
 import { useSocketSync } from './hooks/useSocketSync';
+import { usePrintJobNotifications } from './hooks/usePrintJobNotifications';
 import { ToastContainer } from './components/ui/ToastContainer';
+import { PrintStatusBanner } from './components/ui/PrintStatusBanner';
 import { useAppDispatch } from './store/hooks';
 import { clearAuth } from './store/auth.slice';
 import { setOnAuthFailure } from './api/backend/axiosClient';
@@ -31,6 +33,9 @@ export const AppContent: React.FC = () => {
   
   // Synchroniser les données via WebSocket
   useSocketSync();
+  
+  // Notifications en temps réel pour les jobs d'impression
+  usePrintJobNotifications();
   
   // Configurer les barres système selon le thème
   useEffect(() => {
@@ -57,6 +62,7 @@ export const AppContent: React.FC = () => {
       />
       <AppNavigator />
       <ToastContainer />
+      <PrintStatusBanner />
     </>
   );
 };

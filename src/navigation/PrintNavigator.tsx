@@ -6,11 +6,13 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { PrintSettingsScreen } from '../screens/Print/PrintSettingsScreen';
 import { PrintersListScreen } from '../screens/Print/PrintersListScreen';
+import { EmsPrintersListScreen } from '../screens/Print/EmsPrintersListScreen';
 import { useTheme } from '../theme/ThemeProvider';
 
 export type PrintStackParamList = {
   PrintSettings: undefined;
   PrintersList: undefined;
+  EmsPrintersList: undefined;
 };
 
 const Stack = createNativeStackNavigator<PrintStackParamList>();
@@ -34,6 +36,10 @@ export const PrintNavigator: React.FC = () => {
       <Stack.Screen
         name="PrintersList"
         component={PrintersListScreen}
+      />
+      <Stack.Screen
+        name="EmsPrintersList"
+        component={EmsPrintersListScreen}
       />
     </Stack.Navigator>
   );
