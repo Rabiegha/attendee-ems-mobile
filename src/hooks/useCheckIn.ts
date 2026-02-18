@@ -15,6 +15,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { debugPrinterStorage } from '../utils/printerDebug';
 import { hapticSuccess, hapticError, hapticLight } from '../utils/haptics';
 import axiosClient from '../api/backend/axiosClient';
+import { getPrintMode } from '../printing/preferences/printMode';
+import { addToPrintQueue } from '../api/backend/printQueue.service';
 
 export type CheckInStatus = 'idle' | 'printing' | 'checkin' | 'undoing' | 'success' | 'error';
 
@@ -48,6 +50,9 @@ export const useCheckIn = (): UseCheckInResult => {
   const [progress, setProgress] = useState(0);
 
   const dispatch = useAppDispatch();
+
+  // Récupérer l'utilisateur connecté depuis le store Redux
+  const user = useAppSelector(state => state.auth.user);
 
   // Récupérer l'imprimante sélectionnée depuis le store Redux
   const selectedPrinter = useAppSelector(state => state.printers.selectedPrinter);
@@ -181,16 +186,23 @@ export const useCheckIn = (): UseCheckInResult => {
     setStatus('printing');
 
     try {
-      // 1. Vérifier si une imprimante est sélectionnée ou essayer de la charger
-      console.log('[useCheckIn] 🔍 Checking printer availability...');
-      const printer = await ensurePrinterLoaded();
+      // 1. Vérifier le mode d'impression pour savoir si on a besoin d'une imprimante PrintNode
+      const currentPrintMode = await getPrintMode();
+      let printer: any = null;
       
-      if (!printer) {
-        console.error('[useCheckIn] ❌ No printer available after loading attempt');
-        throw new Error('Aucune imprimante sélectionnée. Veuillez configurer une imprimante dans les paramètres.');
+      if (currentPrintMode === 'printnode') {
+        // En mode PrintNode, on a besoin d'une imprimante sélectionnée
+        console.log('[useCheckIn] 🔍 PrintNode mode: checking printer availability...');
+        printer = await ensurePrinterLoaded();
+        
+        if (!printer) {
+          console.error('[useCheckIn] ❌ No printer available after loading attempt');
+          throw new Error('Aucune imprimante sélectionnée. Veuillez configurer une imprimante dans les paramètres.');
+        }
+        console.log('[useCheckIn] 🖨️ Using PrintNode printer:', printer.name);
+      } else {
+        console.log('[useCheckIn] 📡 EMS Client mode: printer managed by Electron client');
       }
-
-      console.log('[useCheckIn] 🖨️ Using printer:', printer.name);
 
       // 2. Vérifier si le badge PDF existe
       console.log('[useCheckIn] 📋 Checking badge availability...', {
@@ -271,61 +283,82 @@ export const useCheckIn = (): UseCheckInResult => {
         }
       }
 
-      // 3. Récupérer le badge PDF en base64 via la nouvelle API
-      console.log('[useCheckIn] 📥 Step 2: Getting badge PDF base64 from API...');
-      console.log('[useCheckIn] Badge URL:', badgeUrl.substring(0, 100) + '...');
+      // 3. Déterminer le mode d'impression
+      const printMode = await getPrintMode();
+      console.log('[useCheckIn] 🔀 Print mode:', printMode);
       setProgress(20);
-      
-      // Extraire le badge ID depuis l'URL
-      // Format: /api/badges/{badgeId}/pdf
-      const badgeIdMatch = badgeUrl.match(/\/badges\/([a-f0-9-]+)\//i);
-      if (!badgeIdMatch) {
-        throw new Error('Impossible d\'extraire l\'ID du badge depuis l\'URL');
-      }
-      const badgeId = badgeIdMatch[1];
-      console.log('[useCheckIn] Badge ID extracted:', badgeId);
-      
-      // Récupérer le HTML du badge via la nouvelle API (RAPIDE!)
-      const startTime = Date.now();
-      console.log('[useCheckIn] ⚡ Fetching badge HTML (FAST MODE) from /badge-generation/:id/html...');
-      const badgeHtml = await getBadgeHtml(badgeId);
-      const fetchTime = Date.now() - startTime;
-      console.log(`[useCheckIn] ⚡ HTML received in ${fetchTime}ms, length:`, badgeHtml.length);
 
-      setProgress(50);
-
-      // 4. Envoyer le job d'impression à PrintNode avec HTML
-      console.log('[useCheckIn] 🔄 Sending print job to PrintNode (HTML mode)...');
-      console.log('[useCheckIn] Print job details:', {
-        printerId: printer.id,
-        printerName: printer.name,
-        contentType: 'raw_html',
-        contentLength: badgeHtml.length,
-        title: `Badge - ${registration.attendee.first_name} ${registration.attendee.last_name}`,
-      });
-      
-      const printJob: PrintJob = {
-        printerId: printer.id,
-        title: `Badge - ${registration.attendee.first_name} ${registration.attendee.last_name}`,
-        contentType: 'raw_html',
-        content: badgeHtml,
-        source: 'EMS Mobile App (HTML)',
-        options: {
-          copies: 1,
+      if (printMode === 'ems-client') {
+        // === MODE EMS PRINT CLIENT ===
+        // Envoyer le job à la file d'impression backend → Electron client
+        console.log('[useCheckIn] 📤 Sending to EMS Print Queue...');
+        
+        if (!user?.id) {
+          throw new Error('Utilisateur non connecté. Veuillez vous reconnecter.');
         }
-      };
 
-      console.log('[useCheckIn] 📤 Calling sendPrintJob...');
-      const printStartTime = Date.now();
-      const printResult = await sendPrintJob(printJob);
-      const totalTime = Date.now() - startTime;
-      console.log(`[useCheckIn] ✅ Print job sent successfully in ${totalTime}ms:`, printResult);
+        const queueJob = await addToPrintQueue(
+          registration.id,
+          registration.event_id,
+          user.id,
+          badgeUrl,
+        );
+        console.log('[useCheckIn] ✅ Job added to EMS print queue:', queueJob.id);
+        setProgress(80);
 
-      setProgress(80);
+        // Marquer comme imprimé dans le backend
+        console.log('[useCheckIn] 📡 Marking badge as printed in backend...');
+        await registrationsService.markBadgePrinted(registration.event_id, registration.id);
 
-      // 5. Marquer comme imprimé dans le backend
-      console.log('[useCheckIn] 📡 Marking badge as printed in backend...');
-      await registrationsService.markBadgePrinted(registration.event_id, registration.id);
+      } else {
+        // === MODE PRINTNODE (legacy backup) ===
+        // Récupérer le HTML du badge et envoyer directement à PrintNode
+        console.log('[useCheckIn] 📥 Step 2: Getting badge HTML from API...');
+        console.log('[useCheckIn] Badge URL:', badgeUrl.substring(0, 100) + '...');
+        
+        // Extraire le badge ID depuis l'URL
+        const badgeIdMatch = badgeUrl.match(/\/badges\/([a-f0-9-]+)\//i);
+        if (!badgeIdMatch) {
+          throw new Error('Impossible d\'extraire l\'ID du badge depuis l\'URL');
+        }
+        const badgeId = badgeIdMatch[1];
+        console.log('[useCheckIn] Badge ID extracted:', badgeId);
+        
+        // Récupérer le HTML du badge via la nouvelle API (RAPIDE!)
+        const startTime = Date.now();
+        console.log('[useCheckIn] ⚡ Fetching badge HTML (FAST MODE) from /badge-generation/:id/html...');
+        const badgeHtml = await getBadgeHtml(badgeId);
+        const fetchTime = Date.now() - startTime;
+        console.log(`[useCheckIn] ⚡ HTML received in ${fetchTime}ms, length:`, badgeHtml.length);
+
+        setProgress(50);
+
+        // Envoyer le job d'impression à PrintNode avec HTML
+        console.log('[useCheckIn] 🔄 Sending print job to PrintNode (HTML mode)...');
+        
+        const printJob: PrintJob = {
+          printerId: printer.id,
+          title: `Badge - ${registration.attendee.first_name} ${registration.attendee.last_name}`,
+          contentType: 'raw_html',
+          content: badgeHtml,
+          source: 'EMS Mobile App (HTML)',
+          options: {
+            copies: 1,
+          }
+        };
+
+        console.log('[useCheckIn] 📤 Calling sendPrintJob...');
+        const printStartTime = Date.now();
+        const printResult = await sendPrintJob(printJob);
+        const totalTime = Date.now() - startTime;
+        console.log(`[useCheckIn] ✅ Print job sent successfully in ${totalTime}ms:`, printResult);
+
+        setProgress(80);
+
+        // Marquer comme imprimé dans le backend
+        console.log('[useCheckIn] 📡 Marking badge as printed in backend...');
+        await registrationsService.markBadgePrinted(registration.event_id, registration.id);
+      }
       
       setProgress(100);
       setStatus('success');
@@ -528,12 +561,18 @@ export const useCheckIn = (): UseCheckInResult => {
         return;
       }
 
-      // Vérifier l'imprimante
-      console.log('[useCheckIn] 🔍 Checking printer availability for print and check-in...');
-      const printer = await ensurePrinterLoaded();
+      // Vérifier le mode d'impression et l'imprimante si nécessaire
+      const printMode = await getPrintMode();
+      let printer: any = null;
       
-      if (!printer) {
-        throw new Error('Aucune imprimante sélectionnée. Veuillez configurer une imprimante dans les paramètres.');
+      if (printMode === 'printnode') {
+        console.log('[useCheckIn] 🔍 PrintNode mode: checking printer availability...');
+        printer = await ensurePrinterLoaded();
+        if (!printer) {
+          throw new Error('Aucune imprimante sélectionnée. Veuillez configurer une imprimante dans les paramètres.');
+        }
+      } else {
+        console.log('[useCheckIn] 📡 EMS Client mode: printer managed by Electron client');
       }
 
       // Étape 1: Impression (utiliser la même logique robuste que printOnly)
@@ -597,53 +636,76 @@ export const useCheckIn = (): UseCheckInResult => {
       }
 
       setProgress(20);
-      console.log('[useCheckIn] 📥 Step 2: Getting badge HTML (FAST MODE)...');
-      console.log('[useCheckIn] Badge URL:', badgeUrl.substring(0, 80) + '...');
 
-      // Extraire le badge ID depuis l'URL
-      // Format: /api/badges/{badgeId}/pdf
-      const badgeIdMatch = badgeUrl.match(/\/badges\/([a-f0-9-]+)\//i);
-      if (!badgeIdMatch) {
-        throw new Error('Impossible d\'extraire l\'ID du badge depuis l\'URL');
-      }
-      const badgeId = badgeIdMatch[1];
-      console.log('[useCheckIn] Badge ID extracted:', badgeId);
-      
-      // Récupérer le HTML du badge via la nouvelle API (RAPIDE!)
-      const startTime = Date.now();
-      console.log('[useCheckIn] ⚡ Fetching HTML from /badge-generation/:id/html...');
-      const badgeHtml = await getBadgeHtml(badgeId);
-      const fetchTime = Date.now() - startTime;
-      console.log(`[useCheckIn] ⚡ HTML received in ${fetchTime}ms, length:`, badgeHtml.length);
-
-      setProgress(40);
-
-      const printJob: PrintJob = {
-        printerId: printer.id,
-        title: `Badge - ${registration.attendee.first_name} ${registration.attendee.last_name}`,
-        contentType: 'raw_html',
-        content: badgeHtml,
-        source: 'EMS Mobile App (HTML)',
-        options: {
-          copies: 1,
+      if (printMode === 'ems-client') {
+        // === MODE EMS PRINT CLIENT ===
+        console.log('[useCheckIn] 📤 Sending to EMS Print Queue...');
+        
+        if (!user?.id) {
+          throw new Error('Utilisateur non connecté. Veuillez vous reconnecter.');
         }
-      };
 
-      console.log('[useCheckIn] 🖨️ Step 3: Sending print job to printer (HTML mode):', printer.name);
-      const printStartTime = Date.now();
-      const printResult = await sendPrintJob(printJob);
-      const totalTime = Date.now() - startTime;
-      console.log(`[useCheckIn] ✅ Print job sent successfully in ${totalTime}ms:`, printResult.id);
-      setProgress(60);
+        const queueJob = await addToPrintQueue(
+          registration.id,
+          registration.event_id,
+          user.id,
+          badgeUrl,
+        );
+        console.log('[useCheckIn] ✅ Job added to EMS print queue:', queueJob.id);
+        setProgress(50);
 
-      console.log('[useCheckIn] 📝 Step 4: Marking badge as printed in backend...');
-      await registrationsService.markBadgePrinted(registration.event_id, registration.id);
-      console.log('[useCheckIn] ✅ Badge marked as printed');
-      setProgress(70);
+        console.log('[useCheckIn] 📝 Marking badge as printed in backend...');
+        await registrationsService.markBadgePrinted(registration.event_id, registration.id);
+        console.log('[useCheckIn] ✅ Badge marked as printed');
+        setProgress(60);
+      } else {
+        // === MODE PRINTNODE ===
+        console.log('[useCheckIn] 📥 Step 2: Getting badge HTML (FAST MODE)...');
+        console.log('[useCheckIn] Badge URL:', badgeUrl.substring(0, 80) + '...');
+
+        const badgeIdMatch = badgeUrl.match(/\/badges\/([a-f0-9-]+)\//i);
+        if (!badgeIdMatch) {
+          throw new Error('Impossible d\'extraire l\'ID du badge depuis l\'URL');
+        }
+        const badgeId = badgeIdMatch[1];
+        console.log('[useCheckIn] Badge ID extracted:', badgeId);
+        
+        const startTime = Date.now();
+        console.log('[useCheckIn] ⚡ Fetching HTML from /badge-generation/:id/html...');
+        const badgeHtml = await getBadgeHtml(badgeId);
+        const fetchTime = Date.now() - startTime;
+        console.log(`[useCheckIn] ⚡ HTML received in ${fetchTime}ms, length:`, badgeHtml.length);
+
+        setProgress(40);
+
+        const printJob: PrintJob = {
+          printerId: printer.id,
+          title: `Badge - ${registration.attendee.first_name} ${registration.attendee.last_name}`,
+          contentType: 'raw_html',
+          content: badgeHtml,
+          source: 'EMS Mobile App (HTML)',
+          options: {
+            copies: 1,
+          }
+        };
+
+        console.log('[useCheckIn] 🖨️ Step 3: Sending print job to printer (HTML mode):', printer.name);
+        const printStartTime = Date.now();
+        const printResult = await sendPrintJob(printJob);
+        const totalTime = Date.now() - startTime;
+        console.log(`[useCheckIn] ✅ Print job sent successfully in ${totalTime}ms:`, printResult.id);
+        setProgress(60);
+
+        console.log('[useCheckIn] 📝 Step 4: Marking badge as printed in backend...');
+        await registrationsService.markBadgePrinted(registration.event_id, registration.id);
+        console.log('[useCheckIn] ✅ Badge marked as printed');
+        setProgress(60);
+      }
 
       // Étape 2: Check-in
-      console.log('[useCheckIn] ✅ Step 5: Processing check-in...');
+      console.log('[useCheckIn] ✅ Processing check-in...');
       setStatus('checkin');
+      setProgress(70);
       
       const checkInResult = await registrationsService.checkIn(registration.id, registration.event_id);
       console.log('[useCheckIn] ✅ Check-in completed:', checkInResult.message);

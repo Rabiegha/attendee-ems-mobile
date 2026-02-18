@@ -26,6 +26,8 @@ import { SessionsService } from '../../api/backend/sessions.service';
 import { getBadgeHtml } from '../../api/backend/badges.service';
 import { sendPrintJob } from '../../api/printNode/printers.service';
 import { PrintJob } from '../../printing/types';
+import { getPrintMode } from '../../printing/preferences/printMode';
+import { addToPrintQueue } from '../../api/backend/printQueue.service';
 
 const PRINT_ON_SCAN_KEY = '@print_settings:print_on_scan';
 
@@ -65,6 +67,8 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation: navProp, rou
 
   // Récupérer le printer sélectionné depuis le store
   const selectedPrinter = useAppSelector((state) => state.printers.selectedPrinter);
+  // Récupérer l'utilisateur connecté depuis le store
+  const user = useAppSelector((state) => state.auth.user);
 
   // Demander la permission caméra au montage
   useEffect(() => {
@@ -146,48 +150,68 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation: navProp, rou
       return;
     }
 
-    if (!selectedPrinter) {
-      console.log('[ScanScreen] No printer selected, skipping auto-print');
-      return;
-    }
-
     try {
-      console.log('[ScanScreen] Starting auto-print for registration:', registration.id);
-      
-      // Extraire le badge ID depuis l'URL
+      const printMode = await getPrintMode();
+      console.log('[ScanScreen] Auto-print mode:', printMode);
+
       const badgeUrl = registration.badge_pdf_url;
       if (!badgeUrl) {
         console.log('[ScanScreen] No badge URL, skipping auto-print');
         return;
       }
 
-      const badgeIdMatch = badgeUrl.match(/\/badges\/([a-f0-9-]+)\//i);
-      if (!badgeIdMatch) {
-        console.error('[ScanScreen] Cannot extract badge ID from URL:', badgeUrl);
-        return;
+      if (printMode === 'ems-client') {
+        // === MODE EMS PRINT CLIENT ===
+        if (!user?.id) {
+          console.log('[ScanScreen] No user, skipping auto-print (EMS mode)');
+          return;
+        }
+
+        console.log('[ScanScreen] Sending to EMS Print Queue:', registration.id);
+        const queueJob = await addToPrintQueue(
+          registration.id,
+          registration.event_id || eventId,
+          user.id,
+          badgeUrl,
+        );
+        console.log('[ScanScreen] Auto-print queued successfully:', queueJob.id);
+      } else {
+        // === MODE PRINTNODE ===
+        if (!selectedPrinter) {
+          console.log('[ScanScreen] No printer selected, skipping auto-print (PrintNode mode)');
+          return;
+        }
+
+        console.log('[ScanScreen] Starting PrintNode auto-print for registration:', registration.id);
+
+        const badgeIdMatch = badgeUrl.match(/\/badges\/([a-f0-9-]+)\//i);
+        if (!badgeIdMatch) {
+          console.error('[ScanScreen] Cannot extract badge ID from URL:', badgeUrl);
+          return;
+        }
+        
+        const badgeId = badgeIdMatch[1];
+        console.log('[ScanScreen] ⚡ Fetching badge HTML (FAST MODE) for:', badgeId);
+        
+        const startTime = Date.now();
+        const badgeHtml = await getBadgeHtml(badgeId);
+        const fetchTime = Date.now() - startTime;
+        console.log(`[ScanScreen] ⚡ Badge HTML fetched in ${fetchTime}ms, length:`, badgeHtml.length);
+
+        const printJob: PrintJob = {
+          printerId: selectedPrinter.id,
+          title: `Badge - ${registration.attendee.first_name} ${registration.attendee.last_name}`,
+          contentType: 'raw_html',
+          content: badgeHtml,
+          source: 'EMS Mobile App - Auto Print (HTML)',
+          options: {
+            copies: 1,
+          },
+        };
+
+        const printResult = await sendPrintJob(printJob);
+        console.log('[ScanScreen] Auto-print successful:', printResult.id);
       }
-      
-      const badgeId = badgeIdMatch[1];
-      console.log('[ScanScreen] ⚡ Fetching badge HTML (FAST MODE) for:', badgeId);
-      
-      const startTime = Date.now();
-      const badgeHtml = await getBadgeHtml(badgeId);
-      const fetchTime = Date.now() - startTime;
-      console.log(`[ScanScreen] ⚡ Badge HTML fetched in ${fetchTime}ms, length:`, badgeHtml.length);
-
-      const printJob: PrintJob = {
-        printerId: selectedPrinter.id,
-        title: `Badge - ${registration.attendee.first_name} ${registration.attendee.last_name}`,
-        contentType: 'raw_html',
-        content: badgeHtml,
-        source: 'EMS Mobile App - Auto Print (HTML)',
-        options: {
-          copies: 1,
-        },
-      };
-
-      const printResult = await sendPrintJob(printJob);
-      console.log('[ScanScreen] Auto-print successful:', printResult.id);
       
     } catch (error) {
       console.error('[ScanScreen] Auto-print failed:', error);

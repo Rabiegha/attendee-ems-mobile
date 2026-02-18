@@ -12,6 +12,7 @@ import { Header } from '../../components/ui/Header';
 import { ProfileButton } from '../../components/ui/ProfileButton';
 import Icons from '../../assets/icons';
 import { Ionicons } from '@expo/vector-icons';
+import { getPrintMode, setPrintMode, PrintMode } from '../../printing/preferences/printMode';
 
 const PRINT_ON_SCAN_KEY = '@print_settings:print_on_scan';
 
@@ -26,11 +27,33 @@ export const PrintSettingsScreen: React.FC<PrintSettingsScreenProps> = ({ naviga
   const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait');
   const [printOnScan, setPrintOnScan] = useState(false);
   const [printQuality, setPrintQuality] = useState(100);
+  const [currentPrintMode, setCurrentPrintMode] = useState<PrintMode>('ems-client');
 
   // Charger les préférences au montage
   useEffect(() => {
     loadPrintOnScanPreference();
+    loadPrintModePreference();
   }, []);
+
+  const loadPrintModePreference = async () => {
+    try {
+      const mode = await getPrintMode();
+      setCurrentPrintMode(mode);
+      console.log('[PrintSettings] Loaded print mode:', mode);
+    } catch (error) {
+      console.error('[PrintSettings] Error loading print mode:', error);
+    }
+  };
+
+  const handlePrintModeChange = async (mode: PrintMode) => {
+    try {
+      await setPrintMode(mode);
+      setCurrentPrintMode(mode);
+      console.log('[PrintSettings] Saved print mode:', mode);
+    } catch (error) {
+      console.error('[PrintSettings] Error saving print mode:', error);
+    }
+  };
 
   const loadPrintOnScanPreference = async () => {
     try {
@@ -79,7 +102,119 @@ export const PrintSettingsScreen: React.FC<PrintSettingsScreenProps> = ({ naviga
       />
 
       <View style={[styles.content, { paddingHorizontal: theme.spacing.lg }]}>
-        {/* Imprimantes - Navigation */}
+        {/* Mode d'impression - Toggle */}
+        <View
+          style={[
+            styles.section,
+            {
+              backgroundColor: theme.colors.card,
+              borderRadius: theme.radius.lg,
+              marginBottom: theme.spacing.md,
+              padding: theme.spacing.lg,
+            },
+          ]}
+        >
+          <Text
+            style={{
+              fontSize: theme.fontSize.base,
+              fontWeight: theme.fontWeight.medium,
+              color: theme.colors.text.primary,
+              marginBottom: 4,
+            }}
+          >
+            Mode d'impression
+          </Text>
+          <Text
+            style={{
+              fontSize: theme.fontSize.xs,
+              color: theme.colors.text.secondary,
+              marginBottom: theme.spacing.md,
+            }}
+          >
+            {currentPrintMode === 'ems-client'
+              ? 'Les badges sont envoyés au client Electron pour impression locale'
+              : 'Les badges sont envoyés directement via PrintNode (cloud)'}
+          </Text>
+          
+          <View style={styles.orientationContainer}>
+            <TouchableOpacity
+              style={[
+                styles.orientationButton,
+                {
+                  borderRadius: theme.radius.lg,
+                  backgroundColor: currentPrintMode === 'ems-client' 
+                    ? theme.colors.brand[50] 
+                    : theme.colors.neutral[200],
+                  borderWidth: 2,
+                  borderColor: currentPrintMode === 'ems-client' 
+                    ? theme.colors.brand[500] 
+                    : 'transparent',
+                  marginRight: 6,
+                },
+              ]}
+              onPress={() => handlePrintModeChange('ems-client')}
+              activeOpacity={0.7}
+            >
+              <Ionicons 
+                name="desktop-outline" 
+                size={32} 
+                color={currentPrintMode === 'ems-client' ? theme.colors.brand[600] : theme.colors.neutral[600]} 
+              />
+              <Text
+                style={{
+                  fontSize: theme.fontSize.sm,
+                  fontWeight: theme.fontWeight.medium,
+                  color: currentPrintMode === 'ems-client' 
+                    ? theme.colors.brand[600] 
+                    : theme.colors.neutral[600],
+                  marginTop: theme.spacing.xs,
+                }}
+              >
+                EMS Client
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.orientationButton,
+                {
+                  borderRadius: theme.radius.lg,
+                  backgroundColor: currentPrintMode === 'printnode' 
+                    ? theme.colors.brand[50] 
+                    : theme.colors.neutral[200],
+                  borderWidth: 2,
+                  borderColor: currentPrintMode === 'printnode' 
+                    ? theme.colors.brand[500] 
+                    : 'transparent',
+                  marginLeft: 6,
+                },
+              ]}
+              onPress={() => handlePrintModeChange('printnode')}
+              activeOpacity={0.7}
+            >
+              <Ionicons 
+                name="cloud-outline" 
+                size={32} 
+                color={currentPrintMode === 'printnode' ? theme.colors.brand[600] : theme.colors.neutral[600]} 
+              />
+              <Text
+                style={{
+                  fontSize: theme.fontSize.sm,
+                  fontWeight: theme.fontWeight.medium,
+                  color: currentPrintMode === 'printnode' 
+                    ? theme.colors.brand[600] 
+                    : theme.colors.neutral[600],
+                  marginTop: theme.spacing.xs,
+                }}
+              >
+                PrintNode
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Imprimantes - Navigation (only relevant in PrintNode mode) */}
+        {currentPrintMode === 'printnode' && (
         <TouchableOpacity
           style={[
             styles.menuItem,
@@ -105,6 +240,7 @@ export const PrintSettingsScreen: React.FC<PrintSettingsScreenProps> = ({ naviga
           </Text>
           <Ionicons name="chevron-forward" size={20} color={theme.colors.text.secondary} />
         </TouchableOpacity>
+        )}
 
         {/* Orientation - Toggle */}
         <View
