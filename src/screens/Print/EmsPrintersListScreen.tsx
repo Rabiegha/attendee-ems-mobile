@@ -60,9 +60,13 @@ export const EmsPrintersListScreen: React.FC<EmsPrintersListScreenProps> = ({ na
   }, [error]);
 
   const handlePrinterPress = (printer: EmsPrinter) => {
+    console.log('[EmsPrinterList] User pressed printer:', printer.name);
+    // Comparaison case sensitive et robuste
     if (selectedPrinter?.name === printer.name) {
+      console.log('[EmsPrinterList] Deselecting printer');
       dispatch(clearSelectedEmsPrinterThunk());
     } else {
+      console.log('[EmsPrinterList] Selecting NEW printer:', printer.name);
       dispatch(selectEmsPrinterThunk(printer));
     }
   };

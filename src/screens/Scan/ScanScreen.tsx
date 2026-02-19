@@ -179,6 +179,13 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation: navProp, rou
 
         const attendeeName = `${registration.attendee?.first_name || ''} ${registration.attendee?.last_name || ''}`.trim();
 
+        // LOGGING EXTENSIF POUR DEBUGGER LA SÉLECTION D'IMPRIMANTE EMS
+        console.log('[ScanScreen] ============= AUTO-PRINT DEBUG =============');
+        console.log('[ScanScreen] Registration ID:', registration.id);
+        console.log('[ScanScreen] Selected EMS Printer OBJECT:', JSON.stringify(selectedEmsPrinter)); 
+        console.log('[ScanScreen] Target printer name:', selectedEmsPrinter.name);
+        console.log('[ScanScreen] ==========================================');
+
         // Afficher le statut "Envoi..." via le PrintStatusBanner
         dispatch(setPrintStatus({
           status: 'SENDING',
