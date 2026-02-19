@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { socketService } from '../api/socket.service';
 import { selectIsAuthenticated } from '../store/auth.slice';
+import { setPrintersAndValidateSelection } from '../store/emsPrinters.slice';
 
 export const useSocketSync = () => {
   const dispatch = useDispatch();
@@ -77,6 +78,14 @@ export const useSocketSync = () => {
       dispatch({ type: 'sessions/deleted', payload: data });
     };
 
+    // Événements pour les imprimantes exposées
+    const handlePrintersUpdated = (data: any) => {
+      console.log('[Socket] Printers updated:', data?.length, 'printer(s)');
+      if (Array.isArray(data)) {
+        dispatch(setPrintersAndValidateSelection(data));
+      }
+    };
+
     // S'abonner aux événements
     socketService.on('registration:created', handleRegistrationCreated);
     socketService.on('registration:updated', handleRegistrationUpdated);
@@ -90,6 +99,8 @@ export const useSocketSync = () => {
     socketService.on('session:created', handleSessionCreated);
     socketService.on('session:updated', handleSessionUpdated);
     socketService.on('session:deleted', handleSessionDeleted);
+    
+    socketService.on('printers:updated', handlePrintersUpdated);
 
     // Cleanup
     return () => {
@@ -105,6 +116,8 @@ export const useSocketSync = () => {
       socketService.off('session:created', handleSessionCreated);
       socketService.off('session:updated', handleSessionUpdated);
       socketService.off('session:deleted', handleSessionDeleted);
+      
+      socketService.off('printers:updated', handlePrintersUpdated);
     };
   }, [isAuthenticated, dispatch]);
 };

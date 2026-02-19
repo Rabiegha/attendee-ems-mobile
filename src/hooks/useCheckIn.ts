@@ -10,7 +10,7 @@ import { sendPrintJob, PrintJob } from '../api/printNode/printers.service';
 import { getBadgeHtml } from '../api/backend/badges.service';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import { loadSelectedPrinterThunk } from '../store/printers.slice';
-import { loadSelectedEmsPrinterThunk } from '../store/emsPrinters.slice';
+import { loadSelectedEmsPrinterThunk, fetchEmsPrintersThunk, clearSelectedEmsPrinterThunk } from '../store/emsPrinters.slice';
 import { updateRegistration } from '../store/registrations.slice';
 import { setPrintStatus } from '../store/printStatus.slice';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -125,6 +125,25 @@ export const useCheckIn = (): UseCheckInResult => {
       return null;
     }
   }, [selectedEmsPrinter, dispatch]);
+
+  // Valider que l'imprimante EMS sélectionnée est toujours exposée par le client
+  const validateEmsPrinter = useCallback(async (printer: { name: string }) => {
+    console.log('[useCheckIn] 🔍 Validating EMS printer is still exposed:', printer.name);
+    try {
+      const printers = await dispatch(fetchEmsPrintersThunk()).unwrap();
+      const stillExists = printers.some((p: { name: string }) => p.name === printer.name);
+      if (!stillExists) {
+        console.log('[useCheckIn] ❌ Printer no longer exposed:', printer.name);
+        await dispatch(clearSelectedEmsPrinterThunk()).unwrap();
+        return false;
+      }
+      console.log('[useCheckIn] ✅ Printer still exposed:', printer.name);
+      return true;
+    } catch (error) {
+      console.warn('[useCheckIn] ⚠️ Could not validate printer, proceeding anyway:', error);
+      return true; // En cas d'erreur réseau, on laisse passer
+    }
+  }, [dispatch]);
 
   // Fonction pour vérifier l'état de l'imprimante
   const checkPrinterStatus = useCallback(async () => {
@@ -325,6 +344,12 @@ export const useCheckIn = (): UseCheckInResult => {
         // Bloquer si aucune imprimante n'est sélectionnée
         if (!emsPrinter) {
           throw new Error('Aucune imprimante sélectionnée. Allez dans Paramètres > Imprimantes pour en choisir une.');
+        }
+
+        // Vérifier que l'imprimante est toujours exposée par EMS Client
+        const isStillValid = await validateEmsPrinter(emsPrinter);
+        if (!isStillValid) {
+          throw new Error(`L'imprimante "${emsPrinter.displayName || emsPrinter.name}" n'est plus disponible. Veuillez en sélectionner une autre dans Paramètres > Imprimantes.`);
         }
 
         const attendeeName = `${registration.attendee.first_name} ${registration.attendee.last_name}`;
@@ -702,6 +727,12 @@ export const useCheckIn = (): UseCheckInResult => {
         // Bloquer si aucune imprimante n'est sélectionnée
         if (!emsPrinter) {
           throw new Error('Aucune imprimante sélectionnée. Allez dans Paramètres > Imprimantes pour en choisir une.');
+        }
+
+        // Vérifier que l'imprimante est toujours exposée par EMS Client
+        const isStillValid = await validateEmsPrinter(emsPrinter);
+        if (!isStillValid) {
+          throw new Error(`L'imprimante "${emsPrinter.displayName || emsPrinter.name}" n'est plus disponible. Veuillez en sélectionner une autre dans Paramètres > Imprimantes.`);
         }
 
         const attendeeName = `${registration.attendee.first_name} ${registration.attendee.last_name}`;

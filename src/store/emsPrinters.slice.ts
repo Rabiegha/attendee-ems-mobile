@@ -84,6 +84,22 @@ const emsPrintersSlice = createSlice({
     clearEmsError: (state) => {
       state.error = null;
     },
+    /**
+     * Met à jour la liste des imprimantes (via WebSocket) et invalide
+     * la sélection si l'imprimante choisie n'est plus dans la liste.
+     */
+    setPrintersAndValidateSelection: (state, action: PayloadAction<EmsPrinter[]>) => {
+      state.printers = action.payload;
+      if (state.selectedPrinter) {
+        const stillExists = action.payload.some(p => p.name === state.selectedPrinter!.name);
+        if (!stillExists) {
+          console.log(`[emsPrinters] Selected printer "${state.selectedPrinter.name}" no longer exposed — clearing selection`);
+          state.selectedPrinter = null;
+          // Also clear from AsyncStorage (fire-and-forget)
+          AsyncStorage.removeItem(SELECTED_EMS_PRINTER_KEY).catch(() => {});
+        }
+      }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -96,6 +112,15 @@ const emsPrintersSlice = createSlice({
         state.isLoading = false;
         state.printers = action.payload;
         state.error = null;
+        // Invalider la sélection si l'imprimante n'est plus exposée
+        if (state.selectedPrinter) {
+          const stillExists = action.payload.some(p => p.name === state.selectedPrinter!.name);
+          if (!stillExists) {
+            console.log(`[emsPrinters] Selected printer "${state.selectedPrinter.name}" no longer in list — clearing`);
+            state.selectedPrinter = null;
+            AsyncStorage.removeItem(SELECTED_EMS_PRINTER_KEY).catch(() => {});
+          }
+        }
       })
       .addCase(fetchEmsPrintersThunk.rejected, (state, action) => {
         state.isLoading = false;
@@ -122,5 +147,5 @@ const emsPrintersSlice = createSlice({
   },
 });
 
-export const { clearEmsError } = emsPrintersSlice.actions;
+export const { clearEmsError, setPrintersAndValidateSelection } = emsPrintersSlice.actions;
 export default emsPrintersSlice.reducer;

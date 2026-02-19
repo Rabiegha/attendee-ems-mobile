@@ -17,6 +17,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
@@ -25,7 +26,7 @@ import { selectPrintStatus, clearPrintStatus, PrintJobStatusType } from '../../s
 const AUTO_DISMISS_DELAY = 3000; // ms après COMPLETED
 
 interface StatusConfig {
-  icon: string;
+  iconName: keyof typeof Ionicons.glyphMap;
   label: string;
   showSpinner: boolean;
 }
@@ -35,31 +36,31 @@ const getStatusConfig = (status: PrintJobStatusType, attendeeName: string): Stat
     case 'SENDING':
     case 'PENDING':
       return {
-        icon: '📤',
+        iconName: 'send-outline',
         label: attendeeName ? `Envoi du badge de ${attendeeName}...` : 'Envoi...',
         showSpinner: true,
       };
     case 'PRINTING':
       return {
-        icon: '🖨️',
+        iconName: 'print-outline',
         label: attendeeName ? `Impression : ${attendeeName}` : 'Impression en cours...',
         showSpinner: true,
       };
     case 'COMPLETED':
       return {
-        icon: '✅',
+        iconName: 'checkmark-circle',
         label: attendeeName ? `Badge imprimé : ${attendeeName}` : 'Impression terminée',
         showSpinner: false,
       };
     case 'FAILED':
       return {
-        icon: '❌',
+        iconName: 'alert-circle',
         label: attendeeName ? `Échec : ${attendeeName}` : "Échec d'impression",
         showSpinner: false,
       };
     case 'CLIENT_OFFLINE':
       return {
-        icon: '⚠️',
+        iconName: 'cloud-offline-outline',
         label: attendeeName
           ? `EMS Client hors ligne — badge de ${attendeeName} en attente`
           : 'EMS Client hors ligne — impression en attente',
@@ -226,7 +227,7 @@ export const PrintStatusBanner: React.FC = () => {
           {config.showSpinner ? (
             <ActivityIndicator size="small" color={colors.spinner} />
           ) : (
-            <Text style={styles.icon}>{config.icon}</Text>
+            <Ionicons name={config.iconName} size={22} color={colors.text} />
           )}
         </View>
 
