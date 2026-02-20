@@ -12,6 +12,7 @@ export interface EmsPrinter {
   displayName: string;
   status: number; // 0=ready, 1=paused, 2=error
   isDefault: boolean;
+  deviceId?: string;
 }
 
 /**
