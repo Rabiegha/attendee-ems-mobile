@@ -359,10 +359,13 @@ export const useCheckIn = (): UseCheckInResult => {
         const isClientOnline = clientStatus.connected;
         
         // Afficher le statut approprié via le PrintStatusBanner
+        const compositeEmsPrinterName = emsPrinter.deviceId
+          ? `${emsPrinter.name}::${emsPrinter.deviceId}`
+          : emsPrinter.name;
         dispatch(setPrintStatus({
           status: isClientOnline ? 'SENDING' : 'CLIENT_OFFLINE',
           attendeeName,
-          printerName: emsPrinter.name,
+          printerName: emsPrinter.displayName || emsPrinter.name,
         }));
 
         const queueJob = await addToPrintQueue(
@@ -370,10 +373,10 @@ export const useCheckIn = (): UseCheckInResult => {
           registration.event_id,
           user.id,
           badgeUrl,
-          emsPrinter.name,
+          compositeEmsPrinterName,
           isClientOnline ? undefined : 'OFFLINE',
         );
-        console.log('[useCheckIn] ✅ Job added to EMS print queue:', queueJob.id, 'printer:', emsPrinter.name, isClientOnline ? '(client online)' : '(client OFFLINE - will retry on reconnect)');
+        console.log('[useCheckIn] ✅ Job added to EMS print queue:', queueJob.id, 'printer:', compositeEmsPrinterName, isClientOnline ? '(client online)' : '(client OFFLINE - will retry on reconnect)');
         setProgress(80);
 
         // Marquer comme imprimé dans le backend
@@ -742,10 +745,13 @@ export const useCheckIn = (): UseCheckInResult => {
         const isClientOnline = clientStatus.connected;
         
         // Afficher le statut approprié via le PrintStatusBanner
+        const compositeEmsPrinterName2 = emsPrinter.deviceId
+          ? `${emsPrinter.name}::${emsPrinter.deviceId}`
+          : emsPrinter.name;
         dispatch(setPrintStatus({
           status: isClientOnline ? 'SENDING' : 'CLIENT_OFFLINE',
           attendeeName,
-          printerName: emsPrinter.name,
+          printerName: emsPrinter.displayName || emsPrinter.name,
         }));
 
         const queueJob = await addToPrintQueue(
@@ -753,10 +759,10 @@ export const useCheckIn = (): UseCheckInResult => {
           registration.event_id,
           user.id,
           badgeUrl,
-          emsPrinter.name,
+          compositeEmsPrinterName2,
           isClientOnline ? undefined : 'OFFLINE',
         );
-        console.log('[useCheckIn] ✅ Job added to EMS print queue:', queueJob.id, 'printer:', emsPrinter.name, isClientOnline ? '(client online)' : '(client OFFLINE - will retry on reconnect)');
+        console.log('[useCheckIn] ✅ Job added to EMS print queue:', queueJob.id, 'printer:', compositeEmsPrinterName2, isClientOnline ? '(client online)' : '(client OFFLINE - will retry on reconnect)');
         setProgress(50);
 
         console.log('[useCheckIn] 📝 Marking badge as printed in backend...');

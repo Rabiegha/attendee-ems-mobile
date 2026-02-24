@@ -16,6 +16,14 @@ export interface EmsPrinter {
 }
 
 /**
+ * Clé unique d'une imprimante : "printerName::deviceId" ou "printerName" si pas de deviceId.
+ * Utilisé pour la sélection, la comparaison, et l'envoi au backend.
+ */
+export function getEmsPrinterUniqueKey(printer: EmsPrinter): string {
+  return printer.deviceId ? `${printer.name}::${printer.deviceId}` : printer.name;
+}
+
+/**
  * Récupérer les imprimantes exposées par le(s) EMS Print Client(s)
  */
 export const getEmsPrinters = async (): Promise<EmsPrinter[]> => {

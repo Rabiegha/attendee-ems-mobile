@@ -182,15 +182,18 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation: navProp, rou
         // LOGGING EXTENSIF POUR DEBUGGER LA SÉLECTION D'IMPRIMANTE EMS
         console.log('[ScanScreen] ============= AUTO-PRINT DEBUG =============');
         console.log('[ScanScreen] Registration ID:', registration.id);
+        const compositeEmsPrinterName = selectedEmsPrinter.deviceId
+          ? `${selectedEmsPrinter.name}::${selectedEmsPrinter.deviceId}`
+          : selectedEmsPrinter.name;
         console.log('[ScanScreen] Selected EMS Printer OBJECT:', JSON.stringify(selectedEmsPrinter)); 
-        console.log('[ScanScreen] Target printer name:', selectedEmsPrinter.name);
+        console.log('[ScanScreen] Target printer composite key:', compositeEmsPrinterName);
         console.log('[ScanScreen] ==========================================');
 
         // Afficher le statut "Envoi..." via le PrintStatusBanner
         dispatch(setPrintStatus({
           status: 'SENDING',
           attendeeName,
-          printerName: selectedEmsPrinter.name,
+          printerName: selectedEmsPrinter.displayName || selectedEmsPrinter.name,
         }));
 
         console.log('[ScanScreen] Sending to EMS Print Queue:', registration.id);
@@ -199,9 +202,9 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation: navProp, rou
           registration.event_id || eventId,
           user.id,
           badgeUrl,
-          selectedEmsPrinter.name,
+          compositeEmsPrinterName,
         );
-        console.log('[ScanScreen] Auto-print queued successfully:', queueJob.id, 'printer:', selectedEmsPrinter.name);
+        console.log('[ScanScreen] Auto-print queued successfully:', queueJob.id, 'printer:', compositeEmsPrinterName);
       } else {
         // === MODE PRINTNODE ===
         if (!selectedPrinter) {

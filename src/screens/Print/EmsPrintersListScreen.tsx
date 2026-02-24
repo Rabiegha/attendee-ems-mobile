@@ -26,7 +26,7 @@ import {
   clearSelectedEmsPrinterThunk,
   clearEmsError,
 } from '../../store/emsPrinters.slice';
-import { EmsPrinter } from '../../api/backend/emsPrinters.service';
+import { EmsPrinter, getEmsPrinterUniqueKey } from '../../api/backend/emsPrinters.service';
 import { Header } from '../../components/ui/Header';
 import { ProfileButton } from '../../components/ui/ProfileButton';
 import { Ionicons } from '@expo/vector-icons';
@@ -60,13 +60,14 @@ export const EmsPrintersListScreen: React.FC<EmsPrintersListScreenProps> = ({ na
   }, [error]);
 
   const handlePrinterPress = (printer: EmsPrinter) => {
-    console.log('[EmsPrinterList] User pressed printer:', printer.name);
-    // Comparaison case sensitive et robuste
-    if (selectedPrinter?.name === printer.name) {
+    const key = getEmsPrinterUniqueKey(printer);
+    const selectedKey = selectedPrinter ? getEmsPrinterUniqueKey(selectedPrinter) : null;
+    console.log('[EmsPrinterList] User pressed printer:', key);
+    if (selectedKey === key) {
       console.log('[EmsPrinterList] Deselecting printer');
       dispatch(clearSelectedEmsPrinterThunk());
     } else {
-      console.log('[EmsPrinterList] Selecting NEW printer:', printer.name);
+      console.log('[EmsPrinterList] Selecting NEW printer:', key);
       dispatch(selectEmsPrinterThunk(printer));
     }
   };
@@ -89,7 +90,9 @@ export const EmsPrintersListScreen: React.FC<EmsPrintersListScreenProps> = ({ na
   };
 
   const renderPrinterItem = ({ item }: { item: EmsPrinter }) => {
-    const isSelected = selectedPrinter?.name === item.name;
+    const isSelected = selectedPrinter
+      ? getEmsPrinterUniqueKey(selectedPrinter) === getEmsPrinterUniqueKey(item)
+      : false;
     const status = getPrinterStatusInfo(item);
 
     return (
@@ -133,6 +136,17 @@ export const EmsPrintersListScreen: React.FC<EmsPrintersListScreenProps> = ({ na
               >
                 {item.displayName || item.name}
               </Text>
+              {item.deviceId && (
+                <Text
+                  style={{
+                    fontSize: theme.fontSize.xs,
+                    color: theme.colors.text.secondary,
+                    marginTop: 2,
+                  }}
+                >
+                  {item.deviceId}
+                </Text>
+              )}
             </View>
 
             {isSelected && (
@@ -262,7 +276,7 @@ export const EmsPrintersListScreen: React.FC<EmsPrintersListScreenProps> = ({ na
         <FlatList
           data={printers}
           renderItem={renderPrinterItem}
-          keyExtractor={(item) => item.name}
+          keyExtractor={(item) => getEmsPrinterUniqueKey(item)}
           contentContainerStyle={{
             padding: theme.spacing.lg,
             paddingBottom: 100,
