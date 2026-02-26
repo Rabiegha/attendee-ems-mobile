@@ -21,6 +21,7 @@ import { Card } from '../../components/ui/Card';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { EventCardSkeleton, SkeletonList } from '../../components/ui/Skeleton';
 import { useEventSearch } from '../../contexts/EventSearchContext';
+import { getRouteForRole } from '../../navigation/roleRouteMap';
 
 interface PastEventsScreenProps {
   navigation?: any;
@@ -40,6 +41,9 @@ export const PastEventsScreen: React.FC<PastEventsScreenProps> = ({
   const dispatch = useAppDispatch();
   const { searchQuery } = useEventSearch();
   
+  // Déterminer le rôle de l'utilisateur pour la navigation conditionnelle
+  const userRole = useAppSelector((state) => state.auth.user?.role);
+
   // Utiliser le state past
   const { events, isLoading, isLoadingMore, hasMore } = useAppSelector((state) => state.events.past);
 
@@ -59,8 +63,9 @@ export const PastEventsScreen: React.FC<PastEventsScreenProps> = ({
 
   // Mémoriser les callbacks pour éviter les re-rendus
   const handleEventPress = useCallback((event: Event) => {
-    nav?.navigate('EventInner', { eventId: event.id, eventName: event.name });
-  }, [nav]);
+    const target = getRouteForRole(userRole);
+    nav?.navigate(target, { eventId: event.id, eventName: event.name });
+  }, [nav, userRole]);
 
   const handleLoadMore = useCallback(() => {
     if (!isLoadingMore && hasMore && events.length > 0) {

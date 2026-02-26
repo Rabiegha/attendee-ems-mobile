@@ -11,6 +11,7 @@ import { checkAuthThunk } from '../store/auth.slice';
 import { AuthNavigator } from './AuthNavigator';
 import { EventsNavigator } from './EventsNavigator';
 import { EventInnerTabs } from './EventInnerTabs';
+import { PartnerInnerTabs } from './PartnerInnerTabs';
 import { AttendeeDetailsScreen } from '../screens/EventDashboard/AttendeeDetailsScreen';
 import { ProfileScreen } from '../screens/Profile/ProfileScreen';
 import { View, ActivityIndicator, Text } from 'react-native';
@@ -20,6 +21,7 @@ export type RootStackParamList = {
   Auth: undefined;
   Events: undefined;
   EventInner: { eventId: string; eventName: string };
+  PartnerInner: { eventId: string; eventName: string };
   AttendeeDetails: { registrationId: string; eventId: string };
   Profile: undefined;
 };
@@ -118,6 +120,15 @@ export const AppNavigator: React.FC = () => {
             <Stack.Screen
               name="EventInner"
               component={EventInnerTabs}
+              options={{
+                headerShown: false,
+                animation: 'none',
+                presentation: 'card',
+              }}
+            />
+            <Stack.Screen
+              name="PartnerInner"
+              component={PartnerInnerTabs}
               options={{
                 headerShown: false,
                 animation: 'none',

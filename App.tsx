@@ -2,13 +2,14 @@
  * Point d'entrée de l'application Attendee EMS Mobile
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, ActivityIndicator } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Provider } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
 import { store, persistor } from './src/store';
+import { useAppSelector } from './src/store/hooks';
 import { ThemeProvider } from './src/theme/ThemeProvider';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { buildAbilityFor, defaultAbility } from './src/permissions/ability';
@@ -26,6 +27,20 @@ const LoadingView = () => (
   </View>
 );
 
+/**
+ * Wrapper qui construit l'ability CASL à partir des permissions Redux
+ * Se met à jour automatiquement quand le user change (login/logout)
+ */
+const AbilityGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const permissions = useAppSelector((state) => state.auth.user?.permissions);
+  const ability = useMemo(
+    () => (permissions?.length ? buildAbilityFor(permissions) : defaultAbility),
+    [permissions],
+  );
+
+  return <AbilityProvider ability={ability}>{children}</AbilityProvider>;
+};
+
 export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -34,9 +49,9 @@ export default function App() {
           <PersistGate loading={<LoadingView />} persistor={persistor}>
             <ThemeProvider>
               <ToastProvider>
-                <AbilityProvider ability={defaultAbility}>
+                <AbilityGate>
                   <AppContent />
-                </AbilityProvider>
+                </AbilityGate>
               </ToastProvider>
             </ThemeProvider>
           </PersistGate>

@@ -14,6 +14,33 @@ export interface User {
   updatedAt: string;
 }
 
+/**
+ * Shape brute retournée par le backend (snake_case)
+ */
+export interface BackendUser {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  roles: string[];
+  org_id: string | null;
+  isPlatform: boolean;
+  isRoot: boolean;
+}
+
+/**
+ * Shape brute de la réponse login backend
+ */
+export interface BackendLoginResponse {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+  user: BackendUser;
+  organization: Organization | null;
+  mode: 'tenant' | 'platform';
+  requiresOrgSelection: boolean;
+}
+
 export interface Organization {
   id: string;
   name: string;

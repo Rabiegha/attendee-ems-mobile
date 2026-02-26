@@ -12,6 +12,7 @@ import registrationsReducer from './registrations.slice';
 import printersReducer from './printers.slice';
 import emsPrintersReducer from './emsPrinters.slice';
 import printStatusReducer from './printStatus.slice';
+import partnerScansReducer from './partnerScans.slice';
 
 // Configuration de la persistence pour le slice auth
 const authPersistConfig = {
@@ -32,6 +33,7 @@ export const store = configureStore({
     printers: printersReducer,
     emsPrinters: emsPrintersReducer,
     printStatus: printStatusReducer,
+    partnerScans: partnerScansReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

@@ -7,7 +7,8 @@ import { authService } from '../api/backend/auth.service';
 import { setAuthTokens, clearAuthTokens } from '../api/backend/axiosClient';
 import { LoginCredentials, User, Organization } from '../types/auth';
 import { secureStorage, STORAGE_KEYS } from '../utils/storage';
-import axiosClient from '../api/backend/axiosClient';
+import axiosClient, { getAccessToken } from '../api/backend/axiosClient';
+import { decodeJwtPayload } from '../api/backend/auth.service';
 
 interface AuthState {
   user: User | null;
@@ -85,8 +86,44 @@ export const fetchUserProfileThunk = createAsyncThunk(
     try {
       console.log('[AuthSlice] fetchUserProfileThunk - Fetching user profile...');
       const response = await axiosClient.get('/users/me');
-      console.log('[AuthSlice] fetchUserProfileThunk - Profile fetched:', response.data.email);
-      return response.data;
+      const raw = response.data;
+      console.log('[AuthSlice] fetchUserProfileThunk - Profile fetched:', raw.email);
+
+      // Mapper la réponse backend (snake_case + role objet) en User (camelCase + role string)
+      const roleCode: string =
+        typeof raw.role === 'string'
+          ? raw.role
+          : raw.role?.code || raw.roles?.[0] || 'VIEWER';
+
+      // Extraire les permissions depuis le JWT (elles ne sont PAS dans /users/me)
+      const currentToken = getAccessToken();
+      const jwtPayload = currentToken ? decodeJwtPayload(currentToken) : {};
+      const permissions: string[] = jwtPayload.permissions || raw.permissions || [];
+
+      const mappedUser = {
+        id: raw.id,
+        email: raw.email,
+        firstName: raw.first_name || raw.firstName || '',
+        lastName: raw.last_name || raw.lastName || '',
+        role: roleCode,
+        organizationId: raw.org_id || raw.organizationId || '',
+        permissions,
+        createdAt: raw.created_at || raw.createdAt || '',
+        updatedAt: raw.updated_at || raw.updatedAt || '',
+      };
+
+      const mappedOrganization = raw.organization
+        ? {
+            id: raw.organization.id,
+            name: raw.organization.name,
+            slug: raw.organization.slug,
+            createdAt: raw.organization.created_at || '',
+            updatedAt: raw.organization.updated_at || '',
+          }
+        : null;
+
+      console.log('[AuthSlice] fetchUserProfileThunk - Mapped role:', mappedUser.role);
+      return { user: mappedUser, organization: mappedOrganization };
     } catch (error: any) {
       console.error('[AuthSlice] fetchUserProfileThunk - Error:', {
         message: error.message,
@@ -183,9 +220,9 @@ const authSlice = createSlice({
         state.isLoading = true;
       })
       .addCase(fetchUserProfileThunk.fulfilled, (state, action) => {
-        console.log('[AuthSlice] fetchUserProfileThunk.fulfilled - User:', action.payload.email);
+        console.log('[AuthSlice] fetchUserProfileThunk.fulfilled - User:', action.payload.user.email, 'Role:', action.payload.user.role);
         state.isLoading = false;
-        state.user = action.payload;
+        state.user = action.payload.user;
         state.organization = action.payload.organization;
         state.isAuthenticated = true;
         state.error = null;

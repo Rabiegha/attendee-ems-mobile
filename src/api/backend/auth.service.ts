@@ -4,7 +4,65 @@
 
 import axiosClient, { setAuthTokens, clearAuthTokens } from './axiosClient';
 import { secureStorage, STORAGE_KEYS } from '../../utils/storage';
-import { LoginCredentials, LoginResponse, RefreshTokenResponse } from '../../types/auth';
+import { LoginCredentials, LoginResponse, RefreshTokenResponse, BackendLoginResponse } from '../../types/auth';
+
+/**
+ * Décode un JWT pour en extraire le payload (sans vérification de signature)
+ */
+export function decodeJwtPayload(token: string): Record<string, any> {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Mappe la réponse backend (snake_case) en LoginResponse (camelCase)
+ */
+function mapLoginResponse(raw: BackendLoginResponse): LoginResponse {
+  // Extraire les permissions depuis le JWT
+  const jwtPayload = decodeJwtPayload(raw.access_token);
+  const permissions: string[] = jwtPayload.permissions || [];
+
+  return {
+    access_token: raw.access_token,
+    refresh_token: raw.refresh_token,
+    expires_in: raw.expires_in,
+    user: {
+      id: raw.user.id,
+      email: raw.user.email,
+      firstName: raw.user.first_name || '',
+      lastName: raw.user.last_name || '',
+      role: raw.user.roles?.[0] || 'VIEWER',
+      organizationId: raw.user.org_id || '',
+      permissions,
+      createdAt: '',
+      updatedAt: '',
+    },
+    organization: raw.organization ? {
+      id: raw.organization.id,
+      name: raw.organization.name,
+      slug: raw.organization.slug,
+      createdAt: '',
+      updatedAt: '',
+    } : {
+      id: '',
+      name: '',
+      slug: '',
+      createdAt: '',
+      updatedAt: '',
+    },
+  };
+}
 
 export const authService = {
   /**
@@ -14,7 +72,7 @@ export const authService = {
     try {
       console.log('[AuthService] Login attempt for:', credentials.email);
       
-      const response = await axiosClient.post<LoginResponse>('/auth/login', credentials);
+      const response = await axiosClient.post<BackendLoginResponse>('/auth/login', credentials);
       const { access_token, refresh_token, expires_in } = response.data;
 
       console.log('[AuthService] Login successful:', {
@@ -45,7 +103,9 @@ export const authService = {
         throw storageError;
       }
 
-      return response.data;
+      const mapped = mapLoginResponse(response.data);
+      console.log('[AuthService] Mapped user:', { role: mapped.user.role, permCount: mapped.user.permissions.length });
+      return mapped;
     } catch (error: any) {
       console.error('[AuthService] Login failed:', {
         email: credentials.email,
