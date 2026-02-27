@@ -3,7 +3,7 @@
  * Scanne le badge d'un participant → crée un PartnerScan via l'API
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -18,12 +18,14 @@ import {
 } from 'react-native';
 import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { createPartnerScanThunk, updatePartnerScanCommentThunk, clearPartnerScansError } from '../../store/partnerScans.slice';
+import { createPartnerScanThunk, updatePartnerScanCommentThunk, deletePartnerScanThunk, clearPartnerScansError } from '../../store/partnerScans.slice';
 import { useTheme } from '../../theme/ThemeProvider';
+import type { Theme } from '../../theme';
 import { useTranslation } from 'react-i18next';
+import { ConfirmModal } from '../../components/modals/ConfirmModal';
 
 type PartnerInnerTabsParamList = {
   PartnerScan: { eventId: string };
@@ -37,6 +39,7 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
   const dispatch = useAppDispatch();
   const { theme } = useTheme();
   const { t } = useTranslation();
+  const styles = useMemo(() => createStyles(theme), [theme]);
 
   const eventId = route.params?.eventId || routeProp?.params?.eventId;
   const { isCreating, currentScan } = useAppSelector((state) => state.partnerScans);
@@ -58,6 +61,25 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
   } | null>(null);
   const [comment, setComment] = useState('');
   const [showCommentInput, setShowCommentInput] = useState(false);
+  const [isFocused, setIsFocused] = useState(true);
+
+  // État pour le modal "déjà scanné"
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [duplicateScanId, setDuplicateScanId] = useState<string | null>(null);
+
+  // Réinitialiser l'état et la caméra quand l'écran reçoit/perd le focus (tabs)
+  useFocusEffect(
+    useCallback(() => {
+      // Screen focused : activer la caméra
+      setIsFocused(true);
+      resetScan();
+
+      return () => {
+        // Screen blurred : désactiver la caméra pour libérer les ressources
+        setIsFocused(false);
+      };
+    }, [])
+  );
 
   // Refs pour cleanup des timeouts au démontage
   const feedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -195,10 +217,26 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
 
       // Le message est déjà traduit en français par le thunk
       let errorMessage = 'Erreur lors du scan';
-      if (typeof error === 'string') {
+      let isDuplicate = false;
+      let existingScanId: string | null = null;
+
+      if (typeof error === 'object' && error !== null && error.isDuplicate) {
+        errorMessage = error.message || 'Contact déjà scanné';
+        isDuplicate = true;
+        existingScanId = error.existingScanId || null;
+      } else if (typeof error === 'string') {
         errorMessage = error;
       } else if (error?.message) {
         errorMessage = error.message;
+      }
+
+      // Si doublon : afficher le modal avec option "Voir le contact"
+      if (isDuplicate && existingScanId) {
+        setDuplicateScanId(existingScanId);
+        setShowDuplicateModal(true);
+        setIsProcessing(false);
+        dispatch(clearPartnerScansError());
+        return;
       }
 
       // Déterminer le type de feedback (warning vs error)
@@ -230,6 +268,32 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
     setScanResult(null);
     setComment('');
     setShowCommentInput(false);
+    setShowDuplicateModal(false);
+    setDuplicateScanId(null);
+  };
+
+  // Handler : fermer le modal "déjà scanné" et scanner à nouveau
+  const handleDuplicateCancel = () => {
+    setShowDuplicateModal(false);
+    setDuplicateScanId(null);
+    resetScan();
+  };
+
+  // Handler : naviguer vers le détail du contact déjà scanné
+  const handleDuplicateViewContact = () => {
+    const scanId = duplicateScanId;
+    setShowDuplicateModal(false);
+    setDuplicateScanId(null);
+    resetScan();
+
+    if (scanId && eventId) {
+      // Naviguer vers l'onglet "Mes Contacts", puis pousser le détail
+      const nav = navigation as any;
+      nav.navigate('PartnerList', {
+        screen: 'PartnerScanDetail',
+        params: { scanId, eventId },
+      });
+    }
   };
 
   // Gestion des permissions
@@ -286,7 +350,7 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
         >
           {/* Header success */}
           <View style={[styles.successBanner, { backgroundColor: theme.colors.success[500] }]}>
-            <Ionicons name="checkmark-circle" size={40} color="#FFFFFF" />
+            <Ionicons name="checkmark-circle" size={40} color={theme.colors.text.inverse} />
             <Text style={styles.successTitle}>Contact enregistré !</Text>
           </View>
 
@@ -345,10 +409,30 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
 
           {/* Boutons d'action */}
           <View style={styles.actionButtons}>
+            {/* Enregistrer et voir la liste */}
             <TouchableOpacity
-              style={[styles.primaryButton, { backgroundColor: theme.colors.brand[600] }]}
+              style={[styles.primaryButton, { backgroundColor: theme.colors.success[500] }]}
               onPress={() => {
-                // Si commentaire rempli, update le scan
+                if (comment.trim() && currentScan) {
+                  dispatch(
+                    updatePartnerScanCommentThunk({
+                      id: currentScan.id,
+                      comment: comment.trim(),
+                    })
+                  );
+                }
+                resetScan();
+                navigation.goBack();
+              }}
+            >
+              <Ionicons name="list" size={20} color={theme.colors.text.inverse} style={{ marginRight: 8 }} />
+              <Text style={styles.primaryButtonText}>Enregistrer et voir mes contacts</Text>
+            </TouchableOpacity>
+
+            {/* Enregistrer et continuer de scanner */}
+            <TouchableOpacity
+              style={[styles.secondaryButton, { backgroundColor: theme.colors.brand[600] }]}
+              onPress={() => {
                 if (comment.trim() && currentScan) {
                   dispatch(
                     updatePartnerScanCommentThunk({
@@ -360,8 +444,23 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
                 resetScan();
               }}
             >
-              <Ionicons name="scan" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-              <Text style={styles.primaryButtonText}>Scanner un autre contact</Text>
+              <Ionicons name="scan" size={20} color={theme.colors.text.inverse} style={{ marginRight: 8 }} />
+              <Text style={styles.primaryButtonText}>Enregistrer et scanner un autre</Text>
+            </TouchableOpacity>
+
+            {/* Annuler le scan */}
+            <TouchableOpacity
+              style={[styles.cancelButton, { borderColor: theme.colors.error[400] }]}
+              onPress={() => {
+                // Supprimer le scan créé
+                if (currentScan) {
+                  dispatch(deletePartnerScanThunk(currentScan.id));
+                }
+                resetScan();
+              }}
+            >
+              <Ionicons name="trash-outline" size={20} color={theme.colors.error[500]} style={{ marginRight: 8 }} />
+              <Text style={[styles.cancelButtonText, { color: theme.colors.error[500] }]}>Annuler ce scan</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -371,8 +470,8 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
 
   // Interface de scan (caméra)
   return (
-    <View style={styles.container}>
-      {permission?.granted && (
+    <View style={styles.cameraContainer}>
+      {permission?.granted && isFocused && (
         <CameraView
           style={StyleSheet.absoluteFillObject}
           facing="back"
@@ -390,13 +489,13 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
           style={styles.closeButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="close" size={28} color="#FFFFFF" />
+          <Ionicons name="close" size={28} color={theme.colors.text.inverse} />
         </TouchableOpacity>
 
         {/* Header */}
         <View style={styles.header}>
           <View style={[styles.headerBadge, { backgroundColor: theme.colors.brand[600] }]}>
-            <Ionicons name="people" size={20} color="#FFFFFF" />
+            <Ionicons name="people" size={20} color={theme.colors.text.inverse} />
             <Text style={styles.headerBadgeText}>Mode Partenaire</Text>
           </View>
         </View>
@@ -417,7 +516,7 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
 
           {isProcessing && (
             <View style={styles.processingContainer}>
-              <ActivityIndicator size="large" color="#FFFFFF" />
+              <ActivityIndicator size="large" color={theme.colors.text.inverse} />
             </View>
           )}
 
@@ -452,259 +551,293 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Modal "Contact déjà scanné" */}
+      <ConfirmModal
+        visible={showDuplicateModal}
+        icon="people-outline"
+        title="Contact déjà scanné"
+        message="Ce participant a déjà été scanné et ajouté à votre liste de contacts."
+        confirmText="Voir le contact"
+        cancelText="Annuler"
+        confirmColor="primary"
+        onConfirm={handleDuplicateViewContact}
+        onCancel={handleDuplicateCancel}
+      />
     </View>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000000',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: 16,
-    marginTop: 16,
-  },
-  errorText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginTop: 16,
-    textAlign: 'center',
-  },
-  errorSubtext: {
-    fontSize: 14,
-    marginTop: 8,
-    textAlign: 'center',
-    paddingHorizontal: 32,
-  },
-  permButton: {
-    marginTop: 24,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  permButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  header: {
-    paddingTop: 60,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-  },
-  headerBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 8,
-  },
-  headerBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  scanAreaContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scanArea: {
-    width: 250,
-    height: 250,
-    position: 'relative',
-  },
-  corner: {
-    position: 'absolute',
-    width: 40,
-    height: 40,
-    borderColor: '#FFFFFF',
-  },
-  topLeft: {
-    top: 0,
-    left: 0,
-    borderTopWidth: 4,
-    borderLeftWidth: 4,
-  },
-  topRight: {
-    top: 0,
-    right: 0,
-    borderTopWidth: 4,
-    borderRightWidth: 4,
-  },
-  bottomLeft: {
-    bottom: 0,
-    left: 0,
-    borderBottomWidth: 4,
-    borderLeftWidth: 4,
-  },
-  bottomRight: {
-    bottom: 0,
-    right: 0,
-    borderBottomWidth: 4,
-    borderRightWidth: 4,
-  },
-  instructionText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '600',
-    marginTop: 40,
-    textAlign: 'center',
-  },
-  processingContainer: {
-    marginTop: 24,
-  },
-  feedbackContainer: {
-    position: 'absolute',
-    top: '50%',
-    left: '10%',
-    right: '10%',
-    paddingVertical: 20,
-    paddingHorizontal: 24,
-    borderRadius: 16,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  feedbackSuccess: {
-    backgroundColor: '#10B981',
-  },
-  feedbackError: {
-    backgroundColor: '#EF4444',
-  },
-  feedbackWarning: {
-    backgroundColor: '#F59E0B',
-  },
-  feedbackText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  footer: {
-    paddingBottom: 120,
-    paddingHorizontal: 20,
-  },
-  resetButton: {
-    backgroundColor: '#3B82F6',
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  resetButtonDisabled: {
-    backgroundColor: '#4B5563',
-  },
-  resetButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  // Post-scan styles
-  closeButton: {
-    position: 'absolute',
-    top: 50,
-    right: 20,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  postScanContainer: {
-    paddingBottom: 40,
-  },
-  successBanner: {
-    paddingVertical: 24,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    gap: 8,
-  },
-  successTitle: {
-    color: '#FFFFFF',
-    fontSize: 22,
-    fontWeight: '700',
-  },
-  contactCard: {
-    margin: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 20,
-  },
-  contactHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  contactAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  contactInitials: {
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  contactInfo: {
-    flex: 1,
-  },
-  contactName: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  contactEmail: {
-    fontSize: 14,
-    marginTop: 2,
-  },
-  contactDetail: {
-    fontSize: 13,
-    marginTop: 4,
-  },
-  commentSection: {
-    marginTop: 20,
-  },
-  commentLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  commentInput: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 14,
-    minHeight: 80,
-  },
-  actionButtons: {
-    paddingHorizontal: 16,
-    gap: 12,
-  },
-  primaryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 12,
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});
+const createStyles = (theme: Theme) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.neutral[950],
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    cameraContainer: {
+      flex: 1,
+      backgroundColor: theme.colors.neutral[950],
+    },
+    loadingText: {
+      fontSize: theme.fontSize.base,
+      marginTop: theme.spacing.lg,
+    },
+    errorText: {
+      fontSize: theme.fontSize.xl,
+      fontWeight: theme.fontWeight.bold,
+      marginTop: theme.spacing.lg,
+      textAlign: 'center',
+    },
+    errorSubtext: {
+      fontSize: theme.fontSize.sm,
+      marginTop: theme.spacing.sm,
+      textAlign: 'center',
+      paddingHorizontal: theme.spacing['3xl'],
+    },
+    permButton: {
+      marginTop: theme.spacing['2xl'],
+      paddingHorizontal: theme.spacing['2xl'],
+      paddingVertical: theme.spacing.md,
+      borderRadius: theme.radius.md,
+    },
+    permButtonText: {
+      color: theme.colors.text.inverse,
+      fontSize: theme.fontSize.base,
+      fontWeight: theme.fontWeight.semibold,
+    },
+    overlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    },
+    header: {
+      paddingTop: 60,
+      paddingHorizontal: theme.spacing.xl,
+      alignItems: 'center',
+    },
+    headerBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: theme.spacing.lg,
+      paddingVertical: theme.spacing.sm,
+      borderRadius: theme.radius['2xl'],
+      gap: theme.spacing.sm,
+    },
+    headerBadgeText: {
+      color: theme.colors.text.inverse,
+      fontSize: theme.fontSize.base,
+      fontWeight: theme.fontWeight.bold,
+    },
+    scanAreaContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    scanArea: {
+      width: 250,
+      height: 250,
+      position: 'relative',
+    },
+    corner: {
+      position: 'absolute',
+      width: 40,
+      height: 40,
+      borderColor: theme.colors.text.inverse,
+    },
+    topLeft: {
+      top: 0,
+      left: 0,
+      borderTopWidth: 4,
+      borderLeftWidth: 4,
+    },
+    topRight: {
+      top: 0,
+      right: 0,
+      borderTopWidth: 4,
+      borderRightWidth: 4,
+    },
+    bottomLeft: {
+      bottom: 0,
+      left: 0,
+      borderBottomWidth: 4,
+      borderLeftWidth: 4,
+    },
+    bottomRight: {
+      bottom: 0,
+      right: 0,
+      borderBottomWidth: 4,
+      borderRightWidth: 4,
+    },
+    instructionText: {
+      color: theme.colors.text.inverse,
+      fontSize: theme.fontSize.lg,
+      fontWeight: theme.fontWeight.semibold,
+      marginTop: theme.spacing['5xl'],
+      textAlign: 'center',
+    },
+    processingContainer: {
+      marginTop: theme.spacing['2xl'],
+    },
+    feedbackContainer: {
+      position: 'absolute',
+      top: '50%',
+      left: '10%',
+      right: '10%',
+      paddingVertical: theme.spacing.xl,
+      paddingHorizontal: theme.spacing['2xl'],
+      borderRadius: theme.radius.xl,
+      alignItems: 'center',
+      ...theme.shadows.lg,
+    },
+    feedbackSuccess: {
+      backgroundColor: theme.colors.success[500],
+    },
+    feedbackError: {
+      backgroundColor: theme.colors.error[500],
+    },
+    feedbackWarning: {
+      backgroundColor: theme.colors.warning[500],
+    },
+    feedbackText: {
+      color: theme.colors.text.inverse,
+      fontSize: theme.fontSize.lg,
+      fontWeight: theme.fontWeight.bold,
+      textAlign: 'center',
+    },
+    footer: {
+      paddingBottom: 120,
+      paddingHorizontal: theme.spacing.xl,
+    },
+    resetButton: {
+      backgroundColor: theme.colors.brand[500],
+      paddingVertical: theme.spacing.lg,
+      paddingHorizontal: theme.spacing['3xl'],
+      borderRadius: theme.radius.md,
+      alignItems: 'center',
+    },
+    resetButtonDisabled: {
+      backgroundColor: theme.colors.neutral[600],
+    },
+    resetButtonText: {
+      color: theme.colors.text.inverse,
+      fontSize: theme.fontSize.base,
+      fontWeight: theme.fontWeight.semibold,
+    },
+    // Post-scan styles
+    closeButton: {
+      position: 'absolute',
+      top: 50,
+      right: 20,
+      width: 40,
+      height: 40,
+      borderRadius: theme.radius['2xl'],
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 10,
+    },
+    postScanContainer: {
+      paddingBottom: theme.spacing['5xl'],
+    },
+    successBanner: {
+      paddingVertical: theme.spacing['2xl'],
+      paddingHorizontal: theme.spacing.xl,
+      alignItems: 'center',
+      gap: theme.spacing.sm,
+    },
+    successTitle: {
+      color: theme.colors.text.inverse,
+      fontSize: theme.fontSize['2xl'],
+      fontWeight: theme.fontWeight.bold,
+    },
+    contactCard: {
+      margin: theme.spacing.lg,
+      borderRadius: theme.radius.xl,
+      borderWidth: 1,
+      padding: theme.spacing.xl,
+    },
+    contactHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: theme.spacing.lg,
+    },
+    contactAvatar: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    contactInitials: {
+      fontSize: theme.fontSize.xl,
+      fontWeight: theme.fontWeight.bold,
+    },
+    contactInfo: {
+      flex: 1,
+    },
+    contactName: {
+      fontSize: theme.fontSize.lg,
+      fontWeight: theme.fontWeight.bold,
+    },
+    contactEmail: {
+      fontSize: theme.fontSize.sm,
+      marginTop: 2,
+    },
+    contactDetail: {
+      fontSize: 13,
+      marginTop: theme.spacing.xs,
+    },
+    commentSection: {
+      marginTop: theme.spacing.xl,
+    },
+    commentLabel: {
+      fontSize: theme.fontSize.sm,
+      fontWeight: theme.fontWeight.semibold,
+      marginBottom: theme.spacing.sm,
+    },
+    commentInput: {
+      borderWidth: 1,
+      borderRadius: theme.radius.lg,
+      padding: theme.spacing.md,
+      fontSize: theme.fontSize.sm,
+      minHeight: 80,
+    },
+    actionButtons: {
+      paddingHorizontal: theme.spacing.lg,
+      gap: theme.spacing.md,
+    },
+    primaryButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: theme.spacing.lg,
+      borderRadius: theme.radius.lg,
+    },
+    secondaryButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: theme.spacing.lg,
+      borderRadius: theme.radius.lg,
+    },
+    cancelButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: theme.spacing.lg,
+      borderRadius: theme.radius.lg,
+      borderWidth: 1.5,
+      backgroundColor: 'transparent',
+    },
+    cancelButtonText: {
+      fontSize: theme.fontSize.base,
+      fontWeight: theme.fontWeight.semibold,
+    },
+    primaryButtonText: {
+      color: theme.colors.text.inverse,
+      fontSize: theme.fontSize.base,
+      fontWeight: theme.fontWeight.semibold,
+    },
+  });
 

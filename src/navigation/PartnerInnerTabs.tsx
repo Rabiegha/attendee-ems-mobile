@@ -3,12 +3,13 @@
  * 3 onglets : Scan (central), Ma Liste, Profil
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet, Image } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeProvider';
+import type { Theme } from '../theme';
 import Icons from '../assets/icons';
 import { PartnerScanScreen } from '../screens/Partner/PartnerScanScreen';
 import { PartnerListScreen } from '../screens/Partner/PartnerListScreen';
@@ -18,7 +19,7 @@ import { ProfileScreen } from '../screens/Profile/ProfileScreen';
 // ── Stack pour l'onglet "Ma Liste" (liste → détail) ──
 
 export type PartnerListStackParamList = {
-  PartnerListMain: { eventId: string };
+  PartnerListMain: { eventId: string; eventName?: string };
   PartnerScanDetail: { scanId: string; eventId: string };
 };
 
@@ -27,6 +28,7 @@ const ListStack = createNativeStackNavigator<PartnerListStackParamList>();
 const PartnerListNavigator: React.FC<{ route: any }> = ({ route }) => {
   const { theme } = useTheme();
   const eventId = route.params?.eventId;
+  const eventName = route.params?.eventName;
 
   return (
     <ListStack.Navigator
@@ -39,7 +41,7 @@ const PartnerListNavigator: React.FC<{ route: any }> = ({ route }) => {
       <ListStack.Screen
         name="PartnerListMain"
         component={PartnerListScreen}
-        initialParams={{ eventId }}
+        initialParams={{ eventId, eventName }}
       />
       <ListStack.Screen
         name="PartnerScanDetail"
@@ -54,7 +56,7 @@ const PartnerListNavigator: React.FC<{ route: any }> = ({ route }) => {
 
 export type PartnerTabsParamList = {
   PartnerScan: { eventId: string };
-  PartnerList: { eventId: string };
+  PartnerList: { eventId: string; eventName?: string };
   PartnerProfile: undefined;
 };
 
@@ -66,8 +68,10 @@ interface PartnerInnerTabsProps {
 
 export const PartnerInnerTabs: React.FC<PartnerInnerTabsProps> = ({ route }) => {
   const { theme } = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
   const eventId = route.params?.eventId;
+  const eventName = route.params?.eventName;
 
   return (
     <Tab.Navigator
@@ -83,24 +87,20 @@ export const PartnerInnerTabs: React.FC<PartnerInnerTabsProps> = ({ route }) => 
           borderTopWidth: 0,
           paddingBottom: 10,
           paddingTop: 10,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.3,
-          shadowRadius: 8,
-          elevation: 8,
+          ...theme.shadows.lg,
         },
         tabBarActiveTintColor: theme.colors.brand[600],
         tabBarInactiveTintColor: theme.colors.tabBarText,
         tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '600',
+          fontSize: theme.fontSize.xs,
+          fontWeight: theme.fontWeight.semibold,
         },
       }}
     >
       <Tab.Screen
         name="PartnerList"
         component={PartnerListNavigator}
-        initialParams={{ eventId }}
+        initialParams={{ eventId, eventName }}
         options={{
           tabBarLabel: 'Mes Contacts',
           tabBarIcon: ({ color }) => (
@@ -124,7 +124,7 @@ export const PartnerInnerTabs: React.FC<PartnerInnerTabsProps> = ({ route }) => 
             <View style={[styles.scanButton, { backgroundColor: theme.colors.brand[600] }]}>
               <Image
                 source={Icons.Scan}
-                style={[styles.scanIcon, { tintColor: '#FFFFFF' }]}
+                style={[styles.scanIcon, { tintColor: theme.colors.text.inverse }]}
                 resizeMode="contain"
                 fadeDuration={0}
               />
@@ -152,27 +152,24 @@ export const PartnerInnerTabs: React.FC<PartnerInnerTabsProps> = ({ route }) => 
   );
 };
 
-const styles = StyleSheet.create({
-  tabIcon: {
-    width: 24,
-    height: 24,
-  },
-  scanButton: {
-    width: 90,
-    height: 60,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: -30,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  scanIcon: {
-    width: 35,
-    height: 35,
-  },
-});
+const createStyles = (theme: Theme) =>
+  StyleSheet.create({
+    tabIcon: {
+      width: 24,
+      height: 24,
+    },
+    scanButton: {
+      width: 90,
+      height: 60,
+      borderRadius: theme.radius['2xl'],
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginTop: -30,
+      ...theme.shadows.lg,
+    },
+    scanIcon: {
+      width: 35,
+      height: 35,
+    },
+  });
 

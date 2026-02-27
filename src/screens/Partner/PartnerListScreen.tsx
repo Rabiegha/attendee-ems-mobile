@@ -3,7 +3,7 @@
  * FlatList avec recherche, pull-to-refresh, navigation vers détail
  */
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchPartnerScansThunk, clearPartnerScans } from '../../store/partnerScans.slice';
 import { useTheme } from '../../theme/ThemeProvider';
+import type { Theme } from '../../theme';
 import { useTranslation } from 'react-i18next';
 import { PartnerScan } from '../../types/partnerScan';
 import { Header } from '../../components/ui/Header';
@@ -28,7 +29,7 @@ import { ProfileButton } from '../../components/ui/ProfileButton';
 import Icons from '../../assets/icons';
 
 type PartnerInnerTabsParamList = {
-  PartnerList: { eventId: string };
+  PartnerList: { eventId: string; eventName?: string };
   PartnerScanDetail: { scanId: string; eventId: string };
 };
 
@@ -40,15 +41,19 @@ export const PartnerListScreen: React.FC<{ route?: any }> = ({ route: routeProp 
   const dispatch = useAppDispatch();
   const { theme } = useTheme();
   const { t } = useTranslation();
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
 
   const eventId = route.params?.eventId || routeProp?.params?.eventId;
+  const eventName = route.params?.eventName || routeProp?.params?.eventName;
   const { scans, meta, isLoading, error } = useAppSelector((state) => state.partnerScans);
 
 
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastFetchRef = useRef<any>(null);
 
   // Composant séparateur stable (évite re-création à chaque render)
   const ItemSeparator = useCallback(() => <View style={{ height: 8 }} />, []);
@@ -71,7 +76,11 @@ export const PartnerListScreen: React.FC<{ route?: any }> = ({ route: routeProp 
 
   const loadScans = (page = 1, search?: string) => {
     if (!eventId) return;
-    dispatch(
+    // Annuler la requête précédente pour éviter les résultats obsolètes (race condition)
+    if (lastFetchRef.current) {
+      (lastFetchRef.current as any).abort();
+    }
+    lastFetchRef.current = dispatch(
       fetchPartnerScansThunk({
         event_id: eventId,
         page,
@@ -96,12 +105,14 @@ export const PartnerListScreen: React.FC<{ route?: any }> = ({ route: routeProp 
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
+    setIsSearching(true);
     // Debounce : annuler le timeout précédent et attendre 400ms
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
     searchTimeoutRef.current = setTimeout(() => {
       loadScans(1, query);
+      setIsSearching(false);
     }, 400);
   };
 
@@ -198,7 +209,7 @@ export const PartnerListScreen: React.FC<{ route?: any }> = ({ route: routeProp 
             onPress={() => loadScans()}
             style={[styles.retryButtonLarge, { backgroundColor: theme.colors.brand[600] }]}
           >
-            <Ionicons name="refresh" size={18} color="#fff" />
+            <Ionicons name="refresh" size={18} color={theme.colors.text.inverse} />
             <Text style={styles.retryTextLarge}>Réessayer</Text>
           </TouchableOpacity>
         </View>
@@ -236,7 +247,7 @@ export const PartnerListScreen: React.FC<{ route?: any }> = ({ route: routeProp 
     <View style={[styles.container, { backgroundColor: theme.colors.background, paddingTop: insets.top }]}>
       {/* Header partagé */}
       <Header
-        title="Mes Contacts"
+        title={eventName || 'Mes Contacts'}
         onBack={() => navigation.goBack()}
         rightComponent={<CountBadge />}
       />
@@ -294,8 +305,8 @@ export const PartnerListScreen: React.FC<{ route?: any }> = ({ route: routeProp 
         ItemSeparatorComponent={ItemSeparator}
       />
 
-      {/* Loading indicator */}
-      {isLoading && !refreshing && (
+      {/* Loading indicator (masqué pendant le debounce de recherche pour éviter le clignotement) */}
+      {isLoading && !refreshing && !isSearching && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="small" color={theme.colors.brand[600]} />
         </View>
@@ -304,7 +315,8 @@ export const PartnerListScreen: React.FC<{ route?: any }> = ({ route: routeProp 
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: Theme) =>
+  StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -435,23 +447,23 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   retryText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
+    color: theme.colors.text.inverse,
+    fontSize: theme.fontSize.xs,
+    fontWeight: theme.fontWeight.semibold,
   },
   retryButtonLarge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
-    gap: 8,
-    marginTop: 8,
+    paddingHorizontal: theme.spacing.xl,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.radius.lg,
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.sm,
   },
   retryTextLarge: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '600',
+    color: theme.colors.text.inverse,
+    fontSize: theme.fontSize.sm,
+    fontWeight: theme.fontWeight.semibold,
   },
 });
 

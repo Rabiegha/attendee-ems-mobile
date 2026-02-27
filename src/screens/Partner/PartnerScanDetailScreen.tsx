@@ -3,7 +3,7 @@
  * Affiche les infos du participant + commentaire éditable + suppression
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -27,9 +27,11 @@ import {
 } from '../../store/partnerScans.slice';
 import { partnerScansService } from '../../api/backend/partnerScans.service';
 import { useTheme } from '../../theme/ThemeProvider';
+import type { Theme } from '../../theme';
 import { useTranslation } from 'react-i18next';
 import { PartnerScan } from '../../types/partnerScan';
 import { Header } from '../../components/ui/Header';
+import { useToast } from '../../contexts/ToastContext';
 
 type ParamList = {
   PartnerScanDetail: { scanId: string; eventId: string };
@@ -43,6 +45,8 @@ export const PartnerScanDetailScreen: React.FC = () => {
   const dispatch = useAppDispatch();
   const { theme } = useTheme();
   const { t } = useTranslation();
+  const toast = useToast();
+  const styles = useMemo(() => createStyles(theme), [theme]);
 
   const insets = useSafeAreaInsets();
   const { scanId, eventId } = route.params;
@@ -54,9 +58,13 @@ export const PartnerScanDetailScreen: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const isDeletedRef = useRef(false);
 
   // Charger le scan depuis le store ou l'API
   useEffect(() => {
+    // Ne pas recharger si on vient de supprimer
+    if (isDeletedRef.current) return;
+
     const existingInStore = scans.find((s) => s.id === scanId);
     if (existingInStore) {
       setScan(existingInStore);
@@ -113,10 +121,13 @@ export const PartnerScanDetailScreen: React.FC = () => {
           style: 'destructive',
           onPress: async () => {
             setIsDeleting(true);
+            isDeletedRef.current = true; // Empêcher le useEffect de recharger
             try {
               await dispatch(deletePartnerScanThunk(scan.id)).unwrap();
+              toast.success('Contact supprimé');
               navigation.goBack();
             } catch (error: any) {
+              isDeletedRef.current = false; // Rétablir si l'appel échoue
               Alert.alert('Erreur', 'Impossible de supprimer le contact.');
               setIsDeleting(false);
             }
@@ -328,7 +339,7 @@ export const PartnerScanDetailScreen: React.FC = () => {
                     disabled={isSaving}
                   >
                     {isSaving ? (
-                      <ActivityIndicator size="small" color="#FFFFFF" />
+                      <ActivityIndicator size="small" color={theme.colors.text.inverse} />
                     ) : (
                       <Text style={styles.saveButtonText}>Enregistrer</Text>
                     )}
@@ -350,7 +361,8 @@ export const PartnerScanDetailScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: Theme) =>
+  StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -478,16 +490,16 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   saveButton: {
-    paddingHorizontal: 20,
+    paddingHorizontal: theme.spacing.xl,
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: theme.radius.md,
     minWidth: 100,
     alignItems: 'center',
   },
   saveButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
+    color: theme.colors.text.inverse,
+    fontSize: theme.fontSize.sm,
+    fontWeight: theme.fontWeight.semibold,
   },
   commentValue: {
     fontSize: 14,

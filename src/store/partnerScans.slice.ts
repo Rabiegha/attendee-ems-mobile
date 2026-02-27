@@ -83,7 +83,19 @@ export const createPartnerScanThunk = createAsyncThunk(
         error.response?.data?.message ||
         error.message ||
         'Erreur de création';
-      return rejectWithValue(translatePartnerScanError(rawMsg));
+      const translated = translatePartnerScanError(rawMsg);
+
+      // Extraire le scanId existant du message backend pour les doublons
+      const scanIdMatch = rawMsg.match(/scan id:\s*([a-f0-9-]+)/i);
+      if (scanIdMatch) {
+        return rejectWithValue({
+          message: translated,
+          existingScanId: scanIdMatch[1],
+          isDuplicate: true,
+        });
+      }
+
+      return rejectWithValue(translated);
     }
   },
 );
@@ -148,6 +160,8 @@ const partnerScansSlice = createSlice({
         state.meta = action.payload.meta;
       })
       .addCase(fetchPartnerScansThunk.rejected, (state, action) => {
+        // Ignorer les requêtes annulées (remplacées par une plus récente)
+        if (action.meta.aborted) return;
         state.isLoading = false;
         state.error = action.payload as string;
       });
@@ -166,7 +180,10 @@ const partnerScansSlice = createSlice({
       })
       .addCase(createPartnerScanThunk.rejected, (state, action) => {
         state.isCreating = false;
-        state.error = action.payload as string;
+        const payload = action.payload;
+        state.error = typeof payload === 'string'
+          ? payload
+          : (payload as any)?.message || 'Erreur de création';
       });
 
     // Update comment
