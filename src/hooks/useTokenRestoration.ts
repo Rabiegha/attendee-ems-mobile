@@ -9,8 +9,9 @@ import { secureStorage, STORAGE_KEYS } from '../utils/storage';
 import { useAppDispatch } from '../store/hooks';
 import { fetchUserProfileThunk, clearAuth } from '../store/auth.slice';
 import axios from 'axios';
+import { getApiUrl } from '../config/apiUrl';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+const API_URL = getApiUrl();
 
 let isRestoring = false; // Flag global pour éviter les restaurations multiples
 

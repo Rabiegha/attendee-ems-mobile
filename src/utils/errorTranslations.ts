@@ -54,6 +54,7 @@ export const errorTranslations: Record<string, string> = {
 const isTechnicalError = (errorMessage: string): boolean => {
   const technicalPatterns = [
     /network error/i,
+    /impossible de contacter l'?api/i,
     /timeout/i,
     /ECONNREFUSED/i,
     /ENOTFOUND/i,
