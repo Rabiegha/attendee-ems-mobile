@@ -1,6 +1,6 @@
 import { NativeModules, Platform } from 'react-native';
 
-const DEFAULT_API_URL = 'http://localhost:3000/api';
+const DEFAULT_API_URL = 'http://localhost:3000';
 
 const getMetroHost = (): string | null => {
   try {
@@ -21,11 +21,8 @@ const normalizeApiUrl = (apiUrl: string): string => {
     return DEFAULT_API_URL;
   }
 
-  if (!apiUrl.endsWith('/api')) {
-    return `${apiUrl.replace(/\/$/, '')}/api`;
-  }
-
-  return apiUrl;
+  // Remove trailing slash only
+  return apiUrl.replace(/\/$/, '');
 };
 
 const resolveLocalhostForMobile = (apiUrl: string): string => {
