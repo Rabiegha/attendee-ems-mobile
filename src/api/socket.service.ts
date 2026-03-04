@@ -70,7 +70,7 @@ class SocketService {
     }
   }
 
-  on(event: string, callback: (...args: any[]) => void) {
+   on(event: string, callback: (...args: any[]) => void) {
     // Ajouter le listener à la liste
     if (!this.listeners.has(event)) {
       this.listeners.set(event, []);
