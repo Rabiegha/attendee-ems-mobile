@@ -5,6 +5,19 @@
 import axiosClient from './axiosClient';
 import { Registration, RegistrationsResponse } from '../../types/attendee';
 
+/** Résultat du preflight — indique les pré-requis du template de badge */
+export interface BadgePreflightResult {
+  templateId: string;
+  templateName: string;
+  usedVariables: string[];
+  requirements: {
+    needsCheckInFirst: boolean;     // true → check-in AVANT génération du badge
+    needsTableAssignment: boolean;  // sous-ensemble : le badge affiche la table assignée
+    needsQrCode: boolean;
+    needsPhoto: boolean;
+  };
+}
+
 export const registrationsService = {
   /**
    * Récupérer les registrations d'un événement
@@ -285,7 +298,7 @@ export const registrationsService = {
   },
 
   /**
-   * Générer un badge si nécessaire
+   * Générer un badge si nécessaire (skip si déjà existant)
    */
   generateBadgeIfNeeded: async (eventId: string, registrationId: string): Promise<Registration> => {
     try {
@@ -295,36 +308,28 @@ export const registrationsService = {
       const registration = await registrationsService.getRegistrationById(eventId, registrationId);
       
       if (registration.badge_pdf_url || registration.badge_image_url) {
-        console.log('[RegistrationsService] Badge already exists:', {
-          hasPdf: !!registration.badge_pdf_url,
-          hasImage: !!registration.badge_image_url,
-          pdfUrl: registration.badge_pdf_url?.substring(0, 50) + '...',
-          imageUrl: registration.badge_image_url?.substring(0, 50) + '...'
-        });
+        console.log('[RegistrationsService] Badge already exists, skipping generation');
         return registration;
       }
       
       // Générer le badge via l'endpoint du backend
-      console.log('[RegistrationsService] 📡 Calling badge generation endpoint...');
+      console.log('[RegistrationsService] 📡 Generating new badge...');
+      const startTime = Date.now();
       const response = await axiosClient.post(`/events/${eventId}/registrations/${registrationId}/generate-badge`);
-      console.log('[RegistrationsService] ✅ Badge generation API response:', {
-        status: response.status,
-        data: response.data ? 'received' : 'empty'
-      });
+      const badge = response.data?.data || response.data;
+      console.log('[RegistrationsService] ✅ Badge generated in', Date.now() - startTime, 'ms');
+
+      // Construire les URLs depuis le badge ID (DB déjà à jour)
+      if (badge?.id) {
+        return {
+          ...registration,
+          badge_pdf_url: `/api/badges/${badge.id}/pdf`,
+          badge_image_url: `/api/badges/${badge.id}/image`,
+        };
+      }
       
-      // Attendre un peu pour que le badge soit disponible
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Récupérer la registration mise à jour
-      const updatedRegistration = await registrationsService.getRegistrationById(eventId, registrationId);
-      console.log('[RegistrationsService] ✅ Badge generation result:', {
-        hasPdf: !!updatedRegistration.badge_pdf_url,
-        hasImage: !!updatedRegistration.badge_image_url,
-        pdfUrl: updatedRegistration.badge_pdf_url?.substring(0, 50) + '...',
-        imageUrl: updatedRegistration.badge_image_url?.substring(0, 50) + '...'
-      });
-      
-      return updatedRegistration;
+      // Fallback uniquement si pas de badge ID dans la réponse
+      return await registrationsService.getRegistrationById(eventId, registrationId);
     } catch (error: any) {
       console.error('[RegistrationsService] ❌ Error generating badge:', {
         eventId,
@@ -334,6 +339,48 @@ export const registrationsService = {
         error: error.response?.data || error.message,
         url: error.config?.url,
         method: error.config?.method
+      });
+      throw error;
+    }
+  },
+
+  /**
+   * Forcer la (re)génération du badge, même s'il existe déjà.
+   * Utile après un check-in qui a assigné une table de placement.
+   * Retourne directement la registration avec les URLs du badge (pas de re-fetch).
+   */
+  forceGenerateBadge: async (eventId: string, registrationId: string): Promise<Registration> => {
+    try {
+      console.log('[RegistrationsService] 🔄 Force generating badge:', { eventId, registrationId });
+      const startTime = Date.now();
+
+      const response = await axiosClient.post(`/events/${eventId}/registrations/${registrationId}/generate-badge`);
+      const badge = response.data?.data || response.data;
+      const elapsed = Date.now() - startTime;
+
+      console.log('[RegistrationsService] ✅ Badge generated in', elapsed, 'ms, badge ID:', badge?.id);
+
+      // Construire les URLs directement depuis le badge ID retourné
+      // (la DB est déjà à jour côté backend, pas besoin de re-fetch)
+      if (badge?.id) {
+        return {
+          ...({} as Registration),
+          id: registrationId,
+          event_id: eventId,
+          badge_pdf_url: `/api/badges/${badge.id}/pdf`,
+          badge_image_url: `/api/badges/${badge.id}/image`,
+        } as Registration;
+      }
+
+      // Fallback: re-fetch uniquement si le badge ID n'est pas dans la réponse
+      console.log('[RegistrationsService] ⚠️ No badge ID in response, fetching registration...');
+      return await registrationsService.getRegistrationById(eventId, registrationId);
+    } catch (error: any) {
+      console.error('[RegistrationsService] ❌ Error force generating badge:', {
+        eventId,
+        registrationId,
+        status: error.response?.status,
+        error: error.response?.data || error.message,
       });
       throw error;
     }
@@ -374,4 +421,38 @@ export const registrationsService = {
       throw error;
     }
   },
+
+  // ═══════════════════════════════════════════════════════════════
+  // PREFLIGHT: Analyse rapide du template avant génération
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * Analyse les variables du template de badge pour déterminer les étapes nécessaires.
+   * Retourne les requirements (needsTableAssignment, needsQrCode, needsPhoto).
+   * Endpoint très léger (~10ms), aucun rendu côté serveur.
+   */
+  badgePreflight: async (eventId: string, registrationId: string): Promise<BadgePreflightResult> => {
+    try {
+      console.log('[RegistrationsService] 🔍 Badge preflight:', { eventId, registrationId });
+      const response = await axiosClient.get(
+        `/events/${eventId}/registrations/${registrationId}/badge-preflight`,
+      );
+      const result: BadgePreflightResult = response.data.data || response.data;
+      console.log('[RegistrationsService] ✅ Preflight result:', {
+        templateName: result.templateName,
+        variables: result.usedVariables.length,
+        needsTable: result.requirements.needsTableAssignment,
+      });
+      return result;
+    } catch (error: any) {
+      console.error('[RegistrationsService] ❌ Preflight failed:', {
+        eventId,
+        registrationId,
+        error: error.response?.data || error.message,
+      });
+      throw error;
+    }
+  },
 };
+
+export default registrationsService;

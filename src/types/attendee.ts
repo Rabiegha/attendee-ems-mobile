@@ -51,6 +51,8 @@ export interface Registration {
   checked_out_by: string | null;
   checkout_location: any | null;
   comment: string | null;
+  table_choice_id: string | null;
+  assigned_table_id: string | null;
   attendee: Attendee;
   eventAttendeeType: any;
 }

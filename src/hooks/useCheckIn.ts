@@ -618,136 +618,200 @@ export const useCheckIn = (): UseCheckInResult => {
     }
   }, [initializeState, dispatch]);
 
-  // Fonction principale : imprimer ET faire le check-in
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SMART BADGE PREFLIGHT + CHECK-IN + PRINT
+  // ═══════════════════════════════════════════════════════════════════════════
+  //
+  // Logique intelligente :
+  //  1. Preflight rapide (~10ms) → connaître les variables du template
+  //  2. Si le badge a besoin de données temps-réel (table, etc.)
+  //     → check-in D'ABORD (assigne la table), puis générer le badge
+  //  3. Sinon (badge statique = nom/prénom/QR uniquement)
+  //     → check-in et génération de badge EN PARALLÈLE (gain de temps)
+  //
+  // Scalable : ajouter un nouveau requirement = ajouter un flag dans preflight
+  // + un resolver ici. Le reste ne change pas.
+  // ═══════════════════════════════════════════════════════════════════════════
+
   const printAndCheckIn = useCallback(async (
     registration: Registration,
     onSuccess?: (message: string) => void,
     onError?: (message: string) => void
   ) => {
-    console.log('[useCheckIn] 🔄 Starting print and check-in process for:', {
+    console.log('[useCheckIn] 🔄 Starting smart check-in + print for:', {
       registrationId: registration.id,
       attendeeName: `${registration.attendee.first_name} ${registration.attendee.last_name}`,
       eventId: registration.event_id,
     });
 
     initializeState(registration);
-    setStatus('printing');
 
     try {
-      // Vérifier si déjà check-in
+      // --- Déjà check-in ? → impression seule ---
       if (registration.checked_in_at) {
         console.log('[useCheckIn] ⚠️ Already checked in, printing only');
         await printOnly(registration, onSuccess, onError);
         return;
       }
 
-      // Vérifier le mode d'impression et l'imprimante si nécessaire
+      // --- Vérifier imprimante ---
       const printMode = await getPrintMode();
       let printer: any = null;
-      
+
       if (printMode === 'printnode') {
-        console.log('[useCheckIn] 🔍 PrintNode mode: checking printer availability...');
         printer = await ensurePrinterLoaded();
         if (!printer) {
           throw new Error('Aucune imprimante sélectionnée. Veuillez configurer une imprimante dans les paramètres.');
         }
-      } else {
-        console.log('[useCheckIn] 📡 EMS Client mode: printer managed by Electron client');
       }
 
-      // Étape 1: Impression (utiliser la même logique robuste que printOnly)
-      console.log('[useCheckIn] 🖨️ Step 1: Printing badge...');
-      let badgeUrl = registration.badge_pdf_url || registration.badge_image_url;
+      // ═══════════════════════════════════════════════════════════
+      // ÉTAPE 1 — PREFLIGHT : déterminer les pré-requis du badge
+      // ═══════════════════════════════════════════════════════════
+      setStatus('printing');
+      setProgress(5);
 
-      // Vérifier l'accessibilité du badge existant
-      if (badgeUrl) {
-        console.log('[useCheckIn] ✅ Badge URL found, testing accessibility...');
-        try {
-          const testResponse = await fetch(badgeUrl, { method: 'HEAD' });
-          if (!testResponse.ok) {
-            console.warn('[useCheckIn] ⚠️ Badge URL not accessible:', testResponse.status);
-            badgeUrl = null; // Forcer la régénération
+      let needsCheckInFirst = false;
+
+      try {
+        console.log('[useCheckIn] 🔍 Preflight: analyzing badge template...');
+        const preflight = await registrationsService.badgePreflight(
+          registration.event_id,
+          registration.id,
+        );
+
+        console.log('[useCheckIn] 📋 Preflight result:', {
+          template: preflight.templateName,
+          vars: preflight.usedVariables,
+          requirements: preflight.requirements,
+        });
+
+        // ── Resolver : le badge a-t-il besoin que le check-in soit fait d'abord ? ──
+        if (preflight.requirements.needsCheckInFirst) {
+          // Le template utilise des variables qui n'existent qu'après check-in.
+          // Mais si c'est uniquement pour la table ET qu'il n'y a pas de table_choice_id,
+          // alors la table ne sera jamais assignée → inutile d'attendre.
+          const onlyNeedsTable =
+            preflight.requirements.needsTableAssignment &&
+            !preflight.requirements.needsCheckInFirst;
+
+          if (preflight.requirements.needsTableAssignment && !registration.table_choice_id) {
+            console.log('[useCheckIn] ℹ️ Template has table var but no table_choice_id → parallel OK');
           } else {
-            console.log('[useCheckIn] ✅ Badge URL is accessible');
+            console.log('[useCheckIn] 📌 Template needs check-in data → check-in FIRST');
+            needsCheckInFirst = true;
           }
-        } catch (testError) {
-          console.warn('[useCheckIn] ⚠️ Badge URL test failed:', testError);
-          badgeUrl = null; // Forcer la régénération
+        } else {
+          console.log('[useCheckIn] ⚡ Template has no check-in dependencies → parallel OK');
         }
+
+        // [FUTURE] Ajouter d'autres resolvers ici :
+        // if (preflight.requirements.needsPhoto && !registration.photo_url) { ... }
+
+      } catch (preflightError: any) {
+        // Si le preflight échoue, on utilise le mode sécurisé (check-in d'abord)
+        console.warn('[useCheckIn] ⚠️ Preflight failed, falling back to safe mode (check-in first):', preflightError.message);
+        needsCheckInFirst = true;
       }
 
-      if (!badgeUrl) {
-        console.log('[useCheckIn] ⚠️ No valid badge URL, initiating generation...');
+      setProgress(10);
+
+      // ═══════════════════════════════════════════════════════════
+      // ÉTAPE 2 — EXÉCUTION INTELLIGENTE
+      // ═══════════════════════════════════════════════════════════
+
+      let badgeUrl: string | null = null;
+
+      if (needsCheckInFirst) {
+        // ── MODE SÉQUENTIEL : Check-in → Badge → Print ──
+        console.log('[useCheckIn] 🔀 Sequential mode: check-in → badge → print');
+
+        // 2a. Check-in
+        setStatus('checkin');
+        setProgress(15);
+        const checkInResult = await registrationsService.checkIn(registration.id, registration.event_id);
+        console.log('[useCheckIn] ✅ Check-in done:', checkInResult.message);
+
+        if (checkInResult.registration) {
+          dispatch(updateRegistration(checkInResult.registration));
+        }
+        setProgress(30);
+
+        // 2b. Générer le badge (table assignée maintenant disponible en DB)
+        setStatus('printing');
         setErrorMessage('Génération du badge...');
-        
-        try {
-          // Essayer de rafraîchir les données
-          console.log('[useCheckIn] 🔄 Refreshing registration data...');
-          const refreshedRegistration = await registrationsService.getRegistrationById(registration.event_id, registration.id);
-          badgeUrl = refreshedRegistration.badge_pdf_url || refreshedRegistration.badge_image_url;
-          
-          if (!badgeUrl) {
-            // Générer le badge
-            console.log('[useCheckIn] 📡 Generating new badge...');
-            setErrorMessage('Création du badge...');
-            const updatedRegistration = await registrationsService.generateBadgeIfNeeded(registration.event_id, registration.id);
-            badgeUrl = updatedRegistration.badge_pdf_url || updatedRegistration.badge_image_url;
-            
-            if (!badgeUrl) {
-              throw new Error('Badge généré mais URL non disponible. Veuillez réessayer.');
-            }
-            
-            console.log('[useCheckIn] ✅ Badge generated successfully');
-          } else {
-            console.log('[useCheckIn] ✅ Badge found after refresh');
-          }
-        } catch (generateError: any) {
-          console.error('[useCheckIn] ❌ Badge generation failed:', generateError);
-          const errorDetail = generateError?.response?.detail || generateError?.message || '';
-          
-          if (errorDetail.includes('No badge template found')) {
-            throw new Error('Template de badge manquant. Configuration requise par l\'administrateur.');
-          } else if (generateError?.response?.status === 401) {
-            throw new Error('Session expirée. Veuillez vous reconnecter.');
-          } else {
-            throw new Error('Impossible de générer le badge: ' + (generateError?.message || 'Erreur inconnue'));
-          }
+        const genResult = await registrationsService.forceGenerateBadge(
+          registration.event_id,
+          registration.id,
+        );
+        badgeUrl = genResult.badge_pdf_url || genResult.badge_image_url;
+
+        if (!badgeUrl) {
+          throw new Error('Badge généré mais URL non disponible.');
         }
+        console.log('[useCheckIn] ✅ Badge generated (with table)');
+        setProgress(50);
+
+      } else {
+        // ── MODE PARALLÈLE : Check-in + Badge simultanés ──
+        console.log('[useCheckIn] ⚡ Parallel mode: check-in + badge simultaneously');
+
+        setStatus('checkin');
+        setProgress(15);
+        setErrorMessage('Check-in et génération du badge...');
+
+        // Lancer les deux en parallèle
+        const [checkInResult, genResult] = await Promise.all([
+          registrationsService.checkIn(registration.id, registration.event_id),
+          registrationsService.forceGenerateBadge(
+            registration.event_id,
+            registration.id,
+          ),
+        ]);
+
+        console.log('[useCheckIn] ✅ Parallel complete — check-in:', checkInResult.message);
+
+        if (checkInResult.registration) {
+          dispatch(updateRegistration(checkInResult.registration));
+        }
+
+        badgeUrl = genResult.badge_pdf_url || genResult.badge_image_url;
+        if (!badgeUrl) {
+          throw new Error('Badge généré mais URL non disponible.');
+        }
+        console.log('[useCheckIn] ✅ Badge generated (parallel)');
+        setStatus('printing');
+        setProgress(50);
       }
 
-      setProgress(20);
+      // ═══════════════════════════════════════════════════════════
+      // ÉTAPE 3 — ENVOI À L'IMPRESSION
+      // ═══════════════════════════════════════════════════════════
 
       if (printMode === 'ems-client') {
         // === MODE EMS PRINT CLIENT ===
-        console.log('[useCheckIn] 📤 Sending to EMS Print Queue...');
-        
         if (!user?.id) {
           throw new Error('Utilisateur non connecté. Veuillez vous reconnecter.');
         }
 
         const emsPrinter = await ensureEmsPrinterLoaded();
-        
-        // Bloquer si aucune imprimante n'est sélectionnée
         if (!emsPrinter) {
           throw new Error('Aucune imprimante sélectionnée. Allez dans Paramètres > Imprimantes pour en choisir une.');
         }
 
-        // Vérifier que l'imprimante est toujours exposée par EMS Client
         const isStillValid = await validateEmsPrinter(emsPrinter);
         if (!isStillValid) {
           throw new Error(`L'imprimante "${emsPrinter.displayName || emsPrinter.name}" n'est plus disponible. Veuillez en sélectionner une autre dans Paramètres > Imprimantes.`);
         }
 
         const attendeeName = `${registration.attendee.first_name} ${registration.attendee.last_name}`;
-        
-        // Vérifier si EMS Client est connecté avant d'envoyer
         const clientStatus = await getEmsClientStatus();
         const isClientOnline = clientStatus.connected;
-        
-        // Afficher le statut approprié via le PrintStatusBanner
-        const compositeEmsPrinterName2 = emsPrinter.deviceId
+
+        const compositeEmsPrinterName = emsPrinter.deviceId
           ? `${emsPrinter.name}::${emsPrinter.deviceId}`
           : emsPrinter.name;
+
         dispatch(setPrintStatus({
           status: isClientOnline ? 'SENDING' : 'CLIENT_OFFLINE',
           attendeeName,
@@ -759,35 +823,27 @@ export const useCheckIn = (): UseCheckInResult => {
           registration.event_id,
           user.id,
           badgeUrl,
-          compositeEmsPrinterName2,
+          compositeEmsPrinterName,
           isClientOnline ? undefined : 'OFFLINE',
         );
-        console.log('[useCheckIn] ✅ Job added to EMS print queue:', queueJob.id, 'printer:', compositeEmsPrinterName2, isClientOnline ? '(client online)' : '(client OFFLINE - will retry on reconnect)');
-        setProgress(50);
+        console.log('[useCheckIn] ✅ Job queued:', queueJob.id, isClientOnline ? '(online)' : '(offline)');
+        setProgress(75);
 
-        console.log('[useCheckIn] 📝 Marking badge as printed in backend...');
         await registrationsService.markBadgePrinted(registration.event_id, registration.id);
-        console.log('[useCheckIn] ✅ Badge marked as printed');
-        setProgress(60);
+        setProgress(90);
+
       } else {
         // === MODE PRINTNODE ===
-        console.log('[useCheckIn] 📥 Step 2: Getting badge HTML (FAST MODE)...');
-        console.log('[useCheckIn] Badge URL:', badgeUrl.substring(0, 80) + '...');
-
         const badgeIdMatch = badgeUrl.match(/\/badges\/([a-f0-9-]+)\//i);
         if (!badgeIdMatch) {
           throw new Error('Impossible d\'extraire l\'ID du badge depuis l\'URL');
         }
         const badgeId = badgeIdMatch[1];
-        console.log('[useCheckIn] Badge ID extracted:', badgeId);
-        
-        const startTime = Date.now();
-        console.log('[useCheckIn] ⚡ Fetching HTML from /badge-generation/:id/html...');
-        const badgeHtml = await getBadgeHtml(badgeId);
-        const fetchTime = Date.now() - startTime;
-        console.log(`[useCheckIn] ⚡ HTML received in ${fetchTime}ms, length:`, badgeHtml.length);
 
-        setProgress(40);
+        const startTime = Date.now();
+        const badgeHtml = await getBadgeHtml(badgeId);
+        console.log(`[useCheckIn] ⚡ HTML received in ${Date.now() - startTime}ms`);
+        setProgress(70);
 
         const printJob: PrintJob = {
           printerId: printer.id,
@@ -795,73 +851,40 @@ export const useCheckIn = (): UseCheckInResult => {
           contentType: 'raw_html',
           content: badgeHtml,
           source: 'EMS Mobile App (HTML)',
-          options: {
-            copies: 1,
-          }
+          options: { copies: 1 },
         };
 
-        console.log('[useCheckIn] 🖨️ Step 3: Sending print job to printer (HTML mode):', printer.name);
-        const printStartTime = Date.now();
         const printResult = await sendPrintJob(printJob);
-        const totalTime = Date.now() - startTime;
-        console.log(`[useCheckIn] ✅ Print job sent successfully in ${totalTime}ms:`, printResult.id);
-        setProgress(60);
+        console.log(`[useCheckIn] ✅ Print job sent in ${Date.now() - startTime}ms:`, printResult.id);
+        setProgress(85);
 
-        console.log('[useCheckIn] 📝 Step 4: Marking badge as printed in backend...');
         await registrationsService.markBadgePrinted(registration.event_id, registration.id);
-        console.log('[useCheckIn] ✅ Badge marked as printed');
-        setProgress(60);
+        setProgress(90);
       }
 
-      // Étape 2: Check-in
-      console.log('[useCheckIn] ✅ Processing check-in...');
-      setStatus('checkin');
-      setProgress(70);
-      
-      const checkInResult = await registrationsService.checkIn(registration.id, registration.event_id);
-      console.log('[useCheckIn] ✅ Check-in completed:', checkInResult.message);
-      
-      // Mettre à jour la registration dans le store Redux
-      if (checkInResult.registration) {
-        console.log('[useCheckIn] 🔄 Updating registration in store after print & check-in...');
-        dispatch(updateRegistration(checkInResult.registration));
-      }
-      
-      setProgress(90);
-      
-      // Note: Les stats sont calculées automatiquement depuis Redux (useMemo)
-
+      // ═══════════════════════════════════════════════════════════
+      // TERMINÉ
+      // ═══════════════════════════════════════════════════════════
       setProgress(100);
       setStatus('success');
-      console.log('[useCheckIn] ✅ Print and check-in completed successfully for:', registration.attendee.first_name);
-      
+      console.log('[useCheckIn] ✅ Smart check-in + print completed for:', registration.attendee.first_name);
+
       if (printMode === 'ems-client') {
-        // En mode EMS, le check-in est confirmé mais l'impression est async
-        // Le PrintStatusBanner gère le feedback de l'impression via WebSocket
         hapticSuccess();
-        if (onSuccess) {
-          onSuccess(`${registration.attendee.first_name} ${registration.attendee.last_name} enregistré(e)`);
-        }
+        onSuccess?.(`${registration.attendee.first_name} ${registration.attendee.last_name} enregistré(e)`);
       } else {
-        // En mode PrintNode, tout est terminé
-        if (onSuccess) {
-          onSuccess(`${registration.attendee.first_name} ${registration.attendee.last_name} enregistré(e) et badge imprimé`);
-        }
+        onSuccess?.(`${registration.attendee.first_name} ${registration.attendee.last_name} enregistré(e) et badge imprimé`);
       }
 
     } catch (error: any) {
       setStatus('error');
-      const errorMsg = error.message || 'Erreur lors de l\'impression et du check-in';
+      const errorMsg = error.message || 'Erreur lors du check-in et impression';
       setErrorMessage(errorMsg);
-      console.error('[useCheckIn] ❌ Print and check-in failed:', {
+      console.error('[useCheckIn] ❌ Smart check-in + print failed:', {
         error: error.message,
         registrationId: registration.id,
-        stack: error.stack,
       });
-      
-      if (onError) {
-        onError(errorMsg);
-      }
+      onError?.(errorMsg);
     }
   }, [initializeState, ensurePrinterLoaded, printOnly, dispatch]);
 
