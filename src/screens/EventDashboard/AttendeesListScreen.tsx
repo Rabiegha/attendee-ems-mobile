@@ -120,12 +120,6 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
     }
   }, [showActions]);
 
-  // Handler pour appliquer les filtres
-  const handleApplyFilters = useCallback((newFilters: FilterOptions) => {
-    setFilters(newFilters);
-    performSearch(searchQuery, newFilters);
-  }, [searchQuery, performSearch]);
-
   // Hook centralisé pour check-in et impression
   const checkIn = useCheckIn();
   const toast = useToast();
@@ -180,6 +174,12 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
     }
   }, [eventId, dispatch, filters]);
 
+  // Handler pour appliquer les filtres
+  const handleApplyFilters = useCallback((newFilters: FilterOptions) => {
+    setFilters(newFilters);
+    performSearch(searchQuery, newFilters);
+  }, [searchQuery, performSearch]);
+
   // Handler pour les changements de recherche
   const handleSearchChange = useCallback((query: string) => {
     hasUserInteracted.current = true;
@@ -230,7 +230,7 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
   const filteredRegistrations = useMemo(() => {
     return registrations.filter(reg => {
       if (reg.status === 'rejected') return false;
-      if (filters.attendeeTypeIds.length > 0 && !filters.attendeeTypeIds.includes(reg.event_attendee_type_id)) {
+      if (filters.attendeeTypeIds.length > 0 && reg.event_attendee_type_id && !filters.attendeeTypeIds.includes(reg.event_attendee_type_id)) {
         return false;
       }
       if (filters.statuses.length > 0 && !filters.statuses.includes(reg.status)) {
@@ -599,7 +599,7 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
         if (openSwipeableRef.current && openSwipeableRef.current !== currentRef) {
           openSwipeableRef.current.close();
         }
-        openSwipeableRef.current = currentRef;
+        openSwipeableRef.current = currentRef || null;
       };
 
       const handleSwipeableClose = () => {
