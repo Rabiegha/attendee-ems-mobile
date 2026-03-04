@@ -5,9 +5,12 @@
 
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { secureStorage, STORAGE_KEYS } from '../../utils/storage';
+import { getApiUrl } from '../../config/apiUrl';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+const API_URL = getApiUrl();
 const TOKEN_REFRESH_THRESHOLD = Number(process.env.TOKEN_EXP_SOFT_REFRESH_SECONDS) || 60;
+
+console.log('[axiosClient] 🌐 API_URL resolved to:', API_URL);
 
 // État global pour gérer le refresh
 let isRefreshing = false;

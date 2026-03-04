@@ -4,19 +4,17 @@
 
 import { io, Socket } from 'socket.io-client';
 import { secureStorage, STORAGE_KEYS } from '../utils/storage';
+import { getApiBaseUrl } from '../config/apiUrl';
 
 class SocketService {
   private socket: Socket | null = null;
-  private listeners: Map<string, Function[]> = new Map();
+  private listeners: Map<string, Array<(...args: any[]) => void>> = new Map();
 
   async connect() {
     console.log('[Socket] 🔌 connect() called');
     const token = await secureStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
     console.log('[Socket] Token from storage:', token ? `EXISTS (${token.substring(0, 20)}...)` : 'NULL');
-    const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-    
-    // Extraire le base URL (sans /api si présent)
-    const baseUrl = apiUrl.replace(/\/api$/, '');
+    const baseUrl = getApiBaseUrl();
 
     if (!token) {
       console.log('[Socket] ❌ No token available, cannot connect');
@@ -72,7 +70,7 @@ class SocketService {
     }
   }
 
-  on(event: string, callback: Function) {
+   on(event: string, callback: (...args: any[]) => void) {
     // Ajouter le listener à la liste
     if (!this.listeners.has(event)) {
       this.listeners.set(event, []);
@@ -81,11 +79,11 @@ class SocketService {
 
     // Si déjà connecté, ajouter le listener au socket
     if (this.socket?.connected) {
-      this.socket.on(event, callback as any);
+      this.socket.on(event, callback);
     }
   }
 
-  off(event: string, callback?: Function) {
+  off(event: string, callback?: (...args: any[]) => void) {
     if (callback) {
       // Retirer un listener spécifique
       const callbacks = this.listeners.get(event);
@@ -95,7 +93,7 @@ class SocketService {
           callbacks.splice(index, 1);
         }
       }
-      this.socket?.off(event, callback as any);
+      this.socket?.off(event, callback);
     } else {
       // Retirer tous les listeners de cet événement
       this.listeners.delete(event);

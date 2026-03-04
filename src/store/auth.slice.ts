@@ -36,9 +36,17 @@ export const loginThunk = createAsyncThunk(
       console.log('[AuthSlice] loginThunk - Login successful');
       return response;
     } catch (error: any) {
+      const isNetworkError =
+        error?.message === 'Network Error' ||
+        error?.code === 'ERR_NETWORK' ||
+        !error?.response;
+
       // Extraire le message d'erreur du serveur
-      const errorMessage = 
-        error.response?.data?.message || 
+      const errorMessage =
+        (isNetworkError
+          ? "Impossible de contacter l'API. Vérifiez EXPO_PUBLIC_API_URL et que le backend est démarré."
+          : null) ||
+        error.response?.data?.message ||
         error.response?.data?.error ||
         error.message ||
         'Erreur de connexion';
@@ -173,9 +181,9 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(loginThunk.rejected, (state, action) => {
-        console.error('[AuthSlice] loginThunk.rejected:', action.payload);
+        console.warn('[AuthSlice] loginThunk.rejected:', action.payload || action.error?.message);
         state.isLoading = false;
-        state.error = action.payload as string;
+        state.error = (action.payload as string) || action.error?.message || 'Erreur de connexion';
         state.isAuthenticated = false;
       });
 
