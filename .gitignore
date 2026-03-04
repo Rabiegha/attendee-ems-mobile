@@ -20,7 +20,8 @@ web-build/
 expo-env.d.ts
 
 # Native
-*.orig.*
+*.orig.*eas secret:create --name EXPO_PUBLIC_API_URL --value "https://api.attendee.fr/api" --scope project
+eas secret:create --name EXPO_PUBLIC_PRINTNODE_API_KEY --value "PrDdPPH6bJJpWSYwONmfapRUCCkL-770o5ZTsWSyY7g" --scope project
 *.jks
 *.p8
 *.p12
