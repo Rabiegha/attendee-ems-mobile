@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "scheme": "exp",
+    "scheme": "attendee-ems",
     "developmentClient": {
       "silentLaunch": false
     },
@@ -18,7 +18,10 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "UIViewControllerBasedStatusBarAppearance": true
+        "UIViewControllerBasedStatusBarAppearance": true,
+        "NSCameraUsageDescription": "L'application utilise la caméra pour scanner les QR codes des badges participants.",
+        "NSPhotoLibraryUsageDescription": "L'application peut accéder à vos photos pour personnaliser votre profil.",
+        "ITSAppUsesNonExemptEncryption": false
       },
       "bundleIdentifier": "com.choyou.attendeemobile"
     },
@@ -32,7 +35,19 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": [],
+    "plugins": [
+      "./plugins/withCxxStandard",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "buildReactNativeFromSource": true,
+            "deploymentTarget": "15.1"
+          }
+        }
+      ],
+      "expo-secure-store"
+    ],
     "extra": {
       "eas": {
         "projectId": "1e87d178-8131-4511-badc-2214c8ae2a42"
