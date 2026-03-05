@@ -422,7 +422,8 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
                   );
                 }
                 resetScan();
-                navigation.goBack();
+                // Toujours naviguer vers l'onglet "Ma Liste", quel que soit l'écran précédent
+                (navigation as any).navigate('PartnerList');
               }}
             >
               <Ionicons name="list" size={20} color={theme.colors.text.inverse} style={{ marginRight: 8 }} />
