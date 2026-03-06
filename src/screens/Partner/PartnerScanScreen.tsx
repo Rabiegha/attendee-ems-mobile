@@ -47,6 +47,7 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [savingAction, setSavingAction] = useState<'list' | 'scan' | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
   const [feedbackType, setFeedbackType] = useState<'success' | 'error' | 'warning' | null>(null);
   const fadeAnim = useState(new Animated.Value(0))[0];
@@ -265,6 +266,7 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
     console.log('[PartnerScan] Resetting scan state');
     setScanned(false);
     setIsProcessing(false);
+    setSavingAction(null);
     setScanResult(null);
     setComment('');
     setShowCommentInput(false);
@@ -411,47 +413,64 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
           <View style={styles.actionButtons}>
             {/* Enregistrer et voir la liste */}
             <TouchableOpacity
-              style={[styles.primaryButton, { backgroundColor: theme.colors.success[500] }]}
-              onPress={() => {
+              style={[styles.primaryButton, { backgroundColor: savingAction !== null ? theme.colors.neutral[400] : theme.colors.success[500] }]}
+              disabled={savingAction !== null}
+              onPress={async () => {
                 if (comment.trim() && currentScan) {
-                  dispatch(
-                    updatePartnerScanCommentThunk({
-                      id: currentScan.id,
-                      comment: comment.trim(),
-                    })
-                  );
+                  setSavingAction('list');
+                  try {
+                    await dispatch(
+                      updatePartnerScanCommentThunk({
+                        id: currentScan.id,
+                        comment: comment.trim(),
+                      })
+                    ).unwrap();
+                  } catch (e) {
+                    console.warn('[PartnerScan] Failed to save comment:', e);
+                  }
                 }
                 resetScan();
                 // Toujours naviguer vers l'onglet "Ma Liste", quel que soit l'écran précédent
                 (navigation as any).navigate('PartnerList');
               }}
             >
-              <Ionicons name="list" size={20} color={theme.colors.text.inverse} style={{ marginRight: 8 }} />
-              <Text style={styles.primaryButtonText}>Enregistrer et voir mes contacts</Text>
+              {savingAction === 'list'
+                ? <ActivityIndicator size="small" color={theme.colors.text.inverse} style={{ marginRight: 8 }} />
+                : <Ionicons name="list" size={20} color={theme.colors.text.inverse} style={{ marginRight: 8 }} />}
+              <Text style={styles.primaryButtonText}>{savingAction === 'list' ? 'Sauvegarde...' : 'Enregistrer et voir mes contacts'}</Text>
             </TouchableOpacity>
 
             {/* Enregistrer et continuer de scanner */}
             <TouchableOpacity
-              style={[styles.secondaryButton, { backgroundColor: theme.colors.brand[600] }]}
-              onPress={() => {
+              style={[styles.secondaryButton, { backgroundColor: savingAction !== null ? theme.colors.neutral[400] : theme.colors.brand[600] }]}
+              disabled={savingAction !== null}
+              onPress={async () => {
                 if (comment.trim() && currentScan) {
-                  dispatch(
-                    updatePartnerScanCommentThunk({
-                      id: currentScan.id,
-                      comment: comment.trim(),
-                    })
-                  );
+                  setSavingAction('scan');
+                  try {
+                    await dispatch(
+                      updatePartnerScanCommentThunk({
+                        id: currentScan.id,
+                        comment: comment.trim(),
+                      })
+                    ).unwrap();
+                  } catch (e) {
+                    console.warn('[PartnerScan] Failed to save comment:', e);
+                  }
                 }
                 resetScan();
               }}
             >
-              <Ionicons name="scan" size={20} color={theme.colors.text.inverse} style={{ marginRight: 8 }} />
-              <Text style={styles.primaryButtonText}>Enregistrer et scanner un autre</Text>
+              {savingAction === 'scan'
+                ? <ActivityIndicator size="small" color={theme.colors.text.inverse} style={{ marginRight: 8 }} />
+                : <Ionicons name="scan" size={20} color={theme.colors.text.inverse} style={{ marginRight: 8 }} />}
+              <Text style={styles.primaryButtonText}>{savingAction === 'scan' ? 'Sauvegarde...' : 'Enregistrer et scanner un autre'}</Text>
             </TouchableOpacity>
 
             {/* Annuler le scan */}
             <TouchableOpacity
-              style={[styles.cancelButton, { borderColor: theme.colors.error[400] }]}
+              style={[styles.cancelButton, { borderColor: savingAction !== null ? theme.colors.neutral[400] : theme.colors.error[400] }]}
+              disabled={savingAction !== null}
               onPress={() => {
                 // Supprimer le scan créé
                 if (currentScan) {
@@ -460,8 +479,8 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
                 resetScan();
               }}
             >
-              <Ionicons name="trash-outline" size={20} color={theme.colors.error[500]} style={{ marginRight: 8 }} />
-              <Text style={[styles.cancelButtonText, { color: theme.colors.error[500] }]}>Annuler ce scan</Text>
+              <Ionicons name="trash-outline" size={20} color={savingAction !== null ? theme.colors.neutral[400] : theme.colors.error[500]} style={{ marginRight: 8 }} />
+              <Text style={[styles.cancelButtonText, { color: savingAction !== null ? theme.colors.neutral[400] : theme.colors.error[500] }]}>Annuler ce scan</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

@@ -35,6 +35,81 @@ type PartnerInnerTabsParamList = {
 
 type PartnerListRouteProp = RouteProp<PartnerInnerTabsParamList, 'PartnerList'>;
 
+// ─── Fonction pure hors composant (pas de re-création à chaque render) ────────
+const formatDate = (dateStr: string): string => {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+
+  if (diffMins < 1) return 'À l\'instant';
+  if (diffMins < 60) return `Il y a ${diffMins} min`;
+  if (diffHours < 24) return `Il y a ${diffHours}h`;
+
+  return date.toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+// ─── Composant item mémoïsé — évite le re-render de toute la liste ─────────
+const ScanItem = React.memo(({ item, onPress, theme, styles }: {
+  item: PartnerScan;
+  onPress: (scan: PartnerScan) => void;
+  theme: Theme;
+  styles: ReturnType<typeof createStyles>;
+}) => {
+  const attendee = item.attendee_data;
+  const fullName = `${attendee?.first_name || ''} ${attendee?.last_name || ''}`.trim() || 'Contact';
+  const initials = fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+
+  return (
+    <TouchableOpacity
+      style={[styles.scanCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
+      onPress={() => onPress(item)}
+      activeOpacity={0.7}
+    >
+      <View style={styles.cardContent}>
+        {/* Avatar */}
+        <View style={[styles.avatar, { backgroundColor: theme.colors.brand[100] }]}>
+          <Text style={[styles.avatarText, { color: theme.colors.brand[600] }]}>{initials}</Text>
+        </View>
+
+        {/* Info */}
+        <View style={styles.cardInfo}>
+          <Text style={[styles.cardName, { color: theme.colors.text.primary }]} numberOfLines={1}>
+            {fullName}
+          </Text>
+          {attendee?.company && (
+            <Text style={[styles.cardCompany, { color: theme.colors.text.secondary }]} numberOfLines={1}>
+              {attendee.company}{attendee.job_title ? ` • ${attendee.job_title}` : ''}
+            </Text>
+          )}
+          {item.comment && (
+            <View style={styles.commentPreview}>
+              <Ionicons name="chatbubble-outline" size={12} color={theme.colors.text.tertiary} />
+              <Text style={[styles.commentText, { color: theme.colors.text.secondary }]} numberOfLines={1}>
+                {item.comment}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Date + chevron */}
+        <View style={styles.cardRight}>
+          <Text style={[styles.cardDate, { color: theme.colors.text.tertiary }]}>
+            {formatDate(item.scanned_at)}
+          </Text>
+          <Ionicons name="chevron-forward" size={18} color={theme.colors.text.tertiary} />
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+});
+
 export const PartnerListScreen: React.FC<{ route?: any }> = ({ route: routeProp }) => {
   const route = useRoute<PartnerListRouteProp>();
   const navigation = useNavigation<any>();
@@ -52,8 +127,14 @@ export const PartnerListScreen: React.FC<{ route?: any }> = ({ route: routeProp 
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastFetchRef = useRef<any>(null);
+  // P4 : mémorise quel eventId a été chargé en dernier pour éviter le clear inutile
+  const loadedEventIdRef = useRef<string | null>(null);
+  // Ref pour éviter la stale closure dans useFocusEffect/loadScans
+  const searchQueryRef = useRef(searchQuery);
+  useEffect(() => { searchQueryRef.current = searchQuery; }, [searchQuery]);
 
   // Composant séparateur stable (évite re-création à chaque render)
   const ItemSeparator = useCallback(() => <View style={{ height: 8 }} />, []);
@@ -61,8 +142,15 @@ export const PartnerListScreen: React.FC<{ route?: any }> = ({ route: routeProp 
   // Charger les scans au focus, cleanup au blur ou changement d'événement
   useFocusEffect(
     useCallback(() => {
-      dispatch(clearPartnerScans());
-      setSearchQuery('');
+      const eventChanged = loadedEventIdRef.current !== eventId;
+      if (eventChanged) {
+        // Changement d'événement → reset complet pour ne pas montrer les contacts d'un autre event
+        dispatch(clearPartnerScans());
+        setSearchQuery('');
+        loadedEventIdRef.current = eventId;
+      }
+      // Retour depuis le détail → revalidation silencieuse (les données existantes restent
+      // affichées pendant le fetch, plus de flash blanc)
       loadScans();
 
       // Cleanup : annuler le debounce en cours si on quitte l'écran
@@ -76,16 +164,18 @@ export const PartnerListScreen: React.FC<{ route?: any }> = ({ route: routeProp 
 
   const loadScans = (page = 1, search?: string) => {
     if (!eventId) return;
-    // Annuler la requête précédente pour éviter les résultats obsolètes (race condition)
-    if (lastFetchRef.current) {
+    // Annuler la requête précédente uniquement sur page 1
+    // (évite d'annuler page 1 quand page 2 se lance)
+    if (page === 1 && lastFetchRef.current) {
       (lastFetchRef.current as any).abort();
     }
     lastFetchRef.current = dispatch(
       fetchPartnerScansThunk({
         event_id: eventId,
         page,
-        limit: 50,
-        search: search ?? searchQuery,
+        limit: 20,
+        // searchQueryRef.current évite la stale closure : toujours la valeur actuelle
+        search: search ?? searchQueryRef.current,
       })
     );
   };
@@ -96,11 +186,26 @@ export const PartnerListScreen: React.FC<{ route?: any }> = ({ route: routeProp 
       fetchPartnerScansThunk({
         event_id: eventId,
         page: 1,
-        limit: 50,
+        limit: 20,
         search: searchQuery,
       })
     );
     setRefreshing(false);
+  };
+
+  const handleEndReached = async () => {
+    // Ne rien faire si déjà en chargement, en refresh, ou si toutes les pages sont chargées
+    if (isLoading || isLoadingMore || refreshing || meta.page >= meta.totalPages) return;
+    setIsLoadingMore(true);
+    await dispatch(
+      fetchPartnerScansThunk({
+        event_id: eventId,
+        page: meta.page + 1,
+        limit: 20,
+        search: searchQuery,
+      })
+    );
+    setIsLoadingMore(false);
   };
 
   const handleSearch = (query: string) => {
@@ -116,80 +221,20 @@ export const PartnerListScreen: React.FC<{ route?: any }> = ({ route: routeProp 
     }, 400);
   };
 
-  const handlePressScan = (scan: PartnerScan) => {
+  const handlePressScan = useCallback((scan: PartnerScan) => {
     navigation.navigate('PartnerScanDetail' as never, {
       scanId: scan.id,
       eventId,
     } as never);
-  };
+  }, [navigation, eventId]);
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-
-    if (diffMins < 1) return 'À l\'instant';
-    if (diffMins < 60) return `Il y a ${diffMins} min`;
-    if (diffHours < 24) return `Il y a ${diffHours}h`;
-
-    return date.toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  const renderScanItem = ({ item }: { item: PartnerScan }) => {
-    const attendee = item.attendee_data;
-    const fullName = `${attendee?.first_name || ''} ${attendee?.last_name || ''}`.trim() || 'Contact';
-    const initials = fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-
-    return (
-      <TouchableOpacity
-        style={[styles.scanCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
-        onPress={() => handlePressScan(item)}
-        activeOpacity={0.7}
-      >
-        <View style={styles.cardContent}>
-          {/* Avatar */}
-          <View style={[styles.avatar, { backgroundColor: theme.colors.brand[100] }]}>
-            <Text style={[styles.avatarText, { color: theme.colors.brand[600] }]}>{initials}</Text>
-          </View>
-
-          {/* Info */}
-          <View style={styles.cardInfo}>
-            <Text style={[styles.cardName, { color: theme.colors.text.primary }]} numberOfLines={1}>
-              {fullName}
-            </Text>
-            {attendee?.company && (
-              <Text style={[styles.cardCompany, { color: theme.colors.text.secondary }]} numberOfLines={1}>
-                {attendee.company}{attendee.job_title ? ` • ${attendee.job_title}` : ''}
-              </Text>
-            )}
-            {item.comment && (
-              <View style={styles.commentPreview}>
-                <Ionicons name="chatbubble-outline" size={12} color={theme.colors.text.tertiary} />
-                <Text style={[styles.commentText, { color: theme.colors.text.secondary }]} numberOfLines={1}>
-                  {item.comment}
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {/* Date + chevron */}
-          <View style={styles.cardRight}>
-            <Text style={[styles.cardDate, { color: theme.colors.text.tertiary }]}>
-              {formatDate(item.scanned_at)}
-            </Text>
-            <Ionicons name="chevron-forward" size={18} color={theme.colors.text.tertiary} />
-          </View>
-        </View>
-      </TouchableOpacity>
-    );
-  };
+  // renderScanItem mémoïsé → FlatList ne re-rende que les items dont les données changent
+  const renderScanItem = useCallback(
+    ({ item }: { item: PartnerScan }) => (
+      <ScanItem item={item} onPress={handlePressScan} theme={theme} styles={styles} />
+    ),
+    [theme, styles, handlePressScan]
+  );
 
   const renderEmptyState = () => {
     if (isLoading) return null;
@@ -231,8 +276,8 @@ export const PartnerListScreen: React.FC<{ route?: any }> = ({ route: routeProp 
     );
   };
 
-  // Badge compteur comme rightComponent du Header
-  const CountBadge = () => (
+  // useMemo au lieu d'un composant inline → évite le démontage/remontage à chaque render
+  const countBadge = useMemo(() => (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
       <View style={[styles.countBadge, { backgroundColor: theme.colors.brand[100] }]}>
         <Text style={[styles.countText, { color: theme.colors.brand[600] }]}>
@@ -241,7 +286,7 @@ export const PartnerListScreen: React.FC<{ route?: any }> = ({ route: routeProp 
       </View>
       <ProfileButton />
     </View>
-  );
+  ), [meta.total, theme, styles]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background, paddingTop: insets.top }]}>
@@ -249,7 +294,7 @@ export const PartnerListScreen: React.FC<{ route?: any }> = ({ route: routeProp 
       <Header
         title={eventName || 'Mes Contacts'}
         onBack={() => navigation.goBack()}
-        rightComponent={<CountBadge />}
+        rightComponent={countBadge}
       />
 
       {/* Search bar */}
@@ -301,8 +346,26 @@ export const PartnerListScreen: React.FC<{ route?: any }> = ({ route: routeProp 
           />
         }
         ListEmptyComponent={renderEmptyState}
+        ListFooterComponent={
+          isLoadingMore ? (
+            <View style={styles.loadingMoreContainer}>
+              <ActivityIndicator size="small" color={theme.colors.brand[600]} />
+            </View>
+          ) : scans.length > 0 && scans.length >= meta.total ? (
+            <Text style={[styles.endOfListText, { color: theme.colors.text.tertiary }]}>
+              {meta.total} contact{meta.total > 1 ? 's' : ''} au total
+            </Text>
+          ) : null
+        }
+        onEndReached={handleEndReached}
+        onEndReachedThreshold={0.3}
         showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={ItemSeparator}
+        // P3 — Optimisations de virtualisation
+        initialNumToRender={12}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        removeClippedSubviews
       />
 
       {/* Loading indicator (masqué pendant le debounce de recherche pour éviter le clignotement) */}
@@ -464,6 +527,15 @@ const createStyles = (theme: Theme) =>
     color: theme.colors.text.inverse,
     fontSize: theme.fontSize.sm,
     fontWeight: theme.fontWeight.semibold,
+  },
+  loadingMoreContainer: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  endOfListText: {
+    textAlign: 'center',
+    fontSize: theme.fontSize.xs,
+    paddingVertical: 20,
   },
 });
 

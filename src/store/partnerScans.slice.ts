@@ -156,7 +156,13 @@ const partnerScansSlice = createSlice({
       })
       .addCase(fetchPartnerScansThunk.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.scans = action.payload.data;
+        // Page 1 → reset (nouvelle recherche, refresh, focus)
+        // Page > 1 → append (infinite scroll)
+        if (action.meta.arg.page === 1) {
+          state.scans = action.payload.data;
+        } else {
+          state.scans.push(...action.payload.data);
+        }
         state.meta = action.payload.meta;
       })
       .addCase(fetchPartnerScansThunk.rejected, (state, action) => {
