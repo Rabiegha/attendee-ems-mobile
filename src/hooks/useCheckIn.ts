@@ -689,14 +689,13 @@ export const useCheckIn = (): UseCheckInResult => {
         // ── Resolver : le badge a-t-il besoin que le check-in soit fait d'abord ? ──
         if (preflight.requirements.needsCheckInFirst) {
           // Le template utilise des variables qui n'existent qu'après check-in.
-          // Mais si c'est uniquement pour la table ET qu'il n'y a pas de table_choice_id,
+          // Mais si c'est uniquement pour la table ET qu'il n'y a pas de table choices,
           // alors la table ne sera jamais assignée → inutile d'attendre.
-          const onlyNeedsTable =
-            preflight.requirements.needsTableAssignment &&
-            !preflight.requirements.needsCheckInFirst;
+          const hasTableChoices = (registration.table_choice_ids?.length ?? 0) > 0 ||
+            (registration.tableChoices?.length ?? 0) > 0;
 
-          if (preflight.requirements.needsTableAssignment && !registration.table_choice_id) {
-            console.log('[useCheckIn] ℹ️ Template has table var but no table_choice_id → parallel OK');
+          if (preflight.requirements.needsTableAssignment && !hasTableChoices) {
+            console.log('[useCheckIn] ℹ️ Template has table var but no table choices → parallel OK');
           } else {
             console.log('[useCheckIn] 📌 Template needs check-in data → check-in FIRST');
             needsCheckInFirst = true;
