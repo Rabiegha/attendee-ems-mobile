@@ -78,8 +78,8 @@ export const clearAuthTokens = async () => {
   }
 };
 
-// Fonction de refresh du token
-const refreshAccessToken = async (): Promise<string | null> => {
+// Fonction de refresh du token (exportée pour le bootstrap auth centralisé)
+export const refreshAccessToken = async (): Promise<string | null> => {
   try {
     console.log('[axiosClient] 🔄 refreshAccessToken - Starting...');
     const refreshToken = await secureStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);

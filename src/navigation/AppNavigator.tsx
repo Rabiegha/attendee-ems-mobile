@@ -3,11 +3,10 @@
  * Gère Auth → Events → EventInner
  */
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { checkAuthThunk } from '../store/auth.slice';
+import { useAppSelector } from '../store/hooks';
 import { AuthNavigator } from './AuthNavigator';
 import { EventsNavigator } from './EventsNavigator';
 import { EventInnerTabs } from './EventInnerTabs';
@@ -30,9 +29,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export const AppNavigator: React.FC = () => {
   const { theme, colorScheme } = useTheme();
-  const dispatch = useAppDispatch();
-  const { isAuthenticated } = useAppSelector((state) => state.auth);
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const { isAuthenticated, isRestoringAuth } = useAppSelector((state) => state.auth);
 
   // Créer un thème de navigation personnalisé basé sur notre thème
   const navigationTheme = useMemo(
@@ -68,21 +65,7 @@ export const AppNavigator: React.FC = () => {
     [colorScheme, theme]
   );
 
-  useEffect(() => {
-    checkAuthentication();
-  }, []);
-
-  const checkAuthentication = async () => {
-    try {
-      await dispatch(checkAuthThunk()).unwrap();
-    } catch (error) {
-      // Utilisateur non authentifié
-    } finally {
-      setIsCheckingAuth(false);
-    }
-  };
-
-  if (isCheckingAuth) {
+  if (isRestoringAuth) {
     return (
       <View style={{ flex: 1, justifyContent: 'center' as const, alignItems: 'center' as const, backgroundColor: theme.colors.background }}>
         <ActivityIndicator size="large" color={theme.colors.brand[600]} />

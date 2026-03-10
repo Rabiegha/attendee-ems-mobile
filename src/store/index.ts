@@ -18,7 +18,7 @@ import partnerScansReducer from './partnerScans.slice';
 const authPersistConfig = {
   key: 'auth',
   storage: AsyncStorage,
-  whitelist: ['user', 'organization', 'isAuthenticated'], // Sauvegarder uniquement ces champs
+  whitelist: ['user', 'organization'], // Ne PAS persister isAuthenticated — déterminé par restoreSessionThunk
 };
 
 // Créer le reducer persisté pour auth

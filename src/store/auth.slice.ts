@@ -4,7 +4,7 @@
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { authService } from '../api/backend/auth.service';
-import { setAuthTokens, clearAuthTokens } from '../api/backend/axiosClient';
+import { setAuthTokens, clearAuthTokens, refreshAccessToken } from '../api/backend/axiosClient';
 import { LoginCredentials, User, Organization } from '../types/auth';
 import { secureStorage, STORAGE_KEYS } from '../utils/storage';
 import axiosClient, { getAccessToken } from '../api/backend/axiosClient';
@@ -14,6 +14,7 @@ interface AuthState {
   user: User | null;
   organization: Organization | null;
   isAuthenticated: boolean;
+  isRestoringAuth: boolean;
   isLoading: boolean;
   error: string | null;
 }
@@ -22,6 +23,7 @@ const initialState: AuthState = {
   user: null,
   organization: null,
   isAuthenticated: false,
+  isRestoringAuth: true,
   isLoading: false,
   error: null,
 };
@@ -73,20 +75,91 @@ export const logoutThunk = createAsyncThunk('auth/logout', async (_, { rejectWit
   }
 });
 
-export const checkAuthThunk = createAsyncThunk('auth/checkAuth', async (_, { rejectWithValue }) => {
-  try {
-    const isAuth = await authService.isAuthenticated();
-    if (!isAuth) {
-      // Pas d'erreur, c'est normal de ne pas être authentifié au premier lancement
-      throw new Error('Not authenticated');
+// Guard pour empêcher les appels concurrents de restoreSession
+let _isSessionRestoreInProgress = false;
+
+/**
+ * Thunk centralisé de restauration de session.
+ * Remplace l'ancien checkAuthThunk + useTokenRestoration.
+ * 
+ * Flux :
+ * 1. Vérifie qu'un refresh token existe
+ * 2. Vérifie si l'access token en mémoire/storage est encore valide
+ * 3. Si non → refresh via refreshAccessToken() (centralisé dans axiosClient)
+ * 4. Charge le profil utilisateur frais
+ * 5. Seulement APRÈS tout ça → isAuthenticated = true
+ * 
+ * Options :
+ * - silent: true → ne pas afficher le splash (utilisé au retour foreground)
+ */
+export const restoreSessionThunk = createAsyncThunk(
+  'auth/restoreSession',
+  async (options: { silent?: boolean } | undefined, { dispatch, rejectWithValue }) => {
+    _isSessionRestoreInProgress = true;
+    try {
+      console.log('[AuthSlice] restoreSession - Starting...', { silent: options?.silent });
+
+      // 1. Vérifier qu'un refresh token existe en storage
+      const storedRefreshToken = await secureStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+      if (!storedRefreshToken) {
+        console.log('[AuthSlice] restoreSession - No refresh token found');
+        return rejectWithValue('No refresh token');
+      }
+
+      // 2. Vérifier si on a déjà un access token valide en mémoire
+      let currentToken = getAccessToken();
+
+      if (!currentToken) {
+        // Tenter de restaurer depuis le SecureStore
+        const storedToken = await secureStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+        const storedExpiresAt = await secureStorage.getItem(STORAGE_KEYS.TOKEN_EXPIRES_AT);
+
+        if (storedToken && storedExpiresAt) {
+          const expiresAt = parseInt(storedExpiresAt, 10);
+          const timeLeft = expiresAt - Date.now();
+
+          if (timeLeft > 5 * 60 * 1000) {
+            // Token encore valide pour >5 min → restaurer en mémoire
+            await setAuthTokens(storedToken, Math.round(timeLeft / 1000));
+            currentToken = storedToken;
+            console.log('[AuthSlice] restoreSession - Restored valid token from storage');
+          }
+        }
+      }
+
+      // 3. Si toujours pas de token valide, faire un refresh
+      if (!currentToken) {
+        console.log('[AuthSlice] restoreSession - No valid access token, refreshing...');
+        currentToken = await refreshAccessToken();
+        if (!currentToken) {
+          return rejectWithValue('Token refresh returned null');
+        }
+        console.log('[AuthSlice] restoreSession - Token refreshed successfully');
+      }
+
+      // 4. Charger le profil utilisateur frais
+      console.log('[AuthSlice] restoreSession - Fetching user profile...');
+      const profileResult = await dispatch(fetchUserProfileThunk()).unwrap();
+
+      console.log('[AuthSlice] restoreSession - Session restored successfully');
+      return profileResult;
+    } catch (error: any) {
+      console.error('[AuthSlice] restoreSession - Failed:', error.message || error);
+      return rejectWithValue(error.message || 'Session restoration failed');
+    } finally {
+      _isSessionRestoreInProgress = false;
     }
-    console.log('[AuthSlice] ✓ User is authenticated');
-    return isAuth;
-  } catch (error: any) {
-    // Silent fail - c'est normal de ne pas être authentifié au démarrage
-    return rejectWithValue(error.message);
+  },
+  {
+    condition: () => {
+      if (_isSessionRestoreInProgress) {
+        console.log('[AuthSlice] restoreSession - Already in progress, skipping');
+        return false;
+      }
+      return true;
+    },
   }
-});
+);
 
 export const fetchUserProfileThunk = createAsyncThunk(
   'auth/fetchUserProfile',
@@ -155,6 +228,7 @@ const authSlice = createSlice({
       state.user = null;
       state.organization = null;
       state.isAuthenticated = false;
+      state.isRestoringAuth = false;
       state.error = null;
     },
     setError: (state, action: PayloadAction<string>) => {
@@ -210,16 +284,27 @@ const authSlice = createSlice({
         state.isAuthenticated = false;
       });
 
-    // Check auth
+    // Restore session (bootstrap + foreground)
     builder
-      .addCase(checkAuthThunk.fulfilled, (state) => {
-        state.isAuthenticated = true;
+      .addCase(restoreSessionThunk.pending, (state, action) => {
+        // Ne montrer le splash que pour le bootstrap initial, pas les re-vérifications silencieuses
+        if (!action.meta.arg?.silent) {
+          state.isRestoringAuth = true;
+        }
       })
-      .addCase(checkAuthThunk.rejected, (state) => {
-        // Silent - pas d'erreur affichée, c'est normal de ne pas être authentifié
-        state.isAuthenticated = false;
-        state.user = null;
-        state.organization = null;
+      .addCase(restoreSessionThunk.fulfilled, (state) => {
+        state.isRestoringAuth = false;
+        // isAuthenticated, user, organization sont déjà mis à jour par fetchUserProfileThunk.fulfilled
+      })
+      .addCase(restoreSessionThunk.rejected, (state, action) => {
+        state.isRestoringAuth = false;
+        // Ne nettoyer l'état que pour le bootstrap initial
+        // Les re-vérifications silencieuses (foreground) gardent l'état actuel
+        if (!action.meta.arg?.silent) {
+          state.isAuthenticated = false;
+          state.user = null;
+          state.organization = null;
+        }
       });
 
     // Fetch user profile
