@@ -81,6 +81,9 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
     }, [])
   );
 
+  // Verrou synchrone anti-double scan (les state React sont async)
+  const scanLockRef = useRef(false);
+
   // Refs pour cleanup des timeouts au démontage
   const feedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -150,9 +153,12 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
 
   // Handler pour le scan du QR Code
   const handleBarCodeScanned = async (result: BarcodeScanningResult) => {
-    if (scanned || isProcessing) {
+    // Verrou synchrone : bloque instantanément les appels suivants
+    // (les state React sont async et ne suffisent pas contre le multi-fire de expo-camera)
+    if (scanLockRef.current || scanned || isProcessing) {
       return;
     }
+    scanLockRef.current = true;
 
     setScanned(true);
     setIsProcessing(true);
@@ -263,6 +269,7 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
   // Réinitialiser pour un nouveau scan
   const resetScan = () => {
     console.log('[PartnerScan] Resetting scan state');
+    scanLockRef.current = false;
     setScanned(false);
     setIsProcessing(false);
     setScanResult(null);
