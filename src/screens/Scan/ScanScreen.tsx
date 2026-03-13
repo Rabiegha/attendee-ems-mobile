@@ -28,6 +28,7 @@ import { sendPrintJob } from '../../api/printNode/printers.service';
 import { PrintJob } from '../../printing/types';
 import { getPrintMode } from '../../printing/preferences/printMode';
 import { addToPrintQueue } from '../../api/backend/printQueue.service';
+import { trackLocalPrintJob } from '../../printing/localPrintJobTracker';
 import { loadSelectedEmsPrinterThunk } from '../../store/emsPrinters.slice';
 import { setPrintStatus } from '../../store/printStatus.slice';
 
@@ -204,6 +205,7 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({ navigation: navProp, rou
           badgeUrl,
           compositeEmsPrinterName,
         );
+        trackLocalPrintJob(queueJob.id);
         console.log('[ScanScreen] Auto-print queued successfully:', queueJob.id, 'printer:', compositeEmsPrinterName);
       } else {
         // === MODE PRINTNODE ===

@@ -34,8 +34,6 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { FilterModal, FilterOptions } from '../../components/modals/FilterModal';
 import { useToast } from '../../contexts/ToastContext';
 import LottieView from 'lottie-react-native';
-import { Image } from 'react-native';
-import Icons from '../../assets/icons';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { AttendeeListItemSkeleton, SkeletonList } from '../../components/ui/Skeleton';
 import { ErrorState } from '../../components/ui/ErrorState';
@@ -50,7 +48,7 @@ const SEARCH_DEBOUNCE_DELAY = APP_CONFIG.SEARCH.DEBOUNCE_DELAY;
 
 // Hauteurs fixes des items pour optimiser le rendu
 const ITEM_HEIGHT_SWIPEABLE = 84; // Hauteur avec swipe (mode compact)
-const ITEM_HEIGHT_BUTTONS = 150;  // Hauteur avec boutons visibles
+const ITEM_HEIGHT_BUTTONS = 140;  // Hauteur avec boutons visibles (actions sous le nom)
 
 export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ navigation, route }) => {
   const { t } = useTranslation();
@@ -685,12 +683,11 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
 
             {/* Icône checked-in */}
             {(item.status === 'checked-in' || item.checked_in_at) && (
-              <View style={styles.checkedInIconContainer}>
-                <Image
-                  source={Icons.Accepted}
-                  style={styles.checkedInIcon}
-                  resizeMode="contain"
-                />
+              <View style={{
+                paddingRight: theme.spacing.md,
+                justifyContent: 'center',
+              }}>
+                <Ionicons name="checkmark-circle" size={22} color="#10B981" />
               </View>
             )}
             
@@ -699,7 +696,7 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
       );
     }
 
-    // Si showActions est true, afficher les boutons en colonne sous le contenu
+    // Si showActions est true, afficher les boutons sous le nom
     return (
       <TouchableOpacity
         style={[
@@ -722,28 +719,27 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
           ]}
         />
         
-        <View style={{ flex: 1, flexDirection: 'column' }}>
-            <View style={[styles.registrationContent, { paddingBottom: theme.spacing.lg }]}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <HighlightedText
-                  text={`${item.attendee.first_name} ${item.attendee.last_name}`}
-                  searchQuery={searchQuery}
-                  style={{
-                    fontSize: theme.fontSize.base,
-                    fontWeight: theme.fontWeight.medium,
-                    color: theme.colors.text.primary,
-                    flex: 1,
-                  }}
-                  highlightColor={theme.colors.brand[100]}
-                  highlightStyle={{
-                    backgroundColor: theme.colors.brand[100],
-                    fontWeight: theme.fontWeight.bold,
-                    color: theme.colors.brand[700],
-                  }}
-                />
-              </View>
+        <View style={{ flex: 1, flexDirection: 'column', justifyContent: 'space-between', paddingVertical: 12, alignSelf: 'stretch' }}>
+          {/* Ligne du haut : Nom + company + icône check-in à droite */}
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={styles.registrationContent}>
+              <HighlightedText
+                text={`${item.attendee.first_name} ${item.attendee.last_name}`}
+                searchQuery={searchQuery}
+                style={{
+                  fontSize: theme.fontSize.base,
+                  fontWeight: theme.fontWeight.medium,
+                  color: theme.colors.text.primary,
+                }}
+                highlightColor={theme.colors.brand[100]}
+                highlightStyle={{
+                  backgroundColor: theme.colors.brand[100],
+                  fontWeight: theme.fontWeight.bold,
+                  color: theme.colors.brand[700],
+                }}
+              />
               
-              {item.attendee.company && (
+              {item.attendee.company ? (
                 <HighlightedText
                   text={item.attendee.company}
                   searchQuery={searchQuery}
@@ -759,96 +755,80 @@ export const AttendeesListScreen: React.FC<AttendeesListScreenProps> = ({ naviga
                     color: theme.colors.brand[700],
                   }}
                 />
-              )}
+              ) : null}
             </View>
 
-          {/* Boutons d'action en colonne sous le contenu */}
-          <View style={{ 
-            flexDirection: 'row', 
-            gap: theme.spacing.xs, 
-            paddingRight: theme.spacing.md,
-            paddingTop: 0,
-            paddingBottom: theme.spacing.sm,
-            marginLeft: 'auto',
+            {/* Icône checked-in à droite (même que le mode swipe) */}
+            {isCheckedIn && (
+              <View style={{ paddingRight: theme.spacing.md, justifyContent: 'center' }}>
+                <Ionicons name="checkmark-circle" size={22} color="#10B981" />
+              </View>
+            )}
+          </View>
+
+          {/* Boutons d'action sous le nom */}
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 10,
+            paddingHorizontal: theme.spacing.md,
           }}>
-          <TouchableOpacity
-            style={{
-              width: 50,
-              height: 50,
-              backgroundColor: '#1F2937',
-              borderRadius: theme.radius.lg,
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderWidth: 1,
-              borderColor: '#374151',
-            }}
-            onPress={() => handleRegistrationPress(item)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="eye" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={{
-              width: 50,
-              height: 50,
-              backgroundColor: '#6366F1',
-              borderRadius: theme.radius.lg,
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderWidth: 1,
-              borderColor: '#818CF8',
-            }}
-            onPress={() => {
-              navigation.navigate('AttendeeDetails', {
-                registrationId: item.id,
-                eventId: currentEvent?.id,
-                startInEditMode: true,
-              });
-            }}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="pencil" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={{
-              width: 50,
-              height: 50,
-              backgroundColor: '#1F2937',
-              borderRadius: theme.radius.lg,
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderWidth: 1,
-              borderColor: '#374151',
-            }}
-            onPress={() => handlePrint(item)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="print" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={{
-              width: 50,
-              height: 50,
-              backgroundColor: isCheckedIn ? '#EF4444' : '#10B981',
-              borderRadius: theme.radius.lg,
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderWidth: 1,
-              borderColor: isCheckedIn ? '#F87171' : '#34D399',
-            }}
-            onPress={() => isCheckedIn ? handleUndoCheckIn(item) : handleCheckIn(item)}
-            activeOpacity={0.7}
-          >
-            <Ionicons 
-              name={isCheckedIn ? "arrow-undo" : "checkmark-circle"} 
-              size={24} 
-              color="#FFFFFF" 
-            />
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: '#3B82F620',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              onPress={() => handlePrint(item)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="print-outline" size={18} color="#3B82F6" />
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: theme.colors.brand[600] + '20',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              onPress={() => {
+                navigation.navigate('AttendeeDetails', {
+                  registrationId: item.id,
+                  eventId: currentEvent?.id,
+                  startInEditMode: true,
+                });
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="create-outline" size={18} color={theme.colors.brand[500]} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: isCheckedIn ? '#EF444420' : '#10B98120',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              onPress={() => isCheckedIn ? handleUndoCheckIn(item) : handleCheckIn(item)}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={isCheckedIn ? 'arrow-undo-outline' : 'checkmark-circle-outline'}
+                size={18}
+                color={isCheckedIn ? '#EF4444' : '#10B981'}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
       </TouchableOpacity>
     );

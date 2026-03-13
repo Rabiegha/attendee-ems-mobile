@@ -15,6 +15,7 @@ import { selectIsAuthenticated } from '../store/auth.slice';
 import { useAppDispatch } from '../store/hooks';
 import { setPrintStatus, PrintJobStatusType } from '../store/printStatus.slice';
 import { hapticSuccess, hapticError, hapticLight } from '../utils/haptics';
+import { isLocalPrintJob, removeLocalPrintJob } from '../printing/localPrintJobTracker';
 
 interface PrintJobUpdate {
   id: string;
@@ -36,6 +37,17 @@ export const usePrintJobNotifications = () => {
 
   const handlePrintJobUpdated = useCallback((data: PrintJobUpdate) => {
     console.log('[PrintNotif] Print job updated:', data.id, '→', data.status);
+
+    // Ignorer les notifications de jobs non initiés par cet appareil
+    if (!isLocalPrintJob(data.id)) {
+      console.log('[PrintNotif] Ignoring — job not initiated by this device');
+      return;
+    }
+
+    // Nettoyer le tracker quand le job est terminé
+    if (data.status === 'COMPLETED' || data.status === 'FAILED') {
+      removeLocalPrintJob(data.id);
+    }
 
     // Construire le nom de l'attendee
     const reg = data.registration;

@@ -19,6 +19,7 @@ import { hapticSuccess, hapticError, hapticLight } from '../utils/haptics';
 import axiosClient from '../api/backend/axiosClient';
 import { getPrintMode } from '../printing/preferences/printMode';
 import { addToPrintQueue, getEmsClientStatus } from '../api/backend/printQueue.service';
+import { trackLocalPrintJob } from '../printing/localPrintJobTracker';
 
 export type CheckInStatus = 'idle' | 'printing' | 'checkin' | 'undoing' | 'success' | 'error';
 
@@ -376,6 +377,7 @@ export const useCheckIn = (): UseCheckInResult => {
           compositeEmsPrinterName,
           isClientOnline ? undefined : 'OFFLINE',
         );
+        trackLocalPrintJob(queueJob.id);
         console.log('[useCheckIn] ✅ Job added to EMS print queue:', queueJob.id, 'printer:', compositeEmsPrinterName, isClientOnline ? '(client online)' : '(client OFFLINE - will retry on reconnect)');
         setProgress(80);
 
@@ -825,6 +827,7 @@ export const useCheckIn = (): UseCheckInResult => {
           compositeEmsPrinterName,
           isClientOnline ? undefined : 'OFFLINE',
         );
+        trackLocalPrintJob(queueJob.id);
         console.log('[useCheckIn] ✅ Job queued:', queueJob.id, isClientOnline ? '(online)' : '(offline)');
         setProgress(75);
 
