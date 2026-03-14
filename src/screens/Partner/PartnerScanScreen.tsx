@@ -3,7 +3,13 @@
  * Scanne le badge d'un participant → crée un PartnerScan via l'API
  */
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+} from "react";
 import {
   View,
   Text,
@@ -15,40 +21,62 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-} from 'react-native';
-import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
-import * as Haptics from 'expo-haptics';
-import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
-import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { createPartnerScanThunk, updatePartnerScanCommentThunk, deletePartnerScanThunk, clearPartnerScansError } from '../../store/partnerScans.slice';
-import { useTheme } from '../../theme/ThemeProvider';
-import type { Theme } from '../../theme';
-import { useTranslation } from 'react-i18next';
-import { ConfirmModal } from '../../components/modals/ConfirmModal';
+} from "react-native";
+import {
+  CameraView,
+  useCameraPermissions,
+  BarcodeScanningResult,
+} from "expo-camera";
+import * as Haptics from "expo-haptics";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  useNavigation,
+  useRoute,
+  RouteProp,
+  useFocusEffect,
+} from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
+import { useAppDispatch, useAppSelector } from "../../store/hooks";
+import {
+  createPartnerScanThunk,
+  updatePartnerScanCommentThunk,
+  deletePartnerScanThunk,
+  clearPartnerScansError,
+} from "../../store/partnerScans.slice";
+import { useTheme } from "../../theme/ThemeProvider";
+import type { Theme } from "../../theme";
+import { useTranslation } from "react-i18next";
+import { ConfirmModal } from "../../components/modals/ConfirmModal";
 
 type PartnerInnerTabsParamList = {
   PartnerScan: { eventId: string };
 };
 
-type PartnerScanRouteProp = RouteProp<PartnerInnerTabsParamList, 'PartnerScan'>;
+type PartnerScanRouteProp = RouteProp<PartnerInnerTabsParamList, "PartnerScan">;
 
-export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp }) => {
+export const PartnerScanScreen: React.FC<{ route?: any }> = ({
+  route: routeProp,
+}) => {
   const route = useRoute<PartnerScanRouteProp>();
   const navigation = useNavigation();
   const dispatch = useAppDispatch();
   const { theme } = useTheme();
   const { t } = useTranslation();
   const styles = useMemo(() => createStyles(theme), [theme]);
+  const insets = useSafeAreaInsets();
 
   const eventId = route.params?.eventId || routeProp?.params?.eventId;
-  const { isCreating, currentScan } = useAppSelector((state) => state.partnerScans);
+  const { isCreating, currentScan } = useAppSelector(
+    (state) => state.partnerScans,
+  );
 
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
-  const [feedbackType, setFeedbackType] = useState<'success' | 'error' | 'warning' | null>(null);
+  const [feedbackType, setFeedbackType] = useState<
+    "success" | "error" | "warning" | null
+  >(null);
   const fadeAnim = useState(new Animated.Value(0))[0];
   const scaleAnim = useState(new Animated.Value(0))[0];
 
@@ -59,7 +87,7 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
     company?: string;
     jobTitle?: string;
   } | null>(null);
-  const [comment, setComment] = useState('');
+  const [comment, setComment] = useState("");
   const [showCommentInput, setShowCommentInput] = useState(false);
   const [isFocused, setIsFocused] = useState(true);
 
@@ -78,7 +106,7 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
         // Screen blurred : désactiver la caméra pour libérer les ressources
         setIsFocused(false);
       };
-    }, [])
+    }, []),
   );
 
   // Verrou synchrone anti-double scan (les state React sont async)
@@ -101,18 +129,21 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
     const requestCameraPermission = async () => {
       try {
         if (!permission) {
-          console.log('[PartnerScan] Requesting camera permission...');
+          console.log("[PartnerScan] Requesting camera permission...");
           await requestPermission();
         }
       } catch (error) {
-        console.error('[PartnerScan] Error requesting permission:', error);
+        console.error("[PartnerScan] Error requesting permission:", error);
       }
     };
     requestCameraPermission();
   }, [permission, requestPermission]);
 
   // Afficher feedback animé
-  const showFeedback = (message: string, type: 'success' | 'error' | 'warning') => {
+  const showFeedback = (
+    message: string,
+    type: "success" | "error" | "warning",
+  ) => {
     setFeedbackMessage(message);
     setFeedbackType(type);
 
@@ -164,18 +195,19 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
     setIsProcessing(true);
 
     const data = result.data;
-    console.log('[PartnerScan] QR Code scanned:', { data, eventId });
+    console.log("[PartnerScan] QR Code scanned:", { data, eventId });
 
     // Vérifier que data est un UUID valide (registration_id)
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(data)) {
-      console.error('[PartnerScan] Invalid QR Code format:', data);
+      console.error("[PartnerScan] Invalid QR Code format:", data);
       try {
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
       } catch (e) {
-        console.warn('[PartnerScan] Haptics not available:', e);
+        console.warn("[PartnerScan] Haptics not available:", e);
       }
-      showFeedback('QR Code invalide', 'error');
+      showFeedback("QR Code invalide", "error");
       setIsProcessing(false);
       if (resetTimeoutRef.current) clearTimeout(resetTimeoutRef.current);
       resetTimeoutRef.current = setTimeout(() => resetScan(), 3000);
@@ -187,50 +219,51 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
         createPartnerScanThunk({
           event_id: eventId,
           registration_id: data,
-          comment: '',
-        })
+          comment: "",
+        }),
       ).unwrap();
 
-      console.log('[PartnerScan] Scan created:', scanResult.id);
+      console.log("[PartnerScan] Scan created:", scanResult.id);
 
       try {
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       } catch (e) {
-        console.warn('[PartnerScan] Haptics not available:', e);
+        console.warn("[PartnerScan] Haptics not available:", e);
       }
 
       const attendee = scanResult.attendee_data;
-      const fullName = `${attendee?.first_name || ''} ${attendee?.last_name || ''}`.trim();
+      const fullName =
+        `${attendee?.first_name || ""} ${attendee?.last_name || ""}`.trim();
 
       // Afficher les infos du contact scanné
       setScanResult({
-        name: fullName || 'Contact',
-        email: attendee?.email || '',
+        name: fullName || "Contact",
+        email: attendee?.email || "",
         company: attendee?.company,
         jobTitle: attendee?.job_title,
       });
       setShowCommentInput(true);
 
-      showFeedback(`✓ ${fullName} enregistré`, 'success');
+      showFeedback(`✓ ${fullName} enregistré`, "success");
     } catch (error: any) {
-      console.error('[PartnerScan] Create scan failed:', error);
+      console.error("[PartnerScan] Create scan failed:", error);
 
       try {
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
       } catch (e) {
-        console.warn('[PartnerScan] Haptics not available:', e);
+        console.warn("[PartnerScan] Haptics not available:", e);
       }
 
       // Le message est déjà traduit en français par le thunk
-      let errorMessage = 'Erreur lors du scan';
+      let errorMessage = "Erreur lors du scan";
       let isDuplicate = false;
       let existingScanId: string | null = null;
 
-      if (typeof error === 'object' && error !== null && error.isDuplicate) {
-        errorMessage = error.message || 'Contact déjà scanné';
+      if (typeof error === "object" && error !== null && error.isDuplicate) {
+        errorMessage = error.message || "Contact déjà scanné";
         isDuplicate = true;
         existingScanId = error.existingScanId || null;
-      } else if (typeof error === 'string') {
+      } else if (typeof error === "string") {
         errorMessage = error;
       } else if (error?.message) {
         errorMessage = error.message;
@@ -246,14 +279,15 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
       }
 
       // Déterminer le type de feedback (warning vs error)
-      const isWarning = errorMessage.includes('déjà scanné') ||
-        errorMessage.includes('non approuvée') ||
-        errorMessage.includes('autre événement');
+      const isWarning =
+        errorMessage.includes("déjà scanné") ||
+        errorMessage.includes("non approuvée") ||
+        errorMessage.includes("autre événement");
 
       if (isWarning) {
-        showFeedback(`⚠️ ${errorMessage}`, 'warning');
+        showFeedback(`⚠️ ${errorMessage}`, "warning");
       } else {
-        showFeedback(`❌ ${errorMessage}`, 'error');
+        showFeedback(`❌ ${errorMessage}`, "error");
       }
 
       // Nettoyer l'erreur du store pour ne pas polluer la liste
@@ -268,12 +302,12 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
 
   // Réinitialiser pour un nouveau scan
   const resetScan = () => {
-    console.log('[PartnerScan] Resetting scan state');
+    console.log("[PartnerScan] Resetting scan state");
     scanLockRef.current = false;
     setScanned(false);
     setIsProcessing(false);
     setScanResult(null);
-    setComment('');
+    setComment("");
     setShowCommentInput(false);
     setShowDuplicateModal(false);
     setDuplicateScanId(null);
@@ -296,8 +330,8 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
     if (scanId && eventId) {
       // Naviguer vers l'onglet "Mes Contacts", puis pousser le détail
       const nav = navigation as any;
-      nav.navigate('PartnerList', {
-        screen: 'PartnerScanDetail',
+      nav.navigate("PartnerList", {
+        screen: "PartnerScanDetail",
         params: { scanId, eventId },
       });
     }
@@ -306,9 +340,13 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
   // Gestion des permissions
   if (!permission) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <View
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
+      >
         <ActivityIndicator size="large" color={theme.colors.brand[600]} />
-        <Text style={[styles.loadingText, { color: theme.colors.text.primary }]}>
+        <Text
+          style={[styles.loadingText, { color: theme.colors.text.primary }]}
+        >
           Demande de permission caméra...
         </Text>
       </View>
@@ -317,22 +355,37 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
 
   if (!permission.granted) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <Ionicons name="alert-circle-outline" size={64} color={theme.colors.warning[500]} />
+      <View
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
+      >
+        <Ionicons
+          name="alert-circle-outline"
+          size={64}
+          color={theme.colors.warning[500]}
+        />
         <Text style={[styles.errorText, { color: theme.colors.text.primary }]}>
           Accès à la caméra refusé
         </Text>
-        <Text style={[styles.errorSubtext, { color: theme.colors.text.secondary }]}>
-          Veuillez autoriser l'accès à la caméra dans les paramètres de votre téléphone.
+        <Text
+          style={[styles.errorSubtext, { color: theme.colors.text.secondary }]}
+        >
+          Veuillez autoriser l'accès à la caméra dans les paramètres de votre
+          téléphone.
         </Text>
         <TouchableOpacity
-          style={[styles.permButton, { backgroundColor: theme.colors.brand[600] }]}
+          style={[
+            styles.permButton,
+            { backgroundColor: theme.colors.brand[600] },
+          ]}
           onPress={() => requestPermission()}
         >
           <Text style={styles.permButtonText}>Demander à nouveau</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.permButton, { marginTop: 12, backgroundColor: theme.colors.neutral[500] }]}
+          style={[
+            styles.permButton,
+            { marginTop: 12, backgroundColor: theme.colors.neutral[500] },
+          ]}
           onPress={() => navigation.goBack()}
         >
           <Text style={styles.permButtonText}>Retour</Text>
@@ -345,9 +398,12 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
   if (showCommentInput && scanResult) {
     return (
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={[styles.container, { backgroundColor: theme.colors.background, alignItems: 'stretch' }]}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={[
+          styles.container,
+          { backgroundColor: theme.colors.background, alignItems: "stretch" },
+        ]}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 20 : 0}
       >
         <ScrollView
           style={{ flex: 1 }}
@@ -356,42 +412,116 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
           bounces={false}
         >
           {/* Header success */}
-          <View style={[styles.successBanner, { backgroundColor: theme.colors.success[500] }]}>
-            <Ionicons name="checkmark-circle" size={40} color={theme.colors.text.inverse} />
+          <View
+            style={[
+              styles.successBanner,
+              {
+                backgroundColor: theme.colors.success[500],
+                paddingTop: insets.top + theme.spacing.xl,
+              },
+            ]}
+          >
+            <Ionicons
+              name="checkmark-circle"
+              size={40}
+              color={theme.colors.text.inverse}
+            />
             <Text style={styles.successTitle}>Contact enregistré !</Text>
           </View>
 
           {/* Contact info card */}
-          <View style={[styles.contactCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+          <View
+            style={[
+              styles.contactCard,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+              },
+            ]}
+          >
             <View style={styles.contactHeader}>
-              <View style={[styles.contactAvatar, { backgroundColor: theme.colors.brand[100] }]}>
-                <Text style={[styles.contactInitials, { color: theme.colors.brand[600] }]}>
-                  {scanResult.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+              <View
+                style={[
+                  styles.contactAvatar,
+                  { backgroundColor: theme.colors.brand[100] },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.contactInitials,
+                    { color: theme.colors.brand[600] },
+                  ]}
+                >
+                  {scanResult.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .substring(0, 2)
+                    .toUpperCase()}
                 </Text>
               </View>
               <View style={styles.contactInfo}>
-                <Text style={[styles.contactName, { color: theme.colors.text.primary }]}>
+                <Text
+                  style={[
+                    styles.contactName,
+                    { color: theme.colors.text.primary },
+                  ]}
+                >
                   {scanResult.name}
                 </Text>
-                <Text style={[styles.contactEmail, { color: theme.colors.text.secondary }]}>
+                <Text
+                  style={[
+                    styles.contactEmail,
+                    { color: theme.colors.text.secondary },
+                  ]}
+                >
                   {scanResult.email}
                 </Text>
                 {scanResult.company && (
-                  <Text style={[styles.contactDetail, { color: theme.colors.text.secondary }]}>
-                    🏢 {scanResult.company}
-                  </Text>
+                  <View style={styles.contactDetailRow}>
+                    <Ionicons
+                      name="business-outline"
+                      size={14}
+                      color={theme.colors.text.tertiary}
+                    />
+                    <Text
+                      style={[
+                        styles.contactDetail,
+                        { color: theme.colors.text.secondary },
+                      ]}
+                    >
+                      {scanResult.company}
+                    </Text>
+                  </View>
                 )}
                 {scanResult.jobTitle && (
-                  <Text style={[styles.contactDetail, { color: theme.colors.text.secondary }]}>
-                    💼 {scanResult.jobTitle}
-                  </Text>
+                  <View style={styles.contactDetailRow}>
+                    <Ionicons
+                      name="briefcase-outline"
+                      size={14}
+                      color={theme.colors.text.tertiary}
+                    />
+                    <Text
+                      style={[
+                        styles.contactDetail,
+                        { color: theme.colors.text.secondary },
+                      ]}
+                    >
+                      {scanResult.jobTitle}
+                    </Text>
+                  </View>
                 )}
               </View>
             </View>
 
             {/* Champ commentaire */}
             <View style={styles.commentSection}>
-              <Text style={[styles.commentLabel, { color: theme.colors.text.primary }]}>
+              <Text
+                style={[
+                  styles.commentLabel,
+                  { color: theme.colors.text.primary },
+                ]}
+              >
                 Ajouter une note (optionnel)
               </Text>
               <TextInput
@@ -418,47 +548,70 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
           <View style={styles.actionButtons}>
             {/* Enregistrer et voir la liste */}
             <TouchableOpacity
-              style={[styles.primaryButton, { backgroundColor: theme.colors.success[500] }]}
+              style={[
+                styles.primaryButton,
+                { backgroundColor: theme.colors.success[500] },
+              ]}
               onPress={() => {
                 if (comment.trim() && currentScan) {
                   dispatch(
                     updatePartnerScanCommentThunk({
                       id: currentScan.id,
                       comment: comment.trim(),
-                    })
+                    }),
                   );
                 }
                 resetScan();
                 // Toujours naviguer vers l'onglet "Ma Liste", quel que soit l'écran précédent
-                (navigation as any).navigate('PartnerList');
+                (navigation as any).navigate("PartnerList");
               }}
             >
-              <Ionicons name="list" size={20} color={theme.colors.text.inverse} style={{ marginRight: 8 }} />
-              <Text style={styles.primaryButtonText}>Enregistrer et voir mes contacts</Text>
+              <Ionicons
+                name="list"
+                size={20}
+                color={theme.colors.text.inverse}
+                style={{ marginRight: 8 }}
+              />
+              <Text style={styles.primaryButtonText}>
+                Enregistrer et voir mes contacts
+              </Text>
             </TouchableOpacity>
 
             {/* Enregistrer et continuer de scanner */}
             <TouchableOpacity
-              style={[styles.secondaryButton, { backgroundColor: theme.colors.brand[600] }]}
+              style={[
+                styles.secondaryButton,
+                { backgroundColor: theme.colors.brand[600] },
+              ]}
               onPress={() => {
                 if (comment.trim() && currentScan) {
                   dispatch(
                     updatePartnerScanCommentThunk({
                       id: currentScan.id,
                       comment: comment.trim(),
-                    })
+                    }),
                   );
                 }
                 resetScan();
               }}
             >
-              <Ionicons name="scan" size={20} color={theme.colors.text.inverse} style={{ marginRight: 8 }} />
-              <Text style={styles.primaryButtonText}>Enregistrer et scanner un autre</Text>
+              <Ionicons
+                name="scan"
+                size={20}
+                color={theme.colors.text.inverse}
+                style={{ marginRight: 8 }}
+              />
+              <Text style={styles.primaryButtonText}>
+                Enregistrer et scanner un autre
+              </Text>
             </TouchableOpacity>
 
             {/* Annuler le scan */}
             <TouchableOpacity
-              style={[styles.cancelButton, { borderColor: theme.colors.error[400] }]}
+              style={[
+                styles.cancelButton,
+                { borderColor: theme.colors.error[400] },
+              ]}
               onPress={() => {
                 // Supprimer le scan créé
                 if (currentScan) {
@@ -467,8 +620,20 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
                 resetScan();
               }}
             >
-              <Ionicons name="trash-outline" size={20} color={theme.colors.error[500]} style={{ marginRight: 8 }} />
-              <Text style={[styles.cancelButtonText, { color: theme.colors.error[500] }]}>Annuler ce scan</Text>
+              <Ionicons
+                name="trash-outline"
+                size={20}
+                color={theme.colors.error[500]}
+                style={{ marginRight: 8 }}
+              />
+              <Text
+                style={[
+                  styles.cancelButtonText,
+                  { color: theme.colors.error[500] },
+                ]}
+              >
+                Annuler ce scan
+              </Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -484,7 +649,7 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
           style={StyleSheet.absoluteFillObject}
           facing="back"
           barcodeScannerSettings={{
-            barcodeTypes: ['qr'],
+            barcodeTypes: ["qr"],
           }}
           onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
         />
@@ -502,8 +667,17 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
 
         {/* Header */}
         <View style={styles.header}>
-          <View style={[styles.headerBadge, { backgroundColor: theme.colors.brand[600] }]}>
-            <Ionicons name="people" size={20} color={theme.colors.text.inverse} />
+          <View
+            style={[
+              styles.headerBadge,
+              { backgroundColor: theme.colors.brand[600] },
+            ]}
+          >
+            <Ionicons
+              name="people"
+              size={20}
+              color={theme.colors.text.inverse}
+            />
             <Text style={styles.headerBadgeText}>Mode Partenaire</Text>
           </View>
         </View>
@@ -518,13 +692,16 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
 
           <Text style={styles.instructionText}>
             {isProcessing
-              ? 'Enregistrement en cours...'
-              : 'Scannez le badge d\'un participant'}
+              ? "Enregistrement en cours..."
+              : "Scannez le badge d'un participant"}
           </Text>
 
           {isProcessing && (
             <View style={styles.processingContainer}>
-              <ActivityIndicator size="large" color={theme.colors.text.inverse} />
+              <ActivityIndicator
+                size="large"
+                color={theme.colors.text.inverse}
+              />
             </View>
           )}
 
@@ -537,9 +714,9 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
                   opacity: fadeAnim,
                   transform: [{ scale: scaleAnim }],
                 },
-                feedbackType === 'success' && styles.feedbackSuccess,
-                feedbackType === 'error' && styles.feedbackError,
-                feedbackType === 'warning' && styles.feedbackWarning,
+                feedbackType === "success" && styles.feedbackSuccess,
+                feedbackType === "error" && styles.feedbackError,
+                feedbackType === "warning" && styles.feedbackWarning,
               ]}
             >
               <Text style={styles.feedbackText}>{feedbackMessage}</Text>
@@ -554,7 +731,7 @@ export const PartnerScanScreen: React.FC<{ route?: any }> = ({ route: routeProp 
             disabled={!scanned || isProcessing}
           >
             <Text style={styles.resetButtonText}>
-              {scanned ? 'Scanner à nouveau' : 'En attente de scan...'}
+              {scanned ? "Scanner à nouveau" : "En attente de scan..."}
             </Text>
           </TouchableOpacity>
         </View>
@@ -581,8 +758,8 @@ const createStyles = (theme: Theme) =>
     container: {
       flex: 1,
       backgroundColor: theme.colors.neutral[950],
-      justifyContent: 'center',
-      alignItems: 'center',
+      justifyContent: "center",
+      alignItems: "center",
     },
     cameraContainer: {
       flex: 1,
@@ -596,17 +773,17 @@ const createStyles = (theme: Theme) =>
       fontSize: theme.fontSize.xl,
       fontWeight: theme.fontWeight.bold,
       marginTop: theme.spacing.lg,
-      textAlign: 'center',
+      textAlign: "center",
     },
     errorSubtext: {
       fontSize: theme.fontSize.sm,
       marginTop: theme.spacing.sm,
-      textAlign: 'center',
-      paddingHorizontal: theme.spacing['3xl'],
+      textAlign: "center",
+      paddingHorizontal: theme.spacing["3xl"],
     },
     permButton: {
-      marginTop: theme.spacing['2xl'],
-      paddingHorizontal: theme.spacing['2xl'],
+      marginTop: theme.spacing["2xl"],
+      paddingHorizontal: theme.spacing["2xl"],
       paddingVertical: theme.spacing.md,
       borderRadius: theme.radius.md,
     },
@@ -617,19 +794,19 @@ const createStyles = (theme: Theme) =>
     },
     overlay: {
       ...StyleSheet.absoluteFillObject,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      backgroundColor: "rgba(0, 0, 0, 0.5)",
     },
     header: {
       paddingTop: 60,
       paddingHorizontal: theme.spacing.xl,
-      alignItems: 'center',
+      alignItems: "center",
     },
     headerBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       paddingHorizontal: theme.spacing.lg,
       paddingVertical: theme.spacing.sm,
-      borderRadius: theme.radius['2xl'],
+      borderRadius: theme.radius["2xl"],
       gap: theme.spacing.sm,
     },
     headerBadgeText: {
@@ -639,16 +816,16 @@ const createStyles = (theme: Theme) =>
     },
     scanAreaContainer: {
       flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
+      justifyContent: "center",
+      alignItems: "center",
     },
     scanArea: {
       width: 250,
       height: 250,
-      position: 'relative',
+      position: "relative",
     },
     corner: {
-      position: 'absolute',
+      position: "absolute",
       width: 40,
       height: 40,
       borderColor: theme.colors.text.inverse,
@@ -681,21 +858,21 @@ const createStyles = (theme: Theme) =>
       color: theme.colors.text.inverse,
       fontSize: theme.fontSize.lg,
       fontWeight: theme.fontWeight.semibold,
-      marginTop: theme.spacing['5xl'],
-      textAlign: 'center',
+      marginTop: theme.spacing["5xl"],
+      textAlign: "center",
     },
     processingContainer: {
-      marginTop: theme.spacing['2xl'],
+      marginTop: theme.spacing["2xl"],
     },
     feedbackContainer: {
-      position: 'absolute',
-      top: '50%',
-      left: '10%',
-      right: '10%',
+      position: "absolute",
+      top: "50%",
+      left: "10%",
+      right: "10%",
       paddingVertical: theme.spacing.xl,
-      paddingHorizontal: theme.spacing['2xl'],
+      paddingHorizontal: theme.spacing["2xl"],
       borderRadius: theme.radius.xl,
-      alignItems: 'center',
+      alignItems: "center",
       ...theme.shadows.lg,
     },
     feedbackSuccess: {
@@ -711,7 +888,7 @@ const createStyles = (theme: Theme) =>
       color: theme.colors.text.inverse,
       fontSize: theme.fontSize.lg,
       fontWeight: theme.fontWeight.bold,
-      textAlign: 'center',
+      textAlign: "center",
     },
     footer: {
       paddingBottom: 120,
@@ -720,9 +897,9 @@ const createStyles = (theme: Theme) =>
     resetButton: {
       backgroundColor: theme.colors.brand[500],
       paddingVertical: theme.spacing.lg,
-      paddingHorizontal: theme.spacing['3xl'],
+      paddingHorizontal: theme.spacing["3xl"],
       borderRadius: theme.radius.md,
-      alignItems: 'center',
+      alignItems: "center",
     },
     resetButtonDisabled: {
       backgroundColor: theme.colors.neutral[600],
@@ -734,29 +911,29 @@ const createStyles = (theme: Theme) =>
     },
     // Post-scan styles
     closeButton: {
-      position: 'absolute',
+      position: "absolute",
       top: 50,
       right: 20,
       width: 40,
       height: 40,
-      borderRadius: theme.radius['2xl'],
-      backgroundColor: 'rgba(0, 0, 0, 0.6)',
-      justifyContent: 'center',
-      alignItems: 'center',
+      borderRadius: theme.radius["2xl"],
+      backgroundColor: "rgba(0, 0, 0, 0.6)",
+      justifyContent: "center",
+      alignItems: "center",
       zIndex: 10,
     },
     postScanContainer: {
-      paddingBottom: theme.spacing['5xl'],
+      paddingBottom: theme.spacing["5xl"],
     },
     successBanner: {
-      paddingVertical: theme.spacing['2xl'],
+      paddingVertical: theme.spacing["2xl"],
       paddingHorizontal: theme.spacing.xl,
-      alignItems: 'center',
+      alignItems: "center",
       gap: theme.spacing.sm,
     },
     successTitle: {
       color: theme.colors.text.inverse,
-      fontSize: theme.fontSize['2xl'],
+      fontSize: theme.fontSize["2xl"],
       fontWeight: theme.fontWeight.bold,
     },
     contactCard: {
@@ -766,16 +943,16 @@ const createStyles = (theme: Theme) =>
       padding: theme.spacing.xl,
     },
     contactHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       gap: theme.spacing.lg,
     },
     contactAvatar: {
       width: 56,
       height: 56,
       borderRadius: 28,
-      justifyContent: 'center',
-      alignItems: 'center',
+      justifyContent: "center",
+      alignItems: "center",
     },
     contactInitials: {
       fontSize: theme.fontSize.xl,
@@ -794,6 +971,11 @@ const createStyles = (theme: Theme) =>
     },
     contactDetail: {
       fontSize: 13,
+      marginLeft: 6,
+    },
+    contactDetailRow: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
       marginTop: theme.spacing.xs,
     },
     commentSection: {
@@ -816,27 +998,27 @@ const createStyles = (theme: Theme) =>
       gap: theme.spacing.md,
     },
     primaryButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
       paddingVertical: theme.spacing.lg,
       borderRadius: theme.radius.lg,
     },
     secondaryButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
       paddingVertical: theme.spacing.lg,
       borderRadius: theme.radius.lg,
     },
     cancelButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
       paddingVertical: theme.spacing.lg,
       borderRadius: theme.radius.lg,
       borderWidth: 1.5,
-      backgroundColor: 'transparent',
+      backgroundColor: "transparent",
     },
     cancelButtonText: {
       fontSize: theme.fontSize.base,
@@ -848,4 +1030,3 @@ const createStyles = (theme: Theme) =>
       fontWeight: theme.fontWeight.semibold,
     },
   });
-

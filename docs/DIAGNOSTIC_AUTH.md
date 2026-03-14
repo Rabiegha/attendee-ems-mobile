@@ -1,137 +1,223 @@
 # Diagnostic Auth — Mobile App
 
-**Date :** 5 mars 2026
+**Date :** 5 mars 2026  
+**Dernière mise à jour :** 13 mars 2026
 
 ## Résumé
 
-Analyse complète du flux d'authentification de l'app mobile. Plusieurs problèmes identifiés pouvant causer des comportements bizarres (écrans vides, déconnexions inattendues, données obsolètes).
+Analyse complète du flux d'authentification de l'app mobile. Plusieurs problèmes critiques ont été **corrigés** depuis le diagnostic initial. Ce document trace l'état actuel et les problèmes résiduels.
 
 ---
 
-## Problèmes identifiés
+## Corrections appliquées depuis le 5 mars
 
-### 1. Race condition au démarrage (CRITIQUE)
+### ✅ FIX 1 : Race condition au démarrage — CORRIGÉ
 
-**Fichiers :** `src/navigation/AppNavigator.tsx` (L77), `src/hooks/useTokenRestoration.ts`
+**Problème initial :** Deux systèmes parallèles (`checkAuthThunk` + `useTokenRestoration`) restauraient l'auth au lancement, causant des 401.
 
-Il y a **2 systèmes parallèles** qui restaurent l'auth au lancement :
-
-- `AppNavigator` → `checkAuthThunk()` qui vérifie juste si un refresh token **existe** (booléen)
-- `AppContent` → `useTokenRestoration()` qui fait le vrai refresh + charge le profil
-
-**Problème :** `checkAuthThunk` met `isAuthenticated = true` dès qu'un refresh token existe en storage, **avant** que `useTokenRestoration` ait eu le temps de rafraîchir le token. L'utilisateur est redirigé vers l'app, mais le `accessToken` en mémoire est `null` → les premiers appels API échouent en 401.
-
-**Symptôme :** Écran vide ou erreurs au lancement, puis ça marche après quelques secondes.
-
----
-
-### 2. Désynchronisation Redux-Persist vs tokens réels (CRITIQUE)
-
-**Fichiers :** `src/store/index.ts` (L21-24), `src/api/backend/axiosClient.ts` (L45)
-
-Le store auth est persisté via AsyncStorage avec `whitelist: ['user', 'organization', 'isAuthenticated']`.
-
-**Problème :** Au redémarrage de l'app :
-1. Redux-persist restaure `isAuthenticated = true` + `user` + `organization` **instantanément**
-2. L'app affiche l'écran authentifié
-3. MAIS le `accessToken` en mémoire est `null` (la variable `let accessToken` dans axiosClient n'est pas persistée)
-4. L'intercepteur de requête essaie de restaurer depuis SecureStore → si le token est expiré, il tente un refresh
-5. Pendant ce temps, les requêtes partent sans token → 401
-
-**Symptôme :** Après avoir fermé et rouvert l'app, l'utilisateur voit brièvement les données puis tout plante ou les données disparaissent.
-
----
-
-### 3. Flag `isRestoring` global jamais reset en cas de crash (MOYEN)
-
-**Fichier :** `src/hooks/useTokenRestoration.ts` (L17)
-
-Le flag `isRestoring` est un **module global** :
+**Correction :** `checkAuthThunk` a été **supprimé**. Un nouveau `restoreSessionThunk` unique dans `auth.slice.ts` centralise tout le flux. `AppContent.tsx` l'appelle une seule fois au montage :
 
 ```typescript
-let isRestoring = false;
+// AppContent.tsx — Point d'entrée UNIQUE
+useEffect(() => {
+  dispatch(restoreSessionThunk());
+}, [dispatch]);
 ```
 
-Si la restauration crashe de manière inattendue (ex: l'app est tuée pendant le refresh), ce flag peut rester à `true` au prochain cycle, bloquant toute restauration.
+Le flux est maintenant séquentiel : refresh token → access token → fetchUserProfile → `isAuthenticated = true`.
 
-**Symptôme :** L'utilisateur reste bloqué sur l'écran de login alors qu'il a un refresh token valide.
+**Statut : ✅ RÉSOLU**
 
 ---
 
-### 4. `checkAuthThunk` ne vérifie pas la validité du token (MOYEN)
+### ✅ FIX 2 : Désynchronisation Redux-Persist vs tokens réels — CORRIGÉ
 
-**Fichier :** `src/api/backend/auth.service.ts` (L157-163)
+**Problème initial :** Redux-persist restaurait `isAuthenticated = true` instantanément, avant que le token soit en mémoire.
+
+**Correction :** `isAuthenticated` a été **retiré de la whitelist** de persistence. Seuls `user` et `organization` sont persistés (pour affichage cache) :
 
 ```typescript
-async isAuthenticated(): Promise<boolean> {
-    const refreshToken = await secureStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
-    return !!refreshToken; // Vérifie juste qu'il existe, pas qu'il est valide
+// store/index.ts
+const authPersistConfig = {
+  key: "auth",
+  storage: AsyncStorage,
+  whitelist: ["user", "organization"], // Ne PAS persister isAuthenticated
+};
+```
+
+Au redémarrage, `isAuthenticated` démarre à `false`. `AppNavigator` affiche un splash loader (`isRestoringAuth = true`) pendant que `restoreSessionThunk` fait son travail. `isAuthenticated` ne passe à `true` qu'après que `fetchUserProfileThunk` ait réussi.
+
+**Statut : ✅ RÉSOLU**
+
+---
+
+### ✅ FIX 3 : Flag `isRestoring` jamais reset — CORRIGÉ
+
+**Problème initial :** Le flag global `isRestoring` dans `useTokenRestoration.ts` pouvait rester bloqué.
+
+**Correction :** `useTokenRestoration` n'est **plus utilisé ni importé** nulle part (code mort). Le nouveau `restoreSessionThunk` utilise un guard `_isSessionRestoreInProgress` avec :
+
+- Un `finally` block qui le reset systématiquement
+- Un `condition` callback de `createAsyncThunk` qui empêche les appels concurrents
+
+```typescript
+// auth.slice.ts
+{
+  condition: () => {
+    if (_isSessionRestoreInProgress) return false;
+    return true;
+  };
 }
 ```
 
-Un refresh token **révoqué côté serveur** mais toujours en storage → l'app pense être authentifiée, redirige vers les events, puis tous les appels API échouent.
-
-**Symptôme :** L'utilisateur est connecté mais ne peut rien faire, toutes les pages sont vides.
+**Statut : ✅ RÉSOLU**
 
 ---
 
-### 5. Pas de `fetchUserProfileThunk` après le login initial dans `checkAuthThunk` (MOYEN)
+### ✅ FIX 4 : `checkAuthThunk` ne vérifie pas la validité — CORRIGÉ
 
-**Fichiers :** `src/store/auth.slice.ts` (L72-86)
+**Problème initial :** `checkAuthThunk` acceptait tout refresh token sans vérifier sa validité.
 
-`checkAuthThunk` met `isAuthenticated = true` mais **ne charge pas le profil utilisateur**. C'est `useTokenRestoration` qui s'en charge séparément. Si ce hook ne s'exécute pas ou échoue silencieusement, `state.auth.user` dépend uniquement du cache redux-persist (qui peut être obsolète).
+**Correction :** `checkAuthThunk` a été supprimé. `restoreSessionThunk` tente **réellement** un refresh ou une restauration du token, puis charge le profil. Si le refresh token est révoqué côté serveur, `refreshAccessToken()` échoue → `restoreSessionThunk.rejected` → `isAuthenticated = false` → redirection vers login.
 
-**Symptôme :** Le rôle ou les permissions de l'utilisateur sont incorrects après un changement côté admin.
-
----
-
-### 6. Double décodage JWT redondant (MINEUR)
-
-**Fichiers :** `src/api/backend/auth.service.ts` (L14), `src/utils/auth.ts` (L7)
-
-`decodeJwtPayload` est défini dans `auth.service.ts` ET `decodeJWT` dans `utils/auth.ts`. Les deux font la même chose. De plus, `isTokenExpired` / `isTokenExpiringSoon` de `utils/auth.ts` **ne sont utilisés nulle part** — le check d'expiration est fait manuellement dans `axiosClient.ts`.
+**Statut : ✅ RÉSOLU**
 
 ---
 
-### 7. Timeout de sécurité trop court (MINEUR)
+### ✅ FIX 5 : Pas de `fetchUserProfile` dans le flux d'auth — CORRIGÉ
 
-**Fichier :** `src/api/backend/axiosClient.ts` (L186)
+**Problème initial :** `checkAuthThunk` ne chargeait pas le profil utilisateur.
 
-Le timeout du refresh dans l'intercepteur de requête est de **10 secondes**. Sur un réseau mobile lent (3G, zones rurales), ça peut expirer avant la réponse, laissant `isRefreshing = true` bloqué alors que le refresh réussit côté serveur.
+**Correction :** `restoreSessionThunk` appelle `fetchUserProfileThunk()` en étape 4, après le token refresh. Le profil frais (rôle, permissions) est chargé **avant** que `isAuthenticated` passe à `true`.
 
----
-
-## Tableau récapitulatif
-
-| # | Problème | Sévérité | Symptôme probable |
-|---|---|---|---|
-| 1 | Race condition `checkAuthThunk` vs `useTokenRestoration` | **CRITIQUE** | Écran vide au lancement / erreurs 401 |
-| 2 | Redux-persist restaure `isAuthenticated` sans token valide | **CRITIQUE** | App "connectée" mais rien ne marche |
-| 3 | Flag `isRestoring` jamais reset si crash | MOYEN | Bloqué sur login |
-| 4 | `isAuthenticated()` ne vérifie pas la validité | MOYEN | Connecté mais tout vide |
-| 5 | Pas de `fetchUserProfile` dans `checkAuthThunk` | MOYEN | Rôle/permissions obsolètes |
-| 6 | Double décodage JWT | MINEUR | Code mort |
-| 7 | Timeout refresh trop court | MINEUR | Blocage réseau lent |
+**Statut : ✅ RÉSOLU**
 
 ---
 
-## Flux actuel (simplifié)
+## Problèmes résiduels
+
+### 🟡 6. Double décodage JWT redondant (MINEUR — code mort)
+
+**Fichiers :** `src/api/backend/auth.service.ts`, `src/utils/auth.ts`
+
+- `decodeJwtPayload` dans `auth.service.ts` — **utilisé** (pour extraire les permissions dans `fetchUserProfileThunk`)
+- `decodeJWT` + `isTokenExpired` + `isTokenExpiringSoon` + `getTokenExpiration` + `calculateExpiresAt` dans `utils/auth.ts` — **jamais importés nulle part**, code 100% mort
+
+**Recommandation :** Supprimer `src/utils/auth.ts` entièrement.
+
+---
+
+### 🟡 7. Timeout de sécurité refresh trop court dans l'intercepteur (MINEUR)
+
+**Fichier :** `src/api/backend/axiosClient.ts` (L176)
+
+Le timeout du refresh dans l'intercepteur de requête est toujours à **10 secondes** :
+
+```typescript
+const refreshTimeout = setTimeout(() => {
+  console.warn("[axiosClient] ⚠️ Refresh timeout, resetting flag");
+  isRefreshing = false;
+}, 10000);
+```
+
+Sur réseau lent (3G, zones rurales), le refresh peut prendre >10s → le timeout fire → `isRefreshing` reset → la requête part sans token → 401. En parallèle, la réponse du refresh arrive après et met à jour le token → état incohérent.
+
+**Recommandation :** Augmenter à 20-30s ou aligner sur le timeout Axios global (30s).
+
+---
+
+### 🟡 8. `useTokenRestoration.ts` est du code mort (MINEUR — nettoyage)
+
+**Fichier :** `src/hooks/useTokenRestoration.ts`
+
+Ce fichier de 197 lignes n'est **plus importé nulle part** depuis l'introduction de `restoreSessionThunk`. Il est toujours exporté dans `src/hooks/index.ts` de manière implicite mais jamais consommé.
+
+**Recommandation :** Supprimer le fichier.
+
+---
+
+### 🟠 9. Double refresh parallèle : `restoreSessionThunk` vs intercepteur Axios (MOYEN — NOUVEAU)
+
+**Fichiers :** `src/store/auth.slice.ts`, `src/api/backend/axiosClient.ts`
+
+Deux systèmes font du token refresh de manière **indépendante** :
+
+1. **`restoreSessionThunk`** (au boot + retour foreground) : appelle `refreshAccessToken()` si le token est expiré
+2. **L'intercepteur de requête Axios** (à chaque appel API) : vérifie l'expiration et appelle `refreshAccessToken()` si nécessaire
+
+**Scénario problématique :** Au retour foreground, `restoreSessionThunk({ silent: true })` lance un refresh. En même temps, un appel API en cours (WebSocket reconnect, etc.) déclenche aussi un refresh via l'intercepteur. Les deux appellent `/auth/refresh` quasi-simultanément avec le **même refresh token** → le backend génère un nouveau refresh token pour le premier appel → le deuxième échoue car l'ancien refresh token est invalidé.
+
+**Impact :** Déconnexion aléatoire au retour foreground.
+
+**Recommandation :** Ajouter un mutex partagé entre `restoreSessionThunk` et l'intercepteur, ou faire en sorte que l'intercepteur n'essaie pas de refresh si `restoreSessionThunk` est déjà en cours.
+
+---
+
+### 🟠 10. Requêtes events concurrentes pendant la restauration (MOYEN — NOUVEAU)
+
+**Fichiers :** `src/screens/Events/UpcomingEventsScreen.tsx`, `src/screens/Events/PastEventsScreen.tsx`, `src/screens/Events/OngoingEventsScreen.tsx`
+
+Dès que `isAuthenticated` passe à `true`, `AppNavigator` rend `EventsNavigator` → `EventsListScreen` (Material Top Tabs) → **les 3 onglets montent simultanément** et chacun dispatch un `fetchXxxEventsThunk({ page: 1 })`.
+
+Ces 3 requêtes passent toutes par l'intercepteur Axios qui fait pour chacune :
+
+1. Lire SecureStorage (async)
+2. Vérifier expiration
+3. Potentiellement await `refreshAccessToken()`
+
+Si le token vient d'être rafraîchi mais que `shouldRefresh` est encore `true` (token < 60s — le `TOKEN_REFRESH_THRESHOLD`), les 3 requêtes déclenchent chacune un check de refresh → seule la première passe, les autres voient `isRefreshing = true` mais il n'y a **pas de queue** dans l'intercepteur de requête (la queue n'existe que dans l'intercepteur de réponse pour les 401).
+
+**Impact :** Certaines requêtes passent sans header Authorization → 401 → chargement infini sur un ou deux onglets.
+
+**Recommandation :** Ajouter une file d'attente (promise queue) dans l'intercepteur de requête, similaire à `failedQueue` dans l'intercepteur de réponse.
+
+---
+
+## Tableau récapitulatif (mis à jour)
+
+| #   | Problème                                                 | Sévérité     | Statut         |
+| --- | -------------------------------------------------------- | ------------ | -------------- |
+| 1   | Race condition `checkAuthThunk` vs `useTokenRestoration` | **CRITIQUE** | ✅ Corrigé     |
+| 2   | Redux-persist restaure `isAuthenticated` sans token      | **CRITIQUE** | ✅ Corrigé     |
+| 3   | Flag `isRestoring` jamais reset si crash                 | MOYEN        | ✅ Corrigé     |
+| 4   | `isAuthenticated()` ne vérifie pas la validité           | MOYEN        | ✅ Corrigé     |
+| 5   | Pas de `fetchUserProfile` dans le flux d'auth            | MOYEN        | ✅ Corrigé     |
+| 6   | Double décodage JWT / code mort `utils/auth.ts`          | MINEUR       | 🟡 À nettoyer  |
+| 7   | Timeout refresh intercepteur trop court (10s)            | MINEUR       | 🟡 À corriger  |
+| 8   | `useTokenRestoration.ts` code mort (197 lignes)          | MINEUR       | 🟡 À supprimer |
+| 9   | Double refresh parallèle (thunk vs intercepteur)         | MOYEN        | 🟠 Nouveau     |
+| 10  | 3 requêtes events concurrentes sans queue intercepteur   | MOYEN        | 🟠 Nouveau     |
+
+---
+
+## Flux actuel (mis à jour — 13 mars 2026)
 
 ```
 App Launch
-├── Redux-Persist → restaure isAuthenticated=true, user, organization (instantané)
-├── AppNavigator → checkAuthThunk() → refreshToken existe ? → isAuthenticated=true
-│   └── Redirige vers Events (SANS token en mémoire)
-└── AppContent → useTokenRestoration()
-    └── refresh token → setAuthTokens() → fetchUserProfile() (ASYNC, peut arriver après)
+├── Redux-Persist → restaure user + organization (cache affichage)
+│   └── isAuthenticated = false (non persisté)
+│
+├── AppNavigator → voit isRestoringAuth=true → affiche Splash Loader
+│
+└── AppContent → dispatch(restoreSessionThunk())
+    ├── 1. Vérifie refresh token en SecureStore
+    ├── 2. Restaure access token depuis storage (si >5min restantes)
+    │   └── Sinon → await refreshAccessToken() via /auth/refresh
+    ├── 3. await fetchUserProfileThunk() → charge profil frais
+    └── 4. fulfilled → isAuthenticated=true, isRestoringAuth=false
+        └── AppNavigator → rend EventsNavigator
+            └── 3 onglets montent → 3 requêtes /events en parallèle ← ⚠️ Pb #10
 
-Résultat: Les premiers appels API partent sans accessToken → 401
+Retour Foreground:
+└── AppContent → dispatch(restoreSessionThunk({ silent: true }))
+    └── Même flux mais sans splash (silent=true)
+    └── ⚠️ Pb #9 : peut conflater avec un refresh de l'intercepteur
 ```
 
-## Recommandations
+## Recommandations restantes
 
-1. **Fusionner** `checkAuthThunk` et `useTokenRestoration` en un seul flux séquentiel
-2. **Ne pas mettre `isAuthenticated = true`** tant que le token n'est pas effectivement restauré en mémoire
-3. Ajouter un **état "restoring"** dans le store auth pour afficher un splash/loader pendant la restauration
-4. Utiliser les utilitaires `isTokenExpired` de `utils/auth.ts` (ou les supprimer)
-5. Augmenter le timeout de refresh à 20-30s pour les réseaux lents
+1. **Supprimer** `src/utils/auth.ts` (code mort)
+2. **Supprimer** `src/hooks/useTokenRestoration.ts` (code mort, 197 lignes)
+3. **Augmenter** le timeout refresh intercepteur de 10s → 25s
+4. **Ajouter un mutex partagé** entre `restoreSessionThunk` et l'intercepteur Axios pour éviter les double refresh
+5. **Ajouter une promise queue** dans l'intercepteur de requête pour sérialiser les requêtes pendant un refresh en cours (comme `failedQueue` existe déjà pour les 401 dans l'intercepteur de réponse)

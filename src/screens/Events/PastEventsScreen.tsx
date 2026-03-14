@@ -2,7 +2,7 @@
  * Écran des événements passés
  */
 
-import React, { useEffect, useCallback, useMemo } from 'react';
+import React, { useEffect, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -10,18 +10,21 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-} from 'react-native';
-import { useTranslation } from 'react-i18next';
-import { useTheme } from '../../theme/ThemeProvider';
-import { useAppSelector, useAppDispatch } from '../../store/hooks';
-import { fetchPastEventsThunk, fetchMorePastEventsThunk } from '../../store/events.slice';
-import { Event } from '../../types/event';
-import { formatDate, formatTime } from '../../utils/format';
-import { Card } from '../../components/ui/Card';
-import { EmptyState } from '../../components/ui/EmptyState';
-import { EventCardSkeleton, SkeletonList } from '../../components/ui/Skeleton';
-import { useEventSearch } from '../../contexts/EventSearchContext';
-import { getRouteForRole } from '../../navigation/roleRouteMap';
+} from "react-native";
+import { useTranslation } from "react-i18next";
+import { useTheme } from "../../theme/ThemeProvider";
+import { useAppSelector, useAppDispatch } from "../../store/hooks";
+import {
+  fetchPastEventsThunk,
+  fetchMorePastEventsThunk,
+} from "../../store/events.slice";
+import { Event } from "../../types/event";
+import { formatDate, formatTime } from "../../utils/format";
+import { Card } from "../../components/ui/Card";
+import { EmptyState } from "../../components/ui/EmptyState";
+import { EventCardSkeleton, SkeletonList } from "../../components/ui/Skeleton";
+import { useEventSearch } from "../../contexts/EventSearchContext";
+import { getRouteForRole } from "../../navigation/roleRouteMap";
 
 interface PastEventsScreenProps {
   navigation?: any;
@@ -29,7 +32,7 @@ interface PastEventsScreenProps {
   onRefresh?: () => void;
 }
 
-export const PastEventsScreen: React.FC<PastEventsScreenProps> = ({ 
+export const PastEventsScreen: React.FC<PastEventsScreenProps> = ({
   navigation,
   route,
   onRefresh,
@@ -40,54 +43,60 @@ export const PastEventsScreen: React.FC<PastEventsScreenProps> = ({
   const { theme } = useTheme();
   const dispatch = useAppDispatch();
   const { searchQuery } = useEventSearch();
-  
+
   // Déterminer le rôle de l'utilisateur pour la navigation conditionnelle
   const userRole = useAppSelector((state) => state.auth.user?.role);
 
   // Utiliser le state past
-  const { events, isLoading, isLoadingMore, hasMore } = useAppSelector((state) => state.events.past);
+  const { events, isLoading, isLoadingMore, hasMore, error } = useAppSelector(
+    (state) => state.events.past,
+  );
 
   // Filtrer les événements selon la recherche
   const filteredEvents = useMemo(() => {
     if (!searchQuery.trim()) {
       return events;
     }
-    
+
     const query = searchQuery.toLowerCase();
-    return events.filter(event => 
-      event.name.toLowerCase().includes(query) ||
-      event.description?.toLowerCase().includes(query) ||
-      event.location?.toLowerCase().includes(query)
+    return events.filter(
+      (event) =>
+        event.name.toLowerCase().includes(query) ||
+        event.description?.toLowerCase().includes(query) ||
+        event.location?.toLowerCase().includes(query),
     );
   }, [events, searchQuery]);
 
   // Mémoriser les callbacks pour éviter les re-rendus
-  const handleEventPress = useCallback((event: Event) => {
-    const target = getRouteForRole(userRole);
-    nav?.navigate(target, { eventId: event.id, eventName: event.name });
-  }, [nav, userRole]);
+  const handleEventPress = useCallback(
+    (event: Event) => {
+      const target = getRouteForRole(userRole);
+      nav?.navigate(target, { eventId: event.id, eventName: event.name });
+    },
+    [nav, userRole],
+  );
 
   const handleLoadMore = useCallback(() => {
     if (!isLoadingMore && hasMore && events.length > 0) {
-      console.log('[PastEventsScreen] Loading more events...');
+      console.log("[PastEventsScreen] Loading more events...");
       dispatch(fetchMorePastEventsThunk({}));
     }
   }, [isLoadingMore, hasMore, events.length, dispatch]);
 
   const handleRefresh = useCallback(() => {
-    console.log('[PastEventsScreen] Refreshing events...');
+    console.log("[PastEventsScreen] Refreshing events...");
     dispatch(fetchPastEventsThunk({ page: 1 }));
   }, [dispatch]);
 
   // Charger les événements au montage
   useEffect(() => {
-    console.log('[PastEventsScreen] Component mounted, loading events...');
+    console.log("[PastEventsScreen] Component mounted, loading events...");
     dispatch(fetchPastEventsThunk({ page: 1 }));
   }, [dispatch]); // Charger à chaque montage
 
   const renderFooter = useCallback(() => {
     if (!isLoadingMore) return null;
-    
+
     return (
       <View style={styles.footerLoader}>
         <ActivityIndicator size="small" color={theme.colors.brand[600]} />
@@ -100,7 +109,10 @@ export const PastEventsScreen: React.FC<PastEventsScreenProps> = ({
 
   const renderEventCard = ({ item }: { item: Event }) => {
     return (
-      <TouchableOpacity onPress={() => handleEventPress(item)} activeOpacity={0.7}>
+      <TouchableOpacity
+        onPress={() => handleEventPress(item)}
+        activeOpacity={0.7}
+      >
         <Card style={{ marginBottom: theme.spacing.md }}>
           <View style={styles.eventCard}>
             {/* Colonne de gauche : Date et heure */}
@@ -109,7 +121,7 @@ export const PastEventsScreen: React.FC<PastEventsScreenProps> = ({
                 style={{
                   fontSize: theme.fontSize.xs,
                   color: theme.colors.text.tertiary,
-                  textAlign: 'center',
+                  textAlign: "center",
                 }}
               >
                 {formatDate(item.startDate)}
@@ -119,7 +131,7 @@ export const PastEventsScreen: React.FC<PastEventsScreenProps> = ({
                   fontSize: theme.fontSize.sm,
                   color: theme.colors.text.primary,
                   fontWeight: theme.fontWeight.semibold,
-                  textAlign: 'center',
+                  textAlign: "center",
                   marginTop: 4,
                 }}
               >
@@ -129,11 +141,11 @@ export const PastEventsScreen: React.FC<PastEventsScreenProps> = ({
                 style={{
                   fontSize: theme.fontSize.xs,
                   color: theme.colors.text.tertiary,
-                  textAlign: 'center',
+                  textAlign: "center",
                   marginTop: 4,
                 }}
               >
-                {item.location || 'En ligne'}
+                {item.location || "En ligne"}
               </Text>
             </View>
 
@@ -149,11 +161,21 @@ export const PastEventsScreen: React.FC<PastEventsScreenProps> = ({
                 numberOfLines={2}
                 ellipsizeMode="tail"
               >
-                {item.name || 'Événement sans titre'}
+                {item.name || "Événement sans titre"}
               </Text>
 
-              <View style={[styles.pastBadge, { backgroundColor: theme.colors.text.tertiary, alignSelf: 'flex-start', paddingVertical: 2, marginBottom: 0 }]}>
-                <Text style={[styles.pastBadgeText, { color: '#FFFFFF' }]}>
+              <View
+                style={[
+                  styles.pastBadge,
+                  {
+                    backgroundColor: theme.colors.text.tertiary,
+                    alignSelf: "flex-start",
+                    paddingVertical: 2,
+                    marginBottom: 0,
+                  },
+                ]}
+              >
+                <Text style={[styles.pastBadgeText, { color: "#FFFFFF" }]}>
                   TERMINÉ
                 </Text>
               </View>
@@ -166,7 +188,7 @@ export const PastEventsScreen: React.FC<PastEventsScreenProps> = ({
                 }}
                 numberOfLines={1}
               >
-                {item.description || ' '}
+                {item.description || " "}
               </Text>
             </View>
           </View>
@@ -177,7 +199,9 @@ export const PastEventsScreen: React.FC<PastEventsScreenProps> = ({
 
   if (isLoading) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <View
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
+      >
         <SkeletonList
           count={5}
           renderItem={() => <EventCardSkeleton />}
@@ -187,18 +211,39 @@ export const PastEventsScreen: React.FC<PastEventsScreenProps> = ({
     );
   }
 
+  // P10: Afficher une erreur explicite au lieu d'une liste vide silencieuse
+  if (error && events.length === 0) {
+    return (
+      <View
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
+      >
+        <EmptyState
+          title={t("common.error", "Erreur")}
+          description={t(
+            "events.loadError",
+            "Impossible de charger les événements. Vérifiez votre connexion.",
+          )}
+          actionLabel={t("common.retry", "Réessayer")}
+          onAction={handleRefresh}
+        />
+      </View>
+    );
+  }
+
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+    >
       <FlatList
         data={filteredEvents}
         renderItem={renderEventCard}
         keyExtractor={(item, index) => item.id || `event-${index}`}
-        contentContainerStyle={{ padding: theme.spacing.lg }}
+        contentContainerStyle={{ padding: theme.spacing.lg, flexGrow: 1 }}
         ListEmptyComponent={
           <EmptyState
-            title={t('events.noPastEvents')}
-            description={t('events.noPastEventsDescription')}
-            actionLabel={t('common.refresh')}
+            title={t("events.noPastEvents")}
+            description={t("events.noPastEventsDescription")}
+            actionLabel={t("common.refresh")}
             onAction={handleRefresh}
           />
         }
@@ -223,34 +268,34 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   eventCard: {
-    flexDirection: 'row',
+    flexDirection: "row",
   },
   dateColumn: {
     marginRight: 16,
     minWidth: 80,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   eventInfo: {
     flex: 1,
-    justifyContent: 'flex-start',
+    justifyContent: "flex-start",
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingVertical: 48,
   },
   footerLoader: {
     paddingVertical: 20,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
   },
   pastBadge: {
     paddingHorizontal: 8,
@@ -259,7 +304,7 @@ const styles = StyleSheet.create({
   },
   pastBadgeText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: "700",
     letterSpacing: 0.5,
   },
 });

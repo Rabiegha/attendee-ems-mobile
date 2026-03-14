@@ -3,7 +3,7 @@
  * Affiche les infos du participant + commentaire éditable + suppression
  */
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -15,29 +15,29 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
-import { useAppDispatch, useAppSelector } from '../../store/hooks';
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
+import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import {
   updatePartnerScanCommentThunk,
   deletePartnerScanThunk,
   setCurrentScan,
-} from '../../store/partnerScans.slice';
-import { partnerScansService } from '../../api/backend/partnerScans.service';
-import { useTheme } from '../../theme/ThemeProvider';
-import type { Theme } from '../../theme';
-import { useTranslation } from 'react-i18next';
-import { PartnerScan } from '../../types/partnerScan';
-import { Header } from '../../components/ui/Header';
-import { useToast } from '../../contexts/ToastContext';
+} from "../../store/partnerScans.slice";
+import { partnerScansService } from "../../api/backend/partnerScans.service";
+import { useTheme } from "../../theme/ThemeProvider";
+import type { Theme } from "../../theme";
+import { useTranslation } from "react-i18next";
+import { PartnerScan } from "../../types/partnerScan";
+import { Header } from "../../components/ui/Header";
+import { useToast } from "../../contexts/ToastContext";
 
 type ParamList = {
   PartnerScanDetail: { scanId: string; eventId: string };
 };
 
-type DetailRouteProp = RouteProp<ParamList, 'PartnerScanDetail'>;
+type DetailRouteProp = RouteProp<ParamList, "PartnerScanDetail">;
 
 export const PartnerScanDetailScreen: React.FC = () => {
   const route = useRoute<DetailRouteProp>();
@@ -53,12 +53,13 @@ export const PartnerScanDetailScreen: React.FC = () => {
   const { scans, currentScan } = useAppSelector((state) => state.partnerScans);
 
   const [scan, setScan] = useState<PartnerScan | null>(null);
-  const [comment, setComment] = useState('');
+  const [comment, setComment] = useState("");
   const [isEditingComment, setIsEditingComment] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const isDeletedRef = useRef(false);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   // Charger le scan depuis le store ou l'API
   useEffect(() => {
@@ -68,7 +69,7 @@ export const PartnerScanDetailScreen: React.FC = () => {
     const existingInStore = scans.find((s) => s.id === scanId);
     if (existingInStore) {
       setScan(existingInStore);
-      setComment(existingInStore.comment || '');
+      setComment(existingInStore.comment || "");
       setIsLoading(false);
     } else {
       // Fallback: charger depuis l'API
@@ -81,10 +82,10 @@ export const PartnerScanDetailScreen: React.FC = () => {
       setIsLoading(true);
       const result = await partnerScansService.getScan(scanId);
       setScan(result);
-      setComment(result.comment || '');
+      setComment(result.comment || "");
     } catch (error) {
-      console.error('[PartnerScanDetail] Failed to load scan:', error);
-      Alert.alert('Erreur', 'Impossible de charger les détails du contact.');
+      console.error("[PartnerScanDetail] Failed to load scan:", error);
+      Alert.alert("Erreur", "Impossible de charger les détails du contact.");
       navigation.goBack();
     } finally {
       setIsLoading(false);
@@ -99,11 +100,11 @@ export const PartnerScanDetailScreen: React.FC = () => {
         updatePartnerScanCommentThunk({
           id: scan.id,
           comment: comment.trim(),
-        })
+        }),
       ).unwrap();
       setIsEditingComment(false);
     } catch (error: any) {
-      Alert.alert('Erreur', 'Impossible de sauvegarder le commentaire.');
+      Alert.alert("Erreur", "Impossible de sauvegarder le commentaire.");
     } finally {
       setIsSaving(false);
     }
@@ -112,40 +113,40 @@ export const PartnerScanDetailScreen: React.FC = () => {
   const handleDelete = () => {
     if (!scan) return;
     Alert.alert(
-      'Supprimer ce contact ?',
-      'Cette action est irréversible. Le scan sera définitivement supprimé.',
+      "Supprimer ce contact ?",
+      "Cette action est irréversible. Le scan sera définitivement supprimé.",
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: "Annuler", style: "cancel" },
         {
-          text: 'Supprimer',
-          style: 'destructive',
+          text: "Supprimer",
+          style: "destructive",
           onPress: async () => {
             setIsDeleting(true);
             isDeletedRef.current = true; // Empêcher le useEffect de recharger
             try {
               await dispatch(deletePartnerScanThunk(scan.id)).unwrap();
-              toast.success('Contact supprimé');
+              toast.success("Contact supprimé");
               navigation.goBack();
             } catch (error: any) {
               isDeletedRef.current = false; // Rétablir si l'appel échoue
-              Alert.alert('Erreur', 'Impossible de supprimer le contact.');
+              Alert.alert("Erreur", "Impossible de supprimer le contact.");
               setIsDeleting(false);
             }
           },
         },
-      ]
+      ],
     );
   };
 
   const formatFullDate = (dateStr: string) => {
     const date = new Date(dateStr);
-    return date.toLocaleDateString('fr-FR', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+    return date.toLocaleDateString("fr-FR", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
@@ -159,14 +160,23 @@ export const PartnerScanDetailScreen: React.FC = () => {
       {isDeleting ? (
         <ActivityIndicator size="small" color={theme.colors.error[500]} />
       ) : (
-        <Ionicons name="trash-outline" size={20} color={theme.colors.error[500]} />
+        <Ionicons
+          name="trash-outline"
+          size={20}
+          color={theme.colors.error[500]}
+        />
       )}
     </TouchableOpacity>
   );
 
   if (isLoading) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.colors.background, paddingTop: insets.top }]}>
+      <View
+        style={[
+          styles.container,
+          { backgroundColor: theme.colors.background, paddingTop: insets.top },
+        ]}
+      >
         <Header title="Détail du contact" onBack={() => navigation.goBack()} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.brand[600]} />
@@ -177,23 +187,42 @@ export const PartnerScanDetailScreen: React.FC = () => {
 
   if (!scan) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.colors.background, paddingTop: insets.top }]}>
+      <View
+        style={[
+          styles.container,
+          { backgroundColor: theme.colors.background, paddingTop: insets.top },
+        ]}
+      >
         <Header title="Détail du contact" onBack={() => navigation.goBack()} />
         <View style={styles.loadingContainer}>
-          <Text style={{ color: theme.colors.text.secondary }}>Contact non trouvé</Text>
+          <Text style={{ color: theme.colors.text.secondary }}>
+            Contact non trouvé
+          </Text>
         </View>
       </View>
     );
   }
 
   const attendee = scan.attendee_data;
-  const fullName = `${attendee?.first_name || ''} ${attendee?.last_name || ''}`.trim() || 'Contact';
-  const initials = fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+  const fullName =
+    `${attendee?.first_name || ""} ${attendee?.last_name || ""}`.trim() ||
+    "Contact";
+  const initials = fullName
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .substring(0, 2)
+    .toUpperCase();
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background, paddingTop: insets.top }]}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: theme.colors.background, paddingTop: insets.top },
+      ]}
+    >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
       >
         {/* Header partagé */}
@@ -204,19 +233,44 @@ export const PartnerScanDetailScreen: React.FC = () => {
         />
 
         <ScrollView
+          ref={scrollViewRef}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           {/* Contact card */}
-          <View style={[styles.contactCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+          <View
+            style={[
+              styles.contactCard,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+              },
+            ]}
+          >
             {/* Avatar + Nom */}
             <View style={styles.contactHeader}>
-              <View style={[styles.avatar, { backgroundColor: theme.colors.brand[100] }]}>
-                <Text style={[styles.avatarText, { color: theme.colors.brand[600] }]}>
+              <View
+                style={[
+                  styles.avatar,
+                  { backgroundColor: theme.colors.brand[100] },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.avatarText,
+                    { color: theme.colors.brand[600] },
+                  ]}
+                >
                   {initials}
                 </Text>
               </View>
-              <Text style={[styles.contactName, { color: theme.colors.text.primary }]}>
+              <Text
+                style={[
+                  styles.contactName,
+                  { color: theme.colors.text.primary },
+                ]}
+              >
                 {fullName}
               </Text>
             </View>
@@ -225,40 +279,85 @@ export const PartnerScanDetailScreen: React.FC = () => {
             <View style={styles.infoSection}>
               {attendee?.email && (
                 <View style={styles.infoRow}>
-                  <Ionicons name="mail-outline" size={18} color={theme.colors.text.tertiary} />
-                  <Text style={[styles.infoText, { color: theme.colors.text.primary }]}>
+                  <Ionicons
+                    name="mail-outline"
+                    size={18}
+                    color={theme.colors.text.tertiary}
+                  />
+                  <Text
+                    style={[
+                      styles.infoText,
+                      { color: theme.colors.text.primary },
+                    ]}
+                  >
                     {attendee.email}
                   </Text>
                 </View>
               )}
               {attendee?.phone && (
                 <View style={styles.infoRow}>
-                  <Ionicons name="call-outline" size={18} color={theme.colors.text.tertiary} />
-                  <Text style={[styles.infoText, { color: theme.colors.text.primary }]}>
+                  <Ionicons
+                    name="call-outline"
+                    size={18}
+                    color={theme.colors.text.tertiary}
+                  />
+                  <Text
+                    style={[
+                      styles.infoText,
+                      { color: theme.colors.text.primary },
+                    ]}
+                  >
                     {attendee.phone}
                   </Text>
                 </View>
               )}
               {attendee?.company && (
                 <View style={styles.infoRow}>
-                  <Ionicons name="business-outline" size={18} color={theme.colors.text.tertiary} />
-                  <Text style={[styles.infoText, { color: theme.colors.text.primary }]}>
+                  <Ionicons
+                    name="business-outline"
+                    size={18}
+                    color={theme.colors.text.tertiary}
+                  />
+                  <Text
+                    style={[
+                      styles.infoText,
+                      { color: theme.colors.text.primary },
+                    ]}
+                  >
                     {attendee.company}
                   </Text>
                 </View>
               )}
               {attendee?.job_title && (
                 <View style={styles.infoRow}>
-                  <Ionicons name="briefcase-outline" size={18} color={theme.colors.text.tertiary} />
-                  <Text style={[styles.infoText, { color: theme.colors.text.primary }]}>
+                  <Ionicons
+                    name="briefcase-outline"
+                    size={18}
+                    color={theme.colors.text.tertiary}
+                  />
+                  <Text
+                    style={[
+                      styles.infoText,
+                      { color: theme.colors.text.primary },
+                    ]}
+                  >
                     {attendee.job_title}
                   </Text>
                 </View>
               )}
               {attendee?.country && (
                 <View style={styles.infoRow}>
-                  <Ionicons name="globe-outline" size={18} color={theme.colors.text.tertiary} />
-                  <Text style={[styles.infoText, { color: theme.colors.text.primary }]}>
+                  <Ionicons
+                    name="globe-outline"
+                    size={18}
+                    color={theme.colors.text.tertiary}
+                  />
+                  <Text
+                    style={[
+                      styles.infoText,
+                      { color: theme.colors.text.primary },
+                    ]}
+                  >
                     {attendee.country}
                   </Text>
                 </View>
@@ -267,34 +366,82 @@ export const PartnerScanDetailScreen: React.FC = () => {
           </View>
 
           {/* Date du scan */}
-          <View style={[styles.metaCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+          <View
+            style={[
+              styles.metaCard,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+              },
+            ]}
+          >
             <View style={styles.infoRow}>
-              <Ionicons name="time-outline" size={18} color={theme.colors.text.tertiary} />
-              <Text style={[styles.infoLabel, { color: theme.colors.text.secondary }]}>
+              <Ionicons
+                name="time-outline"
+                size={18}
+                color={theme.colors.text.tertiary}
+              />
+              <Text
+                style={[
+                  styles.infoLabel,
+                  { color: theme.colors.text.secondary },
+                ]}
+              >
                 Scanné le
               </Text>
             </View>
-            <Text style={[styles.dateText, { color: theme.colors.text.primary }]}>
+            <Text
+              style={[styles.dateText, { color: theme.colors.text.primary }]}
+            >
               {formatFullDate(scan.scanned_at)}
             </Text>
           </View>
 
           {/* Commentaire / Note */}
-          <View style={[styles.commentCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+          <View
+            style={[
+              styles.commentCard,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+              },
+            ]}
+          >
             <View style={styles.commentHeader}>
               <View style={styles.commentHeaderLeft}>
-                <Ionicons name="chatbubble-outline" size={18} color={theme.colors.text.tertiary} />
-                <Text style={[styles.commentTitle, { color: theme.colors.text.primary }]}>
+                <Ionicons
+                  name="chatbubble-outline"
+                  size={18}
+                  color={theme.colors.text.tertiary}
+                />
+                <Text
+                  style={[
+                    styles.commentTitle,
+                    { color: theme.colors.text.primary },
+                  ]}
+                >
                   Note
                 </Text>
               </View>
               {!isEditingComment && (
                 <TouchableOpacity
-                  style={[styles.editButton, { backgroundColor: theme.colors.brand[50] }]}
+                  style={[
+                    styles.editButton,
+                    { backgroundColor: theme.colors.brand[50] },
+                  ]}
                   onPress={() => setIsEditingComment(true)}
                 >
-                  <Ionicons name="pencil" size={16} color={theme.colors.brand[600]} />
-                  <Text style={[styles.editButtonText, { color: theme.colors.brand[600] }]}>
+                  <Ionicons
+                    name="pencil"
+                    size={16}
+                    color={theme.colors.brand[600]}
+                  />
+                  <Text
+                    style={[
+                      styles.editButtonText,
+                      { color: theme.colors.brand[600] },
+                    ]}
+                  >
                     Modifier
                   </Text>
                 </TouchableOpacity>
@@ -320,26 +467,45 @@ export const PartnerScanDetailScreen: React.FC = () => {
                   numberOfLines={4}
                   textAlignVertical="top"
                   autoFocus
+                  onFocus={() => {
+                    setTimeout(() => {
+                      scrollViewRef.current?.scrollToEnd({ animated: true });
+                    }, 300);
+                  }}
                 />
                 <View style={styles.commentActions}>
                   <TouchableOpacity
-                    style={[styles.cancelButton, { borderColor: theme.colors.border }]}
+                    style={[
+                      styles.cancelButton,
+                      { borderColor: theme.colors.border },
+                    ]}
                     onPress={() => {
-                      setComment(scan.comment || '');
+                      setComment(scan.comment || "");
                       setIsEditingComment(false);
                     }}
                   >
-                    <Text style={[styles.cancelButtonText, { color: theme.colors.text.secondary }]}>
+                    <Text
+                      style={[
+                        styles.cancelButtonText,
+                        { color: theme.colors.text.secondary },
+                      ]}
+                    >
                       Annuler
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.saveButton, { backgroundColor: theme.colors.brand[600] }]}
+                    style={[
+                      styles.saveButton,
+                      { backgroundColor: theme.colors.brand[600] },
+                    ]}
                     onPress={handleSaveComment}
                     disabled={isSaving}
                   >
                     {isSaving ? (
-                      <ActivityIndicator size="small" color={theme.colors.text.inverse} />
+                      <ActivityIndicator
+                        size="small"
+                        color={theme.colors.text.inverse}
+                      />
                     ) : (
                       <Text style={styles.saveButtonText}>Enregistrer</Text>
                     )}
@@ -347,11 +513,17 @@ export const PartnerScanDetailScreen: React.FC = () => {
                 </View>
               </View>
             ) : (
-              <Text style={[
-                styles.commentValue,
-                { color: comment ? theme.colors.text.primary : theme.colors.text.tertiary }
-              ]}>
-                {comment || 'Aucune note ajoutée'}
+              <Text
+                style={[
+                  styles.commentValue,
+                  {
+                    color: comment
+                      ? theme.colors.text.primary
+                      : theme.colors.text.tertiary,
+                  },
+                ]}
+              >
+                {comment || "Aucune note ajoutée"}
               </Text>
             )}
           </View>
@@ -363,147 +535,146 @@ export const PartnerScanDetailScreen: React.FC = () => {
 
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  deleteButton: {
-    padding: 8,
-    borderRadius: 8,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 40,
-    gap: 16,
-  },
-  contactCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 20,
-  },
-  contactHeader: {
-    alignItems: 'center',
-    marginBottom: 20,
-    gap: 12,
-  },
-  avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: {
-    fontSize: 28,
-    fontWeight: '700',
-  },
-  contactName: {
-    fontSize: 22,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  infoSection: {
-    gap: 12,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  infoText: {
-    fontSize: 15,
-    flex: 1,
-  },
-  infoLabel: {
-    fontSize: 14,
-  },
-  metaCard: {
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 16,
-    gap: 8,
-  },
-  dateText: {
-    fontSize: 15,
-    fontWeight: '500',
-    marginLeft: 28,
-  },
-  commentCard: {
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 16,
-  },
-  commentHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  commentHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  commentTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  editButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  editButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  commentEditContainer: {
-    gap: 12,
-  },
-  commentInput: {
-    borderWidth: 2,
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 14,
-    minHeight: 100,
-  },
-  commentActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 8,
-  },
-  cancelButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  cancelButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  saveButton: {
-    paddingHorizontal: theme.spacing.xl,
-    paddingVertical: 10,
-    borderRadius: theme.radius.md,
-    minWidth: 100,
-    alignItems: 'center',
-  },
-  saveButtonText: {
-    color: theme.colors.text.inverse,
-    fontSize: theme.fontSize.sm,
-    fontWeight: theme.fontWeight.semibold,
-  },
-  commentValue: {
-    fontSize: 14,
-    lineHeight: 22,
-  },
-});
-
+    container: {
+      flex: 1,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    deleteButton: {
+      padding: 8,
+      borderRadius: 8,
+    },
+    scrollContent: {
+      padding: 16,
+      paddingBottom: 120,
+      gap: 16,
+    },
+    contactCard: {
+      borderRadius: 16,
+      borderWidth: 1,
+      padding: 20,
+    },
+    contactHeader: {
+      alignItems: "center",
+      marginBottom: 20,
+      gap: 12,
+    },
+    avatar: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    avatarText: {
+      fontSize: 28,
+      fontWeight: "700",
+    },
+    contactName: {
+      fontSize: 22,
+      fontWeight: "700",
+      textAlign: "center",
+    },
+    infoSection: {
+      gap: 12,
+    },
+    infoRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+    },
+    infoText: {
+      fontSize: 15,
+      flex: 1,
+    },
+    infoLabel: {
+      fontSize: 14,
+    },
+    metaCard: {
+      borderRadius: 12,
+      borderWidth: 1,
+      padding: 16,
+      gap: 8,
+    },
+    dateText: {
+      fontSize: 15,
+      fontWeight: "500",
+      marginLeft: 28,
+    },
+    commentCard: {
+      borderRadius: 12,
+      borderWidth: 1,
+      padding: 16,
+    },
+    commentHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 12,
+    },
+    commentHeaderLeft: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
+    commentTitle: {
+      fontSize: 16,
+      fontWeight: "600",
+    },
+    editButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 8,
+    },
+    editButtonText: {
+      fontSize: 13,
+      fontWeight: "600",
+    },
+    commentEditContainer: {
+      gap: 12,
+    },
+    commentInput: {
+      borderWidth: 2,
+      borderRadius: 12,
+      padding: 12,
+      fontSize: 14,
+      minHeight: 100,
+    },
+    commentActions: {
+      flexDirection: "row",
+      justifyContent: "flex-end",
+      gap: 8,
+    },
+    cancelButton: {
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 8,
+      borderWidth: 1,
+    },
+    cancelButtonText: {
+      fontSize: 14,
+      fontWeight: "500",
+    },
+    saveButton: {
+      paddingHorizontal: theme.spacing.xl,
+      paddingVertical: 10,
+      borderRadius: theme.radius.md,
+      minWidth: 100,
+      alignItems: "center",
+    },
+    saveButtonText: {
+      color: theme.colors.text.inverse,
+      fontSize: theme.fontSize.sm,
+      fontWeight: theme.fontWeight.semibold,
+    },
+    commentValue: {
+      fontSize: 14,
+      lineHeight: 22,
+    },
+  });

@@ -2,14 +2,14 @@
  * Redux slice pour les Partner Scans
  */
 
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { partnerScansService } from '../api/backend/partnerScans.service';
+import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
+import { partnerScansService } from "../api/backend/partnerScans.service";
 import {
   PartnerScan,
   PartnerScansMeta,
   CreatePartnerScanDTO,
   ListPartnerScansParams,
-} from '../types/partnerScan';
+} from "../types/partnerScan";
 
 // ────────────────────────────────────────────────────────────────────────────
 // State
@@ -20,6 +20,7 @@ interface PartnerScansState {
   currentScan: PartnerScan | null;
   meta: PartnerScansMeta;
   isLoading: boolean;
+  isLoadingMore: boolean;
   isCreating: boolean;
   error: string | null;
 }
@@ -29,6 +30,7 @@ const initialState: PartnerScansState = {
   currentScan: null,
   meta: { total: 0, page: 1, limit: 20, totalPages: 0 },
   isLoading: false,
+  isLoadingMore: false,
   isCreating: false,
   error: null,
 };
@@ -38,15 +40,39 @@ const initialState: PartnerScansState = {
 // ────────────────────────────────────────────────────────────────────────────
 
 export const fetchPartnerScansThunk = createAsyncThunk(
-  'partnerScans/fetchAll',
+  "partnerScans/fetchAll",
   async (params: ListPartnerScansParams, { rejectWithValue }) => {
     try {
       return await partnerScansService.listScans(params);
     } catch (error: any) {
       return rejectWithValue(
-        error.response?.data?.detail || error.message || 'Erreur de chargement',
+        error.response?.data?.detail || error.message || "Erreur de chargement",
       );
     }
+  },
+);
+
+export const fetchMorePartnerScansThunk = createAsyncThunk(
+  "partnerScans/fetchMore",
+  async (params: ListPartnerScansParams, { rejectWithValue }) => {
+    try {
+      return await partnerScansService.listScans(params);
+    } catch (error: any) {
+      return rejectWithValue(
+        error.response?.data?.detail || error.message || "Erreur de chargement",
+      );
+    }
+  },
+  {
+    condition: (_, { getState }) => {
+      const { partnerScans } = getState() as {
+        partnerScans: PartnerScansState;
+      };
+      // Ne pas lancer si déjà en chargement ou si on a tout chargé
+      if (partnerScans.isLoadingMore || partnerScans.isLoading) return false;
+      if (partnerScans.meta.page >= partnerScans.meta.totalPages) return false;
+      return true;
+    },
   },
 );
 
@@ -54,26 +80,30 @@ export const fetchPartnerScansThunk = createAsyncThunk(
  * Traduit les messages d'erreur backend (anglais) en français
  */
 function translatePartnerScanError(msg: string): string {
-  if (msg.includes('already scanned') || msg.includes('duplicate')) {
-    return 'Contact déjà scanné';
+  if (msg.includes("already scanned") || msg.includes("duplicate")) {
+    return "Contact déjà scanné";
   }
-  if (msg.includes('not found') || msg.includes('introuvable')) {
-    return 'Inscription introuvable';
+  if (msg.includes("not found") || msg.includes("introuvable")) {
+    return "Inscription introuvable";
   }
-  if (msg.includes('not approved') || msg.includes('not active')) {
-    return 'Inscription non approuvée';
+  if (msg.includes("not approved") || msg.includes("not active")) {
+    return "Inscription non approuvée";
   }
-  if (msg.includes('do not have access') || msg.includes('Forbidden') || msg.includes('forbidden')) {
-    return 'Accès non autorisé à cet événement';
+  if (
+    msg.includes("do not have access") ||
+    msg.includes("Forbidden") ||
+    msg.includes("forbidden")
+  ) {
+    return "Accès non autorisé à cet événement";
   }
-  if (msg.includes('not match')) {
-    return 'QR Code d\'un autre événement';
+  if (msg.includes("not match")) {
+    return "QR Code d'un autre événement";
   }
-  return 'Erreur lors du scan';
+  return "Erreur lors du scan";
 }
 
 export const createPartnerScanThunk = createAsyncThunk(
-  'partnerScans/create',
+  "partnerScans/create",
   async (data: CreatePartnerScanDTO, { rejectWithValue }) => {
     try {
       return await partnerScansService.createScan(data);
@@ -82,7 +112,7 @@ export const createPartnerScanThunk = createAsyncThunk(
         error.response?.data?.detail ||
         error.response?.data?.message ||
         error.message ||
-        'Erreur de création';
+        "Erreur de création";
       const translated = translatePartnerScanError(rawMsg);
 
       // Extraire le scanId existant du message backend pour les doublons
@@ -101,27 +131,34 @@ export const createPartnerScanThunk = createAsyncThunk(
 );
 
 export const updatePartnerScanCommentThunk = createAsyncThunk(
-  'partnerScans/updateComment',
-  async ({ id, comment }: { id: string; comment: string }, { rejectWithValue }) => {
+  "partnerScans/updateComment",
+  async (
+    { id, comment }: { id: string; comment: string },
+    { rejectWithValue },
+  ) => {
     try {
       return await partnerScansService.updateComment(id, comment);
     } catch (error: any) {
       return rejectWithValue(
-        error.response?.data?.detail || error.message || 'Erreur de mise à jour',
+        error.response?.data?.detail ||
+          error.message ||
+          "Erreur de mise à jour",
       );
     }
   },
 );
 
 export const deletePartnerScanThunk = createAsyncThunk(
-  'partnerScans/delete',
+  "partnerScans/delete",
   async (id: string, { rejectWithValue }) => {
     try {
       await partnerScansService.deleteScan(id);
       return id;
     } catch (error: any) {
       return rejectWithValue(
-        error.response?.data?.detail || error.message || 'Erreur de suppression',
+        error.response?.data?.detail ||
+          error.message ||
+          "Erreur de suppression",
       );
     }
   },
@@ -132,7 +169,7 @@ export const deletePartnerScanThunk = createAsyncThunk(
 // ────────────────────────────────────────────────────────────────────────────
 
 const partnerScansSlice = createSlice({
-  name: 'partnerScans',
+  name: "partnerScans",
   initialState,
   reducers: {
     clearPartnerScans: (state) => {
@@ -148,7 +185,7 @@ const partnerScansSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
-    // Fetch all
+    // Fetch all (page 1 — remplace les données)
     builder
       .addCase(fetchPartnerScansThunk.pending, (state) => {
         state.isLoading = true;
@@ -161,9 +198,24 @@ const partnerScansSlice = createSlice({
       })
       .addCase(fetchPartnerScansThunk.rejected, (state, action) => {
         // Ignorer les requêtes annulées (remplacées par une plus récente)
-        if (action.meta.aborted) return;
+        if (action.error?.name === "AbortError") return;
         state.isLoading = false;
         state.error = action.payload as string;
+      });
+
+    // Fetch more (pages suivantes — accumule les données)
+    builder
+      .addCase(fetchMorePartnerScansThunk.pending, (state) => {
+        state.isLoadingMore = true;
+      })
+      .addCase(fetchMorePartnerScansThunk.fulfilled, (state, action) => {
+        state.isLoadingMore = false;
+        state.scans = [...state.scans, ...action.payload.data];
+        state.meta = action.payload.meta;
+      })
+      .addCase(fetchMorePartnerScansThunk.rejected, (state, action) => {
+        if (action.error?.name === "AbortError") return;
+        state.isLoadingMore = false;
       });
 
     // Create
@@ -181,21 +233,25 @@ const partnerScansSlice = createSlice({
       .addCase(createPartnerScanThunk.rejected, (state, action) => {
         state.isCreating = false;
         const payload = action.payload;
-        state.error = typeof payload === 'string'
-          ? payload
-          : (payload as any)?.message || 'Erreur de création';
+        state.error =
+          typeof payload === "string"
+            ? payload
+            : (payload as any)?.message || "Erreur de création";
       });
 
     // Update comment
-    builder.addCase(updatePartnerScanCommentThunk.fulfilled, (state, action) => {
-      const idx = state.scans.findIndex((s) => s.id === action.payload.id);
-      if (idx !== -1) {
-        state.scans[idx] = action.payload;
-      }
-      if (state.currentScan?.id === action.payload.id) {
-        state.currentScan = action.payload;
-      }
-    });
+    builder.addCase(
+      updatePartnerScanCommentThunk.fulfilled,
+      (state, action) => {
+        const idx = state.scans.findIndex((s) => s.id === action.payload.id);
+        if (idx !== -1) {
+          state.scans[idx] = action.payload;
+        }
+        if (state.currentScan?.id === action.payload.id) {
+          state.currentScan = action.payload;
+        }
+      },
+    );
 
     // Delete
     builder.addCase(deletePartnerScanThunk.fulfilled, (state, action) => {
@@ -208,5 +264,6 @@ const partnerScansSlice = createSlice({
   },
 });
 
-export const { clearPartnerScans, clearPartnerScansError, setCurrentScan } = partnerScansSlice.actions;
+export const { clearPartnerScans, clearPartnerScansError, setCurrentScan } =
+  partnerScansSlice.actions;
 export default partnerScansSlice.reducer;

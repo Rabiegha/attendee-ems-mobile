@@ -2,9 +2,10 @@
  * Redux slice pour les événements
  */
 
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { eventsService } from '../api/backend/events.service';
-import { Event, EventStats } from '../types/event';
+import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
+import { eventsService } from "../api/backend/events.service";
+import { Event, EventStats } from "../types/event";
+import { logger } from "../utils/logger";
 
 interface PaginationState {
   page: number;
@@ -66,294 +67,398 @@ const initialState: EventsState = {
 
 // Événements EN COURS (startDate < now < endDate)
 export const fetchOngoingEventsThunk = createAsyncThunk(
-  'events/fetchOngoingEvents',
-  async (params: { page?: number; limit?: number; search?: string } | undefined, { rejectWithValue, getState }) => {
+  "events/fetchOngoingEvents",
+  async (
+    params: { page?: number; limit?: number; search?: string } | undefined,
+    { rejectWithValue, getState },
+  ) => {
     try {
       const state = getState() as { events: EventsState };
-      
-      if (state.events.ongoing.isLoading && !params?.page) {
-        console.log('[EventsSlice] fetchOngoingEventsThunk - Already loading, skipping');
-        return rejectWithValue('Already loading');
-      }
-      
+
       const page = params?.page ?? state.events.ongoing.pagination.page;
       const limit = params?.limit ?? state.events.ongoing.pagination.limit;
       const search = params?.search;
-      
+
       const now = new Date();
-      
-      const requestParams: any = { 
-        page, 
-        limit, 
+
+      const requestParams: any = {
+        page,
+        limit,
         search,
         startBefore: now.toISOString(), // startDate < now
-        endAfter: now.toISOString()     // endDate > now
+        endAfter: now.toISOString(), // endDate > now
       };
-      
-      console.log('[EventsSlice] fetchOngoingEventsThunk - Starting with params:', requestParams);
+
+      logger.log(
+        "[EventsSlice] fetchOngoingEventsThunk - Starting with params:",
+        requestParams,
+      );
       const response = await eventsService.getEvents(requestParams);
-      console.log('[EventsSlice] fetchOngoingEventsThunk - Success:', response.meta);
+      logger.log(
+        "[EventsSlice] fetchOngoingEventsThunk - Success:",
+        response.meta,
+      );
       return response;
     } catch (error: any) {
-      console.error('[EventsSlice] fetchOngoingEventsThunk - Error:', error);
+      logger.error("[EventsSlice] fetchOngoingEventsThunk - Error:", error);
       return rejectWithValue(error.response?.data || error.message);
     }
-  }
+  },
+  {
+    // P6: Guard dans condition → empêche .pending de fire si déjà en cours
+    condition: (params, { getState }) => {
+      const state = getState() as { events: EventsState };
+      if (state.events.ongoing.isLoading && !params?.page) {
+        return false;
+      }
+      return true;
+    },
+  },
 );
 
 // Événements À VENIR (startDate > now)
 export const fetchUpcomingEventsThunk = createAsyncThunk(
-  'events/fetchUpcomingEvents',
-  async (params: { page?: number; limit?: number; search?: string } | undefined, { rejectWithValue, getState }) => {
+  "events/fetchUpcomingEvents",
+  async (
+    params: { page?: number; limit?: number; search?: string } | undefined,
+    { rejectWithValue, getState },
+  ) => {
     try {
       const state = getState() as { events: EventsState };
-      
-      if (state.events.upcoming.isLoading && !params?.page) {
-        console.log('[EventsSlice] fetchUpcomingEventsThunk - Already loading, skipping');
-        return rejectWithValue('Already loading');
-      }
-      
+
       const page = params?.page ?? state.events.upcoming.pagination.page;
       const limit = params?.limit ?? state.events.upcoming.pagination.limit;
       const search = params?.search;
-      
+
       const now = new Date();
-      
-      const requestParams: any = { 
-        page, 
-        limit, 
+
+      const requestParams: any = {
+        page,
+        limit,
         search,
-        startAfter: now.toISOString() // startDate > now
+        startAfter: now.toISOString(), // startDate > now
       };
-      
-      console.log('[EventsSlice] fetchUpcomingEventsThunk - Starting with params:', requestParams);
+
+      logger.log(
+        "[EventsSlice] fetchUpcomingEventsThunk - Starting with params:",
+        requestParams,
+      );
       const response = await eventsService.getEvents(requestParams);
-      console.log('[EventsSlice] fetchUpcomingEventsThunk - Success:', response.meta);
+      logger.log(
+        "[EventsSlice] fetchUpcomingEventsThunk - Success:",
+        response.meta,
+      );
       return response;
     } catch (error: any) {
-      console.error('[EventsSlice] fetchUpcomingEventsThunk - Error:', error);
+      logger.error("[EventsSlice] fetchUpcomingEventsThunk - Error:", error);
       return rejectWithValue(error.response?.data || error.message);
     }
-  }
+  },
+  {
+    condition: (params, { getState }) => {
+      const state = getState() as { events: EventsState };
+      if (state.events.upcoming.isLoading && !params?.page) {
+        return false;
+      }
+      return true;
+    },
+  },
 );
 
 // Événements TERMINÉS (endDate < now)
 export const fetchPastEventsThunk = createAsyncThunk(
-  'events/fetchPastEvents',
-  async (params: { page?: number; limit?: number; search?: string } | undefined, { rejectWithValue, getState }) => {
+  "events/fetchPastEvents",
+  async (
+    params: { page?: number; limit?: number; search?: string } | undefined,
+    { rejectWithValue, getState },
+  ) => {
     try {
       const state = getState() as { events: EventsState };
-      
-      if (state.events.past.isLoading && !params?.page) {
-        console.log('[EventsSlice] fetchPastEventsThunk - Already loading, skipping');
-        return rejectWithValue('Already loading');
-      }
-      
+
       const page = params?.page ?? state.events.past.pagination.page;
       const limit = params?.limit ?? state.events.past.pagination.limit;
       const search = params?.search;
-      
+
       const now = new Date();
-      
-      const requestParams: any = { 
-        page, 
-        limit, 
+
+      const requestParams: any = {
+        page,
+        limit,
         search,
-        endBefore: now.toISOString() // endDate < now
+        endBefore: now.toISOString(), // endDate < now
       };
-      
-      console.log('[EventsSlice] fetchPastEventsThunk - Starting with params:', requestParams);
+
+      logger.log(
+        "[EventsSlice] fetchPastEventsThunk - Starting with params:",
+        requestParams,
+      );
       const response = await eventsService.getEvents(requestParams);
-      console.log('[EventsSlice] fetchPastEventsThunk - Success:', response.meta);
+      logger.log(
+        "[EventsSlice] fetchPastEventsThunk - Success:",
+        response.meta,
+      );
       return response;
     } catch (error: any) {
-      console.error('[EventsSlice] fetchPastEventsThunk - Error:', error);
+      logger.error("[EventsSlice] fetchPastEventsThunk - Error:", error);
       return rejectWithValue(error.response?.data || error.message);
     }
-  }
+  },
+  {
+    condition: (params, { getState }) => {
+      const state = getState() as { events: EventsState };
+      if (state.events.past.isLoading && !params?.page) {
+        return false;
+      }
+      return true;
+    },
+  },
 );
 
 export const fetchMoreOngoingEventsThunk = createAsyncThunk(
-  'events/fetchMoreOngoingEvents',
-  async (params: { search?: string } | undefined, { rejectWithValue, getState }) => {
+  "events/fetchMoreOngoingEvents",
+  async (
+    params: { search?: string } | undefined,
+    { rejectWithValue, getState },
+  ) => {
     try {
       const state = getState() as { events: EventsState };
-      
-      if (state.events.ongoing.isLoadingMore || !state.events.ongoing.hasMore) {
-        console.log('[EventsSlice] fetchMoreOngoingEventsThunk - Already loading or no more data');
-        return rejectWithValue('Already loading or no more data');
-      }
-      
+
       const nextPage = state.events.ongoing.pagination.page + 1;
       const limit = state.events.ongoing.pagination.limit;
       const search = params?.search;
-      
+
       const now = new Date();
-      
-      const requestParams: any = { 
-        page: nextPage, 
-        limit, 
+
+      const requestParams: any = {
+        page: nextPage,
+        limit,
         search,
         startBefore: now.toISOString(),
-        endAfter: now.toISOString()
+        endAfter: now.toISOString(),
       };
-      
-      console.log('[EventsSlice] fetchMoreOngoingEventsThunk - Loading page', nextPage);
+
+      logger.log(
+        "[EventsSlice] fetchMoreOngoingEventsThunk - Loading page",
+        nextPage,
+      );
       const response = await eventsService.getEvents(requestParams);
-      console.log('[EventsSlice] fetchMoreOngoingEventsThunk - Success:', response.meta);
+      logger.log(
+        "[EventsSlice] fetchMoreOngoingEventsThunk - Success:",
+        response.meta,
+      );
       return response;
     } catch (error: any) {
-      console.error('[EventsSlice] fetchMoreOngoingEventsThunk - Error:', error);
+      logger.error("[EventsSlice] fetchMoreOngoingEventsThunk - Error:", error);
       return rejectWithValue(error.response?.data || error.message);
     }
-  }
+  },
+  {
+    condition: (_, { getState }) => {
+      const state = getState() as { events: EventsState };
+      if (state.events.ongoing.isLoadingMore || !state.events.ongoing.hasMore) {
+        return false;
+      }
+      return true;
+    },
+  },
 );
 
 export const fetchMoreUpcomingEventsThunk = createAsyncThunk(
-  'events/fetchMoreUpcomingEvents',
-  async (params: { search?: string } | undefined, { rejectWithValue, getState }) => {
+  "events/fetchMoreUpcomingEvents",
+  async (
+    params: { search?: string } | undefined,
+    { rejectWithValue, getState },
+  ) => {
     try {
       const state = getState() as { events: EventsState };
-      
-      // Protection : éviter les appels multiples
-      if (state.events.upcoming.isLoadingMore || !state.events.upcoming.hasMore) {
-        console.log('[EventsSlice] fetchMoreUpcomingEventsThunk - Already loading or no more data');
-        return rejectWithValue('Already loading or no more data');
-      }
-      
+
       const nextPage = state.events.upcoming.pagination.page + 1;
       const limit = state.events.upcoming.pagination.limit;
       const search = params?.search;
-      
+
       const now = new Date();
-      
-      const requestParams: any = { 
-        page: nextPage, 
-        limit, 
+
+      const requestParams: any = {
+        page: nextPage,
+        limit,
         search,
-        startAfter: now.toISOString()
+        startAfter: now.toISOString(),
       };
-      
-      console.log('[EventsSlice] fetchMoreUpcomingEventsThunk - Loading page', nextPage);
+
+      logger.log(
+        "[EventsSlice] fetchMoreUpcomingEventsThunk - Loading page",
+        nextPage,
+      );
       const response = await eventsService.getEvents(requestParams);
-      console.log('[EventsSlice] fetchMoreUpcomingEventsThunk - Success:', response.meta);
+      logger.log(
+        "[EventsSlice] fetchMoreUpcomingEventsThunk - Success:",
+        response.meta,
+      );
       return response;
     } catch (error: any) {
-      console.error('[EventsSlice] fetchMoreUpcomingEventsThunk - Error:', error);
+      logger.error(
+        "[EventsSlice] fetchMoreUpcomingEventsThunk - Error:",
+        error,
+      );
       return rejectWithValue(error.response?.data || error.message);
     }
-  }
+  },
+  {
+    condition: (_, { getState }) => {
+      const state = getState() as { events: EventsState };
+      if (
+        state.events.upcoming.isLoadingMore ||
+        !state.events.upcoming.hasMore
+      ) {
+        return false;
+      }
+      return true;
+    },
+  },
 );
 
 export const fetchMorePastEventsThunk = createAsyncThunk(
-  'events/fetchMorePastEvents',
-  async (params: { search?: string } | undefined, { rejectWithValue, getState }) => {
+  "events/fetchMorePastEvents",
+  async (
+    params: { search?: string } | undefined,
+    { rejectWithValue, getState },
+  ) => {
     try {
       const state = getState() as { events: EventsState };
-      
-      // Protection : éviter les appels multiples
-      if (state.events.past.isLoadingMore || !state.events.past.hasMore) {
-        console.log('[EventsSlice] fetchMorePastEventsThunk - Already loading or no more data');
-        return rejectWithValue('Already loading or no more data');
-      }
-      
+
       const nextPage = state.events.past.pagination.page + 1;
       const limit = state.events.past.pagination.limit;
       const search = params?.search;
-      
+
       const now = new Date();
-      
-      const requestParams: any = { 
-        page: nextPage, 
-        limit, 
+
+      const requestParams: any = {
+        page: nextPage,
+        limit,
         search,
-        endBefore: now.toISOString()
+        endBefore: now.toISOString(),
       };
-      
-      console.log('[EventsSlice] fetchMorePastEventsThunk - Loading page', nextPage);
+
+      logger.log(
+        "[EventsSlice] fetchMorePastEventsThunk - Loading page",
+        nextPage,
+      );
       const response = await eventsService.getEvents(requestParams);
-      console.log('[EventsSlice] fetchMorePastEventsThunk - Success:', response.meta);
+      logger.log(
+        "[EventsSlice] fetchMorePastEventsThunk - Success:",
+        response.meta,
+      );
       return response;
     } catch (error: any) {
-      console.error('[EventsSlice] fetchMorePastEventsThunk - Error:', error);
+      logger.error("[EventsSlice] fetchMorePastEventsThunk - Error:", error);
       return rejectWithValue(error.response?.data || error.message);
     }
-  }
+  },
+  {
+    condition: (_, { getState }) => {
+      const state = getState() as { events: EventsState };
+      if (state.events.past.isLoadingMore || !state.events.past.hasMore) {
+        return false;
+      }
+      return true;
+    },
+  },
 );
 
 // Garder l'ancien thunk pour la compatibilité (pour fetchEventsThunk utilisé ailleurs)
 export const fetchEventsThunk = createAsyncThunk(
-  'events/fetchEvents',
-  async (params: { page?: number; limit?: number; search?: string; timeFilter?: 'past' | 'upcoming' } | undefined, { rejectWithValue, getState }) => {
+  "events/fetchEvents",
+  async (
+    params:
+      | {
+          page?: number;
+          limit?: number;
+          search?: string;
+          timeFilter?: "past" | "upcoming";
+        }
+      | undefined,
+    { rejectWithValue, getState },
+  ) => {
     try {
       const state = getState() as { events: EventsState };
-      const timeFilter = params?.timeFilter || 'upcoming';
-      const currentState = timeFilter === 'upcoming' ? state.events.upcoming : state.events.past;
-      
+      const timeFilter = params?.timeFilter || "upcoming";
+      const currentState =
+        timeFilter === "upcoming" ? state.events.upcoming : state.events.past;
+
       const page = params?.page ?? currentState.pagination.page;
       const limit = params?.limit ?? currentState.pagination.limit;
       const search = params?.search;
-      
+
       const requestParams: any = { page, limit, search };
-      
-      if (timeFilter === 'upcoming') {
+
+      if (timeFilter === "upcoming") {
         requestParams.startAfter = new Date().toISOString();
       } else {
         requestParams.startBefore = new Date().toISOString();
       }
-      
-      console.log('[EventsSlice] fetchEventsThunk - Starting with params:', requestParams);
+
+      logger.log(
+        "[EventsSlice] fetchEventsThunk - Starting with params:",
+        requestParams,
+      );
       const response = await eventsService.getEvents(requestParams);
-      console.log('[EventsSlice] fetchEventsThunk - Success:', response.meta);
+      logger.log("[EventsSlice] fetchEventsThunk - Success:", response.meta);
       return { ...response, timeFilter };
     } catch (error: any) {
-      console.error('[EventsSlice] fetchEventsThunk - Error:', error);
+      logger.error("[EventsSlice] fetchEventsThunk - Error:", error);
       return rejectWithValue(error.response?.data || error.message);
     }
-  }
+  },
 );
 
 export const fetchMoreEventsThunk = createAsyncThunk(
-  'events/fetchMoreEvents',
-  async (params: { search?: string; timeFilter?: 'past' | 'upcoming' } | undefined, { rejectWithValue, getState }) => {
+  "events/fetchMoreEvents",
+  async (
+    params: { search?: string; timeFilter?: "past" | "upcoming" } | undefined,
+    { rejectWithValue, getState },
+  ) => {
     try {
       const state = getState() as { events: EventsState };
-      const timeFilter = params?.timeFilter || 'upcoming';
-      const currentState = timeFilter === 'upcoming' ? state.events.upcoming : state.events.past;
-      
+      const timeFilter = params?.timeFilter || "upcoming";
+      const currentState =
+        timeFilter === "upcoming" ? state.events.upcoming : state.events.past;
+
       const nextPage = currentState.pagination.page + 1;
       const limit = currentState.pagination.limit;
       const search = params?.search;
-      
+
       const requestParams: any = { page: nextPage, limit, search };
-      
-      if (timeFilter === 'upcoming') {
+
+      if (timeFilter === "upcoming") {
         requestParams.startAfter = new Date().toISOString();
       } else {
         requestParams.startBefore = new Date().toISOString();
       }
-      
-      console.log('[EventsSlice] fetchMoreEventsThunk - Loading page', nextPage);
+
+      logger.log("[EventsSlice] fetchMoreEventsThunk - Loading page", nextPage);
       const response = await eventsService.getEvents(requestParams);
-      console.log('[EventsSlice] fetchMoreEventsThunk - Success:', response.meta);
+      logger.log(
+        "[EventsSlice] fetchMoreEventsThunk - Success:",
+        response.meta,
+      );
       return { ...response, timeFilter };
     } catch (error: any) {
-      console.error('[EventsSlice] fetchMoreEventsThunk - Error:', error);
+      logger.error("[EventsSlice] fetchMoreEventsThunk - Error:", error);
       return rejectWithValue(error.response?.data || error.message);
     }
-  }
+  },
 );
 
 export const fetchEventByIdThunk = createAsyncThunk(
-  'events/fetchEventById',
+  "events/fetchEventById",
   async (id: string, { rejectWithValue }) => {
     try {
-      console.log('[EventsSlice] fetchEventByIdThunk - Starting for ID:', id);
+      logger.log("[EventsSlice] fetchEventByIdThunk - Starting for ID:", id);
       const response = await eventsService.getEventById(id);
-      console.log('[EventsSlice] fetchEventByIdThunk - Success:', response.name);
+      logger.log("[EventsSlice] fetchEventByIdThunk - Success:", response.name);
       return response;
     } catch (error: any) {
-      console.error('[EventsSlice] fetchEventByIdThunk - Error:', {
+      logger.error("[EventsSlice] fetchEventByIdThunk - Error:", {
         id,
         message: error.message,
         response: error.response?.data,
@@ -361,20 +466,20 @@ export const fetchEventByIdThunk = createAsyncThunk(
       });
       return rejectWithValue(error.response?.data || error.message);
     }
-  }
+  },
 );
 
 // Charger les statistiques d'un événement
 export const fetchEventStatsThunk = createAsyncThunk(
-  'events/fetchEventStats',
+  "events/fetchEventStats",
   async (id: string, { rejectWithValue }) => {
     try {
-      console.log('[EventsSlice] fetchEventStatsThunk - Starting for ID:', id);
+      logger.log("[EventsSlice] fetchEventStatsThunk - Starting for ID:", id);
       const response = await eventsService.getEventStats(id);
-      console.log('[EventsSlice] fetchEventStatsThunk - Success:', response);
+      logger.log("[EventsSlice] fetchEventStatsThunk - Success:", response);
       return response;
     } catch (error: any) {
-      console.error('[EventsSlice] fetchEventStatsThunk - Error:', {
+      logger.error("[EventsSlice] fetchEventStatsThunk - Error:", {
         id,
         message: error.message,
         response: error.response?.data,
@@ -382,19 +487,26 @@ export const fetchEventStatsThunk = createAsyncThunk(
       });
       return rejectWithValue(error.response?.data || error.message);
     }
-  }
+  },
 );
 
 export const fetchEventAttendeeTypesThunk = createAsyncThunk(
-  'events/fetchEventAttendeeTypes',
+  "events/fetchEventAttendeeTypes",
   async (eventId: string, { rejectWithValue }) => {
     try {
-      console.log('[EventsSlice] fetchEventAttendeeTypesThunk - Starting for event:', eventId);
+      logger.log(
+        "[EventsSlice] fetchEventAttendeeTypesThunk - Starting for event:",
+        eventId,
+      );
       const response = await eventsService.getEventAttendeeTypes(eventId);
-      console.log('[EventsSlice] fetchEventAttendeeTypesThunk - Success:', response.length, 'types found');
+      logger.log(
+        "[EventsSlice] fetchEventAttendeeTypesThunk - Success:",
+        response.length,
+        "types found",
+      );
       return response;
     } catch (error: any) {
-      console.error('[EventsSlice] fetchEventAttendeeTypesThunk - Error:', {
+      logger.error("[EventsSlice] fetchEventAttendeeTypesThunk - Error:", {
         eventId,
         message: error.message,
         response: error.response?.data,
@@ -402,19 +514,26 @@ export const fetchEventAttendeeTypesThunk = createAsyncThunk(
       });
       return rejectWithValue(error.response?.data || error.message);
     }
-  }
+  },
 );
 
 export const fetchEventRegistrationFieldsThunk = createAsyncThunk(
-  'events/fetchEventRegistrationFields',
+  "events/fetchEventRegistrationFields",
   async (eventId: string, { rejectWithValue }) => {
     try {
-      console.log('[EventsSlice] fetchEventRegistrationFieldsThunk - Starting for event:', eventId);
+      logger.log(
+        "[EventsSlice] fetchEventRegistrationFieldsThunk - Starting for event:",
+        eventId,
+      );
       const response = await eventsService.getEventRegistrationFields(eventId);
-      console.log('[EventsSlice] fetchEventRegistrationFieldsThunk - Success:', response.length, 'fields found');
+      logger.log(
+        "[EventsSlice] fetchEventRegistrationFieldsThunk - Success:",
+        response.length,
+        "fields found",
+      );
       return response;
     } catch (error: any) {
-      console.error('[EventsSlice] fetchEventRegistrationFieldsThunk - Error:', {
+      logger.error("[EventsSlice] fetchEventRegistrationFieldsThunk - Error:", {
         eventId,
         message: error.message,
         response: error.response?.data,
@@ -422,12 +541,12 @@ export const fetchEventRegistrationFieldsThunk = createAsyncThunk(
       });
       return rejectWithValue(error.response?.data || error.message);
     }
-  }
+  },
 );
 
 // Slice
 const eventsSlice = createSlice({
-  name: 'events',
+  name: "events",
   initialState,
   reducers: {
     setCurrentEvent: (state, action: PayloadAction<Event | null>) => {
@@ -462,11 +581,15 @@ const eventsSlice = createSlice({
         state.ongoing.isLoading = false;
         state.ongoing.events = action.payload.data;
         state.ongoing.pagination = action.payload.meta;
-        state.ongoing.hasMore = action.payload.meta.page < action.payload.meta.totalPages;
+        state.ongoing.hasMore =
+          action.payload.meta.page < action.payload.meta.totalPages;
       })
       .addCase(fetchOngoingEventsThunk.rejected, (state, action) => {
         state.ongoing.isLoading = false;
-        state.ongoing.error = (action.payload as any)?.detail || action.error.message || 'Erreur lors du chargement';
+        state.ongoing.error =
+          (action.payload as any)?.detail ||
+          action.error.message ||
+          "Erreur lors du chargement";
       });
 
     // Fetch more ongoing events
@@ -476,13 +599,20 @@ const eventsSlice = createSlice({
       })
       .addCase(fetchMoreOngoingEventsThunk.fulfilled, (state, action) => {
         state.ongoing.isLoadingMore = false;
-        state.ongoing.events = [...state.ongoing.events, ...action.payload.data];
+        state.ongoing.events = [
+          ...state.ongoing.events,
+          ...action.payload.data,
+        ];
         state.ongoing.pagination = action.payload.meta;
-        state.ongoing.hasMore = action.payload.meta.page < action.payload.meta.totalPages;
+        state.ongoing.hasMore =
+          action.payload.meta.page < action.payload.meta.totalPages;
       })
       .addCase(fetchMoreOngoingEventsThunk.rejected, (state, action) => {
         state.ongoing.isLoadingMore = false;
-        state.ongoing.error = (action.payload as any)?.detail || action.error.message || 'Erreur lors du chargement';
+        state.ongoing.error =
+          (action.payload as any)?.detail ||
+          action.error.message ||
+          "Erreur lors du chargement";
       });
 
     // Fetch upcoming events
@@ -495,11 +625,15 @@ const eventsSlice = createSlice({
         state.upcoming.isLoading = false;
         state.upcoming.events = action.payload.data;
         state.upcoming.pagination = action.payload.meta;
-        state.upcoming.hasMore = action.payload.meta.page < action.payload.meta.totalPages;
+        state.upcoming.hasMore =
+          action.payload.meta.page < action.payload.meta.totalPages;
       })
       .addCase(fetchUpcomingEventsThunk.rejected, (state, action) => {
         state.upcoming.isLoading = false;
-        state.upcoming.error = (action.payload as any)?.detail || action.error.message || 'Erreur lors du chargement';
+        state.upcoming.error =
+          (action.payload as any)?.detail ||
+          action.error.message ||
+          "Erreur lors du chargement";
       });
 
     // Fetch more upcoming events
@@ -510,17 +644,23 @@ const eventsSlice = createSlice({
       })
       .addCase(fetchMoreUpcomingEventsThunk.fulfilled, (state, action) => {
         state.upcoming.isLoadingMore = false;
-        
-        const existingIds = new Set(state.upcoming.events.map(e => e.id));
-        const newEvents = action.payload.data.filter(e => !existingIds.has(e.id));
+
+        const existingIds = new Set(state.upcoming.events.map((e) => e.id));
+        const newEvents = action.payload.data.filter(
+          (e) => !existingIds.has(e.id),
+        );
         state.upcoming.events = [...state.upcoming.events, ...newEvents];
-        
+
         state.upcoming.pagination = action.payload.meta;
-        state.upcoming.hasMore = action.payload.meta.page < action.payload.meta.totalPages;
+        state.upcoming.hasMore =
+          action.payload.meta.page < action.payload.meta.totalPages;
       })
       .addCase(fetchMoreUpcomingEventsThunk.rejected, (state, action) => {
         state.upcoming.isLoadingMore = false;
-        state.upcoming.error = (action.payload as any)?.detail || action.error.message || 'Erreur lors du chargement';
+        state.upcoming.error =
+          (action.payload as any)?.detail ||
+          action.error.message ||
+          "Erreur lors du chargement";
       });
 
     // Fetch past events
@@ -533,11 +673,15 @@ const eventsSlice = createSlice({
         state.past.isLoading = false;
         state.past.events = action.payload.data;
         state.past.pagination = action.payload.meta;
-        state.past.hasMore = action.payload.meta.page < action.payload.meta.totalPages;
+        state.past.hasMore =
+          action.payload.meta.page < action.payload.meta.totalPages;
       })
       .addCase(fetchPastEventsThunk.rejected, (state, action) => {
         state.past.isLoading = false;
-        state.past.error = (action.payload as any)?.detail || action.error.message || 'Erreur lors du chargement';
+        state.past.error =
+          (action.payload as any)?.detail ||
+          action.error.message ||
+          "Erreur lors du chargement";
       });
 
     // Fetch more past events
@@ -548,45 +692,63 @@ const eventsSlice = createSlice({
       })
       .addCase(fetchMorePastEventsThunk.fulfilled, (state, action) => {
         state.past.isLoadingMore = false;
-        
-        const existingIds = new Set(state.past.events.map(e => e.id));
-        const newEvents = action.payload.data.filter(e => !existingIds.has(e.id));
+
+        const existingIds = new Set(state.past.events.map((e) => e.id));
+        const newEvents = action.payload.data.filter(
+          (e) => !existingIds.has(e.id),
+        );
         state.past.events = [...state.past.events, ...newEvents];
-        
+
         state.past.pagination = action.payload.meta;
-        state.past.hasMore = action.payload.meta.page < action.payload.meta.totalPages;
+        state.past.hasMore =
+          action.payload.meta.page < action.payload.meta.totalPages;
       })
       .addCase(fetchMorePastEventsThunk.rejected, (state, action) => {
         state.past.isLoadingMore = false;
-        state.past.error = (action.payload as any)?.detail || action.error.message || 'Erreur lors du chargement';
+        state.past.error =
+          (action.payload as any)?.detail ||
+          action.error.message ||
+          "Erreur lors du chargement";
       });
 
     // Fetch event by ID (garde l'ancien comportement)
     builder
       .addCase(fetchEventByIdThunk.pending, (state) => {
-        console.log('[EventsSlice] fetchEventByIdThunk.pending');
+        logger.log("[EventsSlice] fetchEventByIdThunk.pending");
       })
       .addCase(fetchEventByIdThunk.fulfilled, (state, action) => {
-        console.log('[EventsSlice] fetchEventByIdThunk.fulfilled - Event:', action.payload.name);
+        logger.log(
+          "[EventsSlice] fetchEventByIdThunk.fulfilled - Event:",
+          action.payload.name,
+        );
         state.currentEvent = action.payload;
       })
       .addCase(fetchEventByIdThunk.rejected, (state, action) => {
-        console.error('[EventsSlice] fetchEventByIdThunk.rejected:', action.payload || action.error);
+        logger.error(
+          "[EventsSlice] fetchEventByIdThunk.rejected:",
+          action.payload || action.error,
+        );
       });
 
     // Fetch event stats
     builder
       .addCase(fetchEventStatsThunk.pending, (state) => {
-        console.log('[EventsSlice] fetchEventStatsThunk.pending');
+        logger.log("[EventsSlice] fetchEventStatsThunk.pending");
         state.isLoadingStats = true;
       })
       .addCase(fetchEventStatsThunk.fulfilled, (state, action) => {
-        console.log('[EventsSlice] fetchEventStatsThunk.fulfilled - Stats:', action.payload);
+        logger.log(
+          "[EventsSlice] fetchEventStatsThunk.fulfilled - Stats:",
+          action.payload,
+        );
         state.isLoadingStats = false;
         state.currentEventStats = action.payload;
       })
       .addCase(fetchEventStatsThunk.rejected, (state, action) => {
-        console.error('[EventsSlice] fetchEventStatsThunk.rejected:', action.payload || action.error);
+        logger.error(
+          "[EventsSlice] fetchEventStatsThunk.rejected:",
+          action.payload || action.error,
+        );
         state.isLoadingStats = false;
         state.currentEventStats = null;
       });
@@ -594,16 +756,22 @@ const eventsSlice = createSlice({
     // Fetch event attendee types
     builder
       .addCase(fetchEventAttendeeTypesThunk.pending, (state) => {
-        console.log('[EventsSlice] fetchEventAttendeeTypesThunk.pending');
+        logger.log("[EventsSlice] fetchEventAttendeeTypesThunk.pending");
         state.isLoadingAttendeeTypes = true;
       })
       .addCase(fetchEventAttendeeTypesThunk.fulfilled, (state, action) => {
-        console.log('[EventsSlice] fetchEventAttendeeTypesThunk.fulfilled - Types:', action.payload.length);
+        logger.log(
+          "[EventsSlice] fetchEventAttendeeTypesThunk.fulfilled - Types:",
+          action.payload.length,
+        );
         state.isLoadingAttendeeTypes = false;
         state.currentEventAttendeeTypes = action.payload;
       })
       .addCase(fetchEventAttendeeTypesThunk.rejected, (state, action) => {
-        console.error('[EventsSlice] fetchEventAttendeeTypesThunk.rejected:', action.payload || action.error);
+        logger.error(
+          "[EventsSlice] fetchEventAttendeeTypesThunk.rejected:",
+          action.payload || action.error,
+        );
         state.isLoadingAttendeeTypes = false;
         state.currentEventAttendeeTypes = [];
       });
@@ -611,77 +779,131 @@ const eventsSlice = createSlice({
     // Fetch event registration fields
     builder
       .addCase(fetchEventRegistrationFieldsThunk.pending, (state) => {
-        console.log('[EventsSlice] fetchEventRegistrationFieldsThunk.pending');
+        logger.log("[EventsSlice] fetchEventRegistrationFieldsThunk.pending");
         state.isLoadingRegistrationFields = true;
       })
       .addCase(fetchEventRegistrationFieldsThunk.fulfilled, (state, action) => {
-        console.log('[EventsSlice] fetchEventRegistrationFieldsThunk.fulfilled - Fields:', action.payload.length);
+        logger.log(
+          "[EventsSlice] fetchEventRegistrationFieldsThunk.fulfilled - Fields:",
+          action.payload.length,
+        );
         state.isLoadingRegistrationFields = false;
         state.currentEventRegistrationFields = action.payload;
       })
       .addCase(fetchEventRegistrationFieldsThunk.rejected, (state, action) => {
-        console.error('[EventsSlice] fetchEventRegistrationFieldsThunk.rejected:', action.payload || action.error);
+        logger.error(
+          "[EventsSlice] fetchEventRegistrationFieldsThunk.rejected:",
+          action.payload || action.error,
+        );
         state.isLoadingRegistrationFields = false;
         state.currentEventRegistrationFields = [];
       });
 
     // WebSocket events - Mettre à jour les stats en temps réel
-    builder.addCase('registrations/checkedIn' as any, (state, action: PayloadAction<any>) => {
-      console.log('[EventsSlice] WebSocket - Registration checked-in event, updating stats');
-      if (state.currentEventStats) {
-        // Vérifier si c'est un check-in ou un undo (checked_in_at === null signifie undo)
-        const isCheckIn = action.payload.checked_in_at !== null;
-        const isUndoCheckIn = action.payload.checked_in_at === null;
-        
-        if (isCheckIn) {
-          console.log('[EventsSlice] WebSocket - Check-in detected, incrementing stats');
+    builder.addCase(
+      "registrations/checkedIn" as any,
+      (state, action: PayloadAction<any>) => {
+        logger.log(
+          "[EventsSlice] WebSocket - Registration checked-in event, updating stats",
+        );
+        if (state.currentEventStats) {
+          // Vérifier si c'est un check-in ou un undo (checked_in_at === null signifie undo)
+          const isCheckIn = action.payload.checked_in_at !== null;
+          const isUndoCheckIn = action.payload.checked_in_at === null;
+
+          if (isCheckIn) {
+            logger.log(
+              "[EventsSlice] WebSocket - Check-in detected, incrementing stats",
+            );
+            state.currentEventStats = {
+              ...state.currentEventStats,
+              checkedIn: state.currentEventStats.checkedIn + 1,
+              checkedInPercentage: Math.round(
+                ((state.currentEventStats.checkedIn + 1) /
+                  state.currentEventStats.totalRegistrations) *
+                  100,
+              ),
+            };
+          } else if (isUndoCheckIn) {
+            logger.log(
+              "[EventsSlice] WebSocket - Undo check-in detected, decrementing stats",
+            );
+            state.currentEventStats = {
+              ...state.currentEventStats,
+              checkedIn: Math.max(0, state.currentEventStats.checkedIn - 1),
+              checkedInPercentage: Math.round(
+                (Math.max(0, state.currentEventStats.checkedIn - 1) /
+                  state.currentEventStats.totalRegistrations) *
+                  100,
+              ),
+            };
+          }
+        }
+      },
+    );
+
+    builder.addCase(
+      "registrations/updated" as any,
+      (state, action: PayloadAction<any>) => {
+        logger.log("[EventsSlice] WebSocket - Registration updated");
+        // Si le statut a changé, recalculer les stats (pour simplifier, on recharge)
+        // En production, vous pourriez vouloir comparer l'ancien et le nouveau statut
+      },
+    );
+
+    builder.addCase(
+      "registrations/created" as any,
+      (state, action: PayloadAction<any>) => {
+        logger.log(
+          "[EventsSlice] WebSocket - Registration created, updating stats",
+        );
+        if (state.currentEventStats) {
           state.currentEventStats = {
             ...state.currentEventStats,
-            checkedIn: state.currentEventStats.checkedIn + 1,
-            checkedInPercentage: Math.round(((state.currentEventStats.checkedIn + 1) / state.currentEventStats.totalRegistrations) * 100),
-          };
-        } else if (isUndoCheckIn) {
-          console.log('[EventsSlice] WebSocket - Undo check-in detected, decrementing stats');
-          state.currentEventStats = {
-            ...state.currentEventStats,
-            checkedIn: Math.max(0, state.currentEventStats.checkedIn - 1),
-            checkedInPercentage: Math.round((Math.max(0, state.currentEventStats.checkedIn - 1) / state.currentEventStats.totalRegistrations) * 100),
+            totalRegistrations: state.currentEventStats.totalRegistrations + 1,
+            checkedInPercentage: Math.round(
+              (state.currentEventStats.checkedIn /
+                (state.currentEventStats.totalRegistrations + 1)) *
+                100,
+            ),
           };
         }
-      }
-    });
+      },
+    );
 
-    builder.addCase('registrations/updated' as any, (state, action: PayloadAction<any>) => {
-      console.log('[EventsSlice] WebSocket - Registration updated');
-      // Si le statut a changé, recalculer les stats (pour simplifier, on recharge)
-      // En production, vous pourriez vouloir comparer l'ancien et le nouveau statut
-    });
-
-    builder.addCase('registrations/created' as any, (state, action: PayloadAction<any>) => {
-      console.log('[EventsSlice] WebSocket - Registration created, updating stats');
-      if (state.currentEventStats) {
-        state.currentEventStats = {
-          ...state.currentEventStats,
-          totalRegistrations: state.currentEventStats.totalRegistrations + 1,
-          checkedInPercentage: Math.round((state.currentEventStats.checkedIn / (state.currentEventStats.totalRegistrations + 1)) * 100),
-        };
-      }
-    });
-
-    builder.addCase('registrations/deleted' as any, (state, action: PayloadAction<any>) => {
-      console.log('[EventsSlice] WebSocket - Registration deleted, updating stats');
-      if (state.currentEventStats) {
-        state.currentEventStats = {
-          ...state.currentEventStats,
-          totalRegistrations: Math.max(0, state.currentEventStats.totalRegistrations - 1),
-          checkedInPercentage: state.currentEventStats.totalRegistrations > 1 
-            ? Math.round((state.currentEventStats.checkedIn / (state.currentEventStats.totalRegistrations - 1)) * 100)
-            : 0,
-        };
-      }
-    });
+    builder.addCase(
+      "registrations/deleted" as any,
+      (state, action: PayloadAction<any>) => {
+        logger.log(
+          "[EventsSlice] WebSocket - Registration deleted, updating stats",
+        );
+        if (state.currentEventStats) {
+          state.currentEventStats = {
+            ...state.currentEventStats,
+            totalRegistrations: Math.max(
+              0,
+              state.currentEventStats.totalRegistrations - 1,
+            ),
+            checkedInPercentage:
+              state.currentEventStats.totalRegistrations > 1
+                ? Math.round(
+                    (state.currentEventStats.checkedIn /
+                      (state.currentEventStats.totalRegistrations - 1)) *
+                      100,
+                  )
+                : 0,
+          };
+        }
+      },
+    );
   },
 });
 
-export const { setCurrentEvent, clearCurrentEvent, clearUpcomingEvents, clearPastEvents, clearError } = eventsSlice.actions;
+export const {
+  setCurrentEvent,
+  clearCurrentEvent,
+  clearUpcomingEvents,
+  clearPastEvents,
+  clearError,
+} = eventsSlice.actions;
 export default eventsSlice.reducer;

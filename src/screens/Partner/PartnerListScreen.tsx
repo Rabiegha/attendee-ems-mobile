@@ -3,7 +3,13 @@
  * FlatList avec recherche, pull-to-refresh, navigation vers détail
  */
 
-import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
 import {
   View,
   Text,
@@ -14,28 +20,39 @@ import {
   TextInput,
   ActivityIndicator,
   Image,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
-import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { fetchPartnerScansThunk, clearPartnerScans } from '../../store/partnerScans.slice';
-import { useTheme } from '../../theme/ThemeProvider';
-import type { Theme } from '../../theme';
-import { useTranslation } from 'react-i18next';
-import { PartnerScan } from '../../types/partnerScan';
-import { Header } from '../../components/ui/Header';
-import { ProfileButton } from '../../components/ui/ProfileButton';
-import Icons from '../../assets/icons';
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  useNavigation,
+  useRoute,
+  RouteProp,
+  useFocusEffect,
+} from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
+import { useAppDispatch, useAppSelector } from "../../store/hooks";
+import {
+  fetchPartnerScansThunk,
+  fetchMorePartnerScansThunk,
+  clearPartnerScans,
+} from "../../store/partnerScans.slice";
+import { useTheme } from "../../theme/ThemeProvider";
+import type { Theme } from "../../theme";
+import { useTranslation } from "react-i18next";
+import { PartnerScan } from "../../types/partnerScan";
+import { Header } from "../../components/ui/Header";
+import { ProfileButton } from "../../components/ui/ProfileButton";
+import Icons from "../../assets/icons";
 
 type PartnerInnerTabsParamList = {
   PartnerList: { eventId: string; eventName?: string };
   PartnerScanDetail: { scanId: string; eventId: string };
 };
 
-type PartnerListRouteProp = RouteProp<PartnerInnerTabsParamList, 'PartnerList'>;
+type PartnerListRouteProp = RouteProp<PartnerInnerTabsParamList, "PartnerList">;
 
-export const PartnerListScreen: React.FC<{ route?: any }> = ({ route: routeProp }) => {
+export const PartnerListScreen: React.FC<{ route?: any }> = ({
+  route: routeProp,
+}) => {
   const route = useRoute<PartnerListRouteProp>();
   const navigation = useNavigation<any>();
   const dispatch = useAppDispatch();
@@ -46,10 +63,11 @@ export const PartnerListScreen: React.FC<{ route?: any }> = ({ route: routeProp 
 
   const eventId = route.params?.eventId || routeProp?.params?.eventId;
   const eventName = route.params?.eventName || routeProp?.params?.eventName;
-  const { scans, meta, isLoading, error } = useAppSelector((state) => state.partnerScans);
+  const { scans, meta, isLoading, isLoadingMore, error } = useAppSelector(
+    (state) => state.partnerScans,
+  );
 
-
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -58,11 +76,42 @@ export const PartnerListScreen: React.FC<{ route?: any }> = ({ route: routeProp 
   // Composant séparateur stable (évite re-création à chaque render)
   const ItemSeparator = useCallback(() => <View style={{ height: 8 }} />, []);
 
+  // Charger la page suivante quand on arrive en bas de la liste
+  const handleLoadMore = useCallback(() => {
+    if (!eventId || isLoadingMore || isLoading) return;
+    if (meta.page >= meta.totalPages) return;
+    dispatch(
+      fetchMorePartnerScansThunk({
+        event_id: eventId,
+        page: meta.page + 1,
+        limit: 50,
+        search: searchQuery,
+      }),
+    );
+  }, [
+    eventId,
+    isLoadingMore,
+    isLoading,
+    meta.page,
+    meta.totalPages,
+    searchQuery,
+  ]);
+
+  // Footer avec indicateur de chargement pour la pagination
+  const renderFooter = useCallback(() => {
+    if (!isLoadingMore) return null;
+    return (
+      <View style={styles.footerLoader}>
+        <ActivityIndicator size="small" color={theme.colors.brand[600]} />
+      </View>
+    );
+  }, [isLoadingMore, theme]);
+
   // Charger les scans au focus, cleanup au blur ou changement d'événement
   useFocusEffect(
     useCallback(() => {
       dispatch(clearPartnerScans());
-      setSearchQuery('');
+      setSearchQuery("");
       loadScans();
 
       // Cleanup : annuler le debounce en cours si on quitte l'écran
@@ -71,7 +120,7 @@ export const PartnerListScreen: React.FC<{ route?: any }> = ({ route: routeProp 
           clearTimeout(searchTimeoutRef.current);
         }
       };
-    }, [eventId])
+    }, [eventId]),
   );
 
   const loadScans = (page = 1, search?: string) => {
@@ -86,7 +135,7 @@ export const PartnerListScreen: React.FC<{ route?: any }> = ({ route: routeProp 
         page,
         limit: 50,
         search: search ?? searchQuery,
-      })
+      }),
     );
   };
 
@@ -98,7 +147,7 @@ export const PartnerListScreen: React.FC<{ route?: any }> = ({ route: routeProp 
         page: 1,
         limit: 50,
         search: searchQuery,
-      })
+      }),
     );
     setRefreshing(false);
   };
@@ -117,10 +166,13 @@ export const PartnerListScreen: React.FC<{ route?: any }> = ({ route: routeProp 
   };
 
   const handlePressScan = (scan: PartnerScan) => {
-    navigation.navigate('PartnerScanDetail' as never, {
-      scanId: scan.id,
-      eventId,
-    } as never);
+    navigation.navigate(
+      "PartnerScanDetail" as never,
+      {
+        scanId: scan.id,
+        eventId,
+      } as never,
+    );
   };
 
   const formatDate = (dateStr: string) => {
@@ -130,49 +182,91 @@ export const PartnerListScreen: React.FC<{ route?: any }> = ({ route: routeProp 
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
 
-    if (diffMins < 1) return 'À l\'instant';
+    if (diffMins < 1) return "À l'instant";
     if (diffMins < 60) return `Il y a ${diffMins} min`;
     if (diffHours < 24) return `Il y a ${diffHours}h`;
 
-    return date.toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
+    return date.toLocaleDateString("fr-FR", {
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
   const renderScanItem = ({ item }: { item: PartnerScan }) => {
     const attendee = item.attendee_data;
-    const fullName = `${attendee?.first_name || ''} ${attendee?.last_name || ''}`.trim() || 'Contact';
-    const initials = fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+    const fullName =
+      `${attendee?.first_name || ""} ${attendee?.last_name || ""}`.trim() ||
+      "Contact";
+    const initials = fullName
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .substring(0, 2)
+      .toUpperCase();
 
     return (
       <TouchableOpacity
-        style={[styles.scanCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
+        style={[
+          styles.scanCard,
+          {
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.border,
+          },
+        ]}
         onPress={() => handlePressScan(item)}
         activeOpacity={0.7}
       >
         <View style={styles.cardContent}>
           {/* Avatar */}
-          <View style={[styles.avatar, { backgroundColor: theme.colors.brand[100] }]}>
-            <Text style={[styles.avatarText, { color: theme.colors.brand[600] }]}>{initials}</Text>
+          <View
+            style={[
+              styles.avatar,
+              { backgroundColor: theme.colors.brand[100] },
+            ]}
+          >
+            <Text
+              style={[styles.avatarText, { color: theme.colors.brand[600] }]}
+            >
+              {initials}
+            </Text>
           </View>
 
           {/* Info */}
           <View style={styles.cardInfo}>
-            <Text style={[styles.cardName, { color: theme.colors.text.primary }]} numberOfLines={1}>
+            <Text
+              style={[styles.cardName, { color: theme.colors.text.primary }]}
+              numberOfLines={1}
+            >
               {fullName}
             </Text>
             {attendee?.company && (
-              <Text style={[styles.cardCompany, { color: theme.colors.text.secondary }]} numberOfLines={1}>
-                {attendee.company}{attendee.job_title ? ` • ${attendee.job_title}` : ''}
+              <Text
+                style={[
+                  styles.cardCompany,
+                  { color: theme.colors.text.secondary },
+                ]}
+                numberOfLines={1}
+              >
+                {attendee.company}
+                {attendee.job_title ? ` • ${attendee.job_title}` : ""}
               </Text>
             )}
             {item.comment && (
               <View style={styles.commentPreview}>
-                <Ionicons name="chatbubble-outline" size={12} color={theme.colors.text.tertiary} />
-                <Text style={[styles.commentText, { color: theme.colors.text.secondary }]} numberOfLines={1}>
+                <Ionicons
+                  name="chatbubble-outline"
+                  size={12}
+                  color={theme.colors.text.tertiary}
+                />
+                <Text
+                  style={[
+                    styles.commentText,
+                    { color: theme.colors.text.secondary },
+                  ]}
+                  numberOfLines={1}
+                >
                   {item.comment}
                 </Text>
               </View>
@@ -181,10 +275,16 @@ export const PartnerListScreen: React.FC<{ route?: any }> = ({ route: routeProp 
 
           {/* Date + chevron */}
           <View style={styles.cardRight}>
-            <Text style={[styles.cardDate, { color: theme.colors.text.tertiary }]}>
+            <Text
+              style={[styles.cardDate, { color: theme.colors.text.tertiary }]}
+            >
               {formatDate(item.scanned_at)}
             </Text>
-            <Ionicons name="chevron-forward" size={18} color={theme.colors.text.tertiary} />
+            <Ionicons
+              name="chevron-forward"
+              size={18}
+              color={theme.colors.text.tertiary}
+            />
           </View>
         </View>
       </TouchableOpacity>
@@ -198,18 +298,36 @@ export const PartnerListScreen: React.FC<{ route?: any }> = ({ route: routeProp 
     if (error && scans.length === 0) {
       return (
         <View style={styles.emptyContainer}>
-          <Ionicons name="cloud-offline-outline" size={64} color={theme.colors.error[400]} />
-          <Text style={[styles.emptyTitle, { color: theme.colors.text.primary }]}>
+          <Ionicons
+            name="cloud-offline-outline"
+            size={64}
+            color={theme.colors.error[400]}
+          />
+          <Text
+            style={[styles.emptyTitle, { color: theme.colors.text.primary }]}
+          >
             Impossible de charger les contacts
           </Text>
-          <Text style={[styles.emptySubtitle, { color: theme.colors.text.secondary }]}>
+          <Text
+            style={[
+              styles.emptySubtitle,
+              { color: theme.colors.text.secondary },
+            ]}
+          >
             {error}
           </Text>
           <TouchableOpacity
             onPress={() => loadScans()}
-            style={[styles.retryButtonLarge, { backgroundColor: theme.colors.brand[600] }]}
+            style={[
+              styles.retryButtonLarge,
+              { backgroundColor: theme.colors.brand[600] },
+            ]}
           >
-            <Ionicons name="refresh" size={18} color={theme.colors.text.inverse} />
+            <Ionicons
+              name="refresh"
+              size={18}
+              color={theme.colors.text.inverse}
+            />
             <Text style={styles.retryTextLarge}>Réessayer</Text>
           </TouchableOpacity>
         </View>
@@ -218,42 +336,71 @@ export const PartnerListScreen: React.FC<{ route?: any }> = ({ route: routeProp 
 
     return (
       <View style={styles.emptyContainer}>
-        <Ionicons name="people-outline" size={64} color={theme.colors.text.tertiary} />
+        <Ionicons
+          name="people-outline"
+          size={64}
+          color={theme.colors.text.tertiary}
+        />
         <Text style={[styles.emptyTitle, { color: theme.colors.text.primary }]}>
-          {searchQuery ? 'Aucun résultat' : 'Aucun contact scanné'}
+          {searchQuery ? "Aucun résultat" : "Aucun contact scanné"}
         </Text>
-        <Text style={[styles.emptySubtitle, { color: theme.colors.text.secondary }]}>
+        <Text
+          style={[styles.emptySubtitle, { color: theme.colors.text.secondary }]}
+        >
           {searchQuery
-            ? 'Essayez avec d\'autres termes de recherche'
-            : 'Scannez le badge des participants pour les ajouter à votre liste'}
+            ? "Essayez avec d'autres termes de recherche"
+            : "Scannez le badge des participants pour les ajouter à votre liste"}
         </Text>
       </View>
     );
   };
 
   // Badge compteur comme rightComponent du Header
-  const CountBadge = () => (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-      <View style={[styles.countBadge, { backgroundColor: theme.colors.brand[100] }]}>
-        <Text style={[styles.countText, { color: theme.colors.brand[600] }]}>
-          {meta.total}
-        </Text>
+  const CountBadge = useCallback(() => {
+    // Formater le nombre : afficher "99+" pour 100 et plus
+    const displayCount = meta.total >= 100 ? "99+" : meta.total.toString();
+
+    return (
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <View
+          style={[
+            styles.countBadge,
+            { backgroundColor: theme.colors.brand[100] },
+          ]}
+        >
+          <Text style={[styles.countText, { color: theme.colors.brand[600] }]}>
+            {displayCount}
+          </Text>
+        </View>
+        <ProfileButton />
       </View>
-      <ProfileButton />
-    </View>
-  );
+    );
+  }, [meta.total, theme]);
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background, paddingTop: insets.top }]}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: theme.colors.background, paddingTop: insets.top },
+      ]}
+    >
       {/* Header partagé */}
       <Header
-        title={eventName || 'Mes Contacts'}
+        title={eventName || "Mes Contacts"}
         onBack={() => navigation.goBack()}
         rightComponent={<CountBadge />}
       />
 
       {/* Search bar */}
-      <View style={[styles.searchContainer, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+      <View
+        style={[
+          styles.searchContainer,
+          {
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.border,
+          },
+        ]}
+      >
         <Ionicons name="search" size={18} color={theme.colors.text.tertiary} />
         <TextInput
           style={[styles.searchInput, { color: theme.colors.text.primary }]}
@@ -265,20 +412,45 @@ export const PartnerListScreen: React.FC<{ route?: any }> = ({ route: routeProp 
           autoCorrect={false}
         />
         {searchQuery ? (
-          <TouchableOpacity onPress={() => handleSearch('')}>
-            <Ionicons name="close-circle" size={18} color={theme.colors.text.tertiary} />
+          <TouchableOpacity onPress={() => handleSearch("")}>
+            <Ionicons
+              name="close-circle"
+              size={18}
+              color={theme.colors.text.tertiary}
+            />
           </TouchableOpacity>
         ) : null}
       </View>
 
       {/* Erreur */}
       {error && (
-        <View style={[styles.errorBanner, { backgroundColor: theme.colors.error[50], borderColor: theme.colors.error[100] }]}>
-          <Ionicons name="alert-circle" size={18} color={theme.colors.error[500]} />
-          <Text style={[styles.errorText, { color: theme.colors.error[600] }]} numberOfLines={2}>
+        <View
+          style={[
+            styles.errorBanner,
+            {
+              backgroundColor: theme.colors.error[50],
+              borderColor: theme.colors.error[100],
+            },
+          ]}
+        >
+          <Ionicons
+            name="alert-circle"
+            size={18}
+            color={theme.colors.error[500]}
+          />
+          <Text
+            style={[styles.errorText, { color: theme.colors.error[600] }]}
+            numberOfLines={2}
+          >
             {error}
           </Text>
-          <TouchableOpacity onPress={() => loadScans()} style={[styles.retryButton, { backgroundColor: theme.colors.error[500] }]}>
+          <TouchableOpacity
+            onPress={() => loadScans()}
+            style={[
+              styles.retryButton,
+              { backgroundColor: theme.colors.error[500] },
+            ]}
+          >
             <Text style={styles.retryText}>Réessayer</Text>
           </TouchableOpacity>
         </View>
@@ -303,6 +475,9 @@ export const PartnerListScreen: React.FC<{ route?: any }> = ({ route: routeProp 
         ListEmptyComponent={renderEmptyState}
         showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={ItemSeparator}
+        ListFooterComponent={renderFooter}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.3}
       />
 
       {/* Loading indicator (masqué pendant le debounce de recherche pour éviter le clignotement) */}
@@ -317,153 +492,159 @@ export const PartnerListScreen: React.FC<{ route?: any }> = ({ route: routeProp 
 
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  countBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  countText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 16,
-    marginVertical: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    padding: 0,
-  },
-  listContent: {
-    paddingHorizontal: 16,
-    paddingTop: 4,
-    paddingBottom: 140, // espace pour la tab bar flottante
-  },
-  listContentEmpty: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  scanCard: {
-    borderRadius: 12,
-    borderWidth: 1,
-    overflow: 'hidden',
-  },
-  cardContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-    gap: 12,
-  },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  cardInfo: {
-    flex: 1,
-  },
-  cardName: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  cardCompany: {
-    fontSize: 13,
-    marginTop: 2,
-  },
-  commentPreview: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 4,
-  },
-  commentText: {
-    fontSize: 12,
-    flex: 1,
-  },
-  cardRight: {
-    alignItems: 'flex-end',
-    gap: 4,
-  },
-  cardDate: {
-    fontSize: 11,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    paddingHorizontal: 40,
-    gap: 12,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  loadingOverlay: {
-    position: 'absolute',
-    top: 120,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
-  errorBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 16,
-    marginBottom: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    gap: 8,
-  },
-  errorText: {
-    flex: 1,
-    fontSize: 13,
-  },
-  retryButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  retryText: {
-    color: theme.colors.text.inverse,
-    fontSize: theme.fontSize.xs,
-    fontWeight: theme.fontWeight.semibold,
-  },
-  retryButtonLarge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.xl,
-    paddingVertical: theme.spacing.md,
-    borderRadius: theme.radius.lg,
-    gap: theme.spacing.sm,
-    marginTop: theme.spacing.sm,
-  },
-  retryTextLarge: {
-    color: theme.colors.text.inverse,
-    fontSize: theme.fontSize.sm,
-    fontWeight: theme.fontWeight.semibold,
-  },
-});
-
+    container: {
+      flex: 1,
+    },
+    countBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 10,
+      minWidth: 32,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    countText: {
+      fontSize: 12,
+      fontWeight: "700",
+    },
+    searchContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginHorizontal: 16,
+      marginVertical: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: 12,
+      borderWidth: 1,
+      gap: 8,
+    },
+    searchInput: {
+      flex: 1,
+      fontSize: 15,
+      padding: 0,
+    },
+    listContent: {
+      paddingHorizontal: 16,
+      paddingTop: 4,
+      paddingBottom: 140, // espace pour la tab bar flottante
+    },
+    listContentEmpty: {
+      flex: 1,
+      justifyContent: "center",
+    },
+    scanCard: {
+      borderRadius: 12,
+      borderWidth: 1,
+      overflow: "hidden",
+    },
+    cardContent: {
+      flexDirection: "row",
+      alignItems: "center",
+      padding: 14,
+      gap: 12,
+    },
+    avatar: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    avatarText: {
+      fontSize: 16,
+      fontWeight: "700",
+    },
+    cardInfo: {
+      flex: 1,
+    },
+    cardName: {
+      fontSize: 16,
+      fontWeight: "600",
+    },
+    cardCompany: {
+      fontSize: 13,
+      marginTop: 2,
+    },
+    commentPreview: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      marginTop: 4,
+    },
+    commentText: {
+      fontSize: 12,
+      flex: 1,
+    },
+    cardRight: {
+      alignItems: "flex-end",
+      gap: 4,
+    },
+    cardDate: {
+      fontSize: 11,
+    },
+    emptyContainer: {
+      alignItems: "center",
+      paddingHorizontal: 40,
+      gap: 12,
+    },
+    footerLoader: {
+      paddingVertical: 20,
+      alignItems: "center",
+    },
+    emptyTitle: {
+      fontSize: 18,
+      fontWeight: "600",
+      textAlign: "center",
+    },
+    emptySubtitle: {
+      fontSize: 14,
+      textAlign: "center",
+      lineHeight: 20,
+    },
+    loadingOverlay: {
+      position: "absolute",
+      top: 120,
+      left: 0,
+      right: 0,
+      alignItems: "center",
+    },
+    errorBanner: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginHorizontal: 16,
+      marginBottom: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: 10,
+      borderWidth: 1,
+      gap: 8,
+    },
+    errorText: {
+      flex: 1,
+      fontSize: 13,
+    },
+    retryButton: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 8,
+    },
+    retryText: {
+      color: theme.colors.text.inverse,
+      fontSize: theme.fontSize.xs,
+      fontWeight: theme.fontWeight.semibold,
+    },
+    retryButtonLarge: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: theme.spacing.xl,
+      paddingVertical: theme.spacing.md,
+      borderRadius: theme.radius.lg,
+      gap: theme.spacing.sm,
+      marginTop: theme.spacing.sm,
+    },
+    retryTextLarge: {
+      color: theme.colors.text.inverse,
+      fontSize: theme.fontSize.sm,
+      fontWeight: theme.fontWeight.semibold,
+    },
+  });

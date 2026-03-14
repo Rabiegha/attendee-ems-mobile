@@ -2,7 +2,7 @@
  * Écran des événements en cours
  */
 
-import React, { useEffect, useCallback, useMemo } from 'react';
+import React, { useEffect, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -10,19 +10,22 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-} from 'react-native';
-import { useTranslation } from 'react-i18next';
-import { useTheme } from '../../theme/ThemeProvider';
-import { useAppSelector, useAppDispatch } from '../../store/hooks';
-import { fetchOngoingEventsThunk, fetchMoreOngoingEventsThunk } from '../../store/events.slice';
-import { Event } from '../../types/event';
-import { formatDate, formatTime } from '../../utils/format';
-import { Card } from '../../components/ui/Card';
-import { EmptyState } from '../../components/ui/EmptyState';
-import { EventCardSkeleton, SkeletonList } from '../../components/ui/Skeleton';
-import { useEventSearch } from '../../contexts/EventSearchContext';
-import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
-import { getRouteForRole } from '../../navigation/roleRouteMap';
+} from "react-native";
+import { useTranslation } from "react-i18next";
+import { useTheme } from "../../theme/ThemeProvider";
+import { useAppSelector, useAppDispatch } from "../../store/hooks";
+import {
+  fetchOngoingEventsThunk,
+  fetchMoreOngoingEventsThunk,
+} from "../../store/events.slice";
+import { Event } from "../../types/event";
+import { formatDate, formatTime } from "../../utils/format";
+import { Card } from "../../components/ui/Card";
+import { EmptyState } from "../../components/ui/EmptyState";
+import { EventCardSkeleton, SkeletonList } from "../../components/ui/Skeleton";
+import { useEventSearch } from "../../contexts/EventSearchContext";
+import { createMaterialTopTabNavigator } from "@react-navigation/material-top-tabs";
+import { getRouteForRole } from "../../navigation/roleRouteMap";
 
 interface OngoingEventsScreenProps {
   navigation?: any;
@@ -30,7 +33,7 @@ interface OngoingEventsScreenProps {
   onRefresh?: () => void;
 }
 
-export const OngoingEventsScreen: React.FC<OngoingEventsScreenProps> = ({ 
+export const OngoingEventsScreen: React.FC<OngoingEventsScreenProps> = ({
   navigation,
   route,
   onRefresh,
@@ -41,57 +44,58 @@ export const OngoingEventsScreen: React.FC<OngoingEventsScreenProps> = ({
   const { theme } = useTheme();
   const dispatch = useAppDispatch();
   const { searchQuery } = useEventSearch();
-  
+
   // Déterminer le rôle de l'utilisateur pour la navigation conditionnelle
   const userRole = useAppSelector((state) => state.auth.user?.role);
 
   // Utiliser le state ongoing
-  const { events, isLoading, isLoadingMore, hasMore } = useAppSelector((state) => state.events.ongoing);
+  const { events, isLoading, isLoadingMore, hasMore, error } = useAppSelector(
+    (state) => state.events.ongoing,
+  );
 
   // Filtrer les événements selon la recherche
   const filteredEvents = useMemo(() => {
     if (!searchQuery.trim()) return events;
-    
+
     const query = searchQuery.toLowerCase();
-    return events.filter(event => 
-      event.name.toLowerCase().includes(query) ||
-      event.description?.toLowerCase().includes(query) ||
-      event.location?.toLowerCase().includes(query)
+    return events.filter(
+      (event) =>
+        event.name.toLowerCase().includes(query) ||
+        event.description?.toLowerCase().includes(query) ||
+        event.location?.toLowerCase().includes(query),
     );
   }, [events, searchQuery]);
 
   // Mémoriser les callbacks pour éviter les re-rendus
-  const handleEventPress = useCallback((event: Event) => {
-    const target = getRouteForRole(userRole);
-    nav?.navigate(target, { eventId: event.id, eventName: event.name });
-  }, [nav, userRole]);
+  const handleEventPress = useCallback(
+    (event: Event) => {
+      const target = getRouteForRole(userRole);
+      nav?.navigate(target, { eventId: event.id, eventName: event.name });
+    },
+    [nav, userRole],
+  );
 
   const handleLoadMore = useCallback(() => {
     if (!isLoadingMore && hasMore && events.length > 0) {
-      console.log('[OngoingEventsScreen] Loading more events...');
+      console.log("[OngoingEventsScreen] Loading more events...");
       dispatch(fetchMoreOngoingEventsThunk({}));
     }
   }, [isLoadingMore, hasMore, events.length, dispatch]);
 
   const handleRefresh = useCallback(() => {
-    console.log('[OngoingEventsScreen] Refreshing events...');
+    console.log("[OngoingEventsScreen] Refreshing events...");
     dispatch(fetchOngoingEventsThunk({ page: 1 }));
   }, [dispatch]);
 
-  const handleViewUpcoming = useCallback(() => {
-    // Navigate to Upcoming tab
-    nav?.navigate('Upcoming');
-  }, [nav]);
-
   // Charger les événements au montage
   useEffect(() => {
-    console.log('[OngoingEventsScreen] Component mounted, loading events...');
+    console.log("[OngoingEventsScreen] Component mounted, loading events...");
     dispatch(fetchOngoingEventsThunk({ page: 1 }));
   }, [dispatch]);
 
   const renderFooter = useCallback(() => {
     if (!isLoadingMore) return null;
-    
+
     return (
       <View style={styles.footerLoader}>
         <ActivityIndicator size="small" color={theme.colors.brand[600]} />
@@ -104,7 +108,10 @@ export const OngoingEventsScreen: React.FC<OngoingEventsScreenProps> = ({
 
   const renderEventCard = ({ item }: { item: Event }) => {
     return (
-      <TouchableOpacity onPress={() => handleEventPress(item)} activeOpacity={0.7}>
+      <TouchableOpacity
+        onPress={() => handleEventPress(item)}
+        activeOpacity={0.7}
+      >
         <Card style={{ marginBottom: theme.spacing.md }}>
           <View style={styles.eventCard}>
             {/* Colonne de gauche : Date et heure */}
@@ -113,7 +120,7 @@ export const OngoingEventsScreen: React.FC<OngoingEventsScreenProps> = ({
                 style={{
                   fontSize: theme.fontSize.xs,
                   color: theme.colors.text.tertiary,
-                  textAlign: 'center',
+                  textAlign: "center",
                 }}
               >
                 {formatDate(item.startDate)}
@@ -123,7 +130,7 @@ export const OngoingEventsScreen: React.FC<OngoingEventsScreenProps> = ({
                   fontSize: theme.fontSize.sm,
                   color: theme.colors.text.primary,
                   fontWeight: theme.fontWeight.semibold,
-                  textAlign: 'center',
+                  textAlign: "center",
                   marginTop: 4,
                 }}
               >
@@ -133,11 +140,11 @@ export const OngoingEventsScreen: React.FC<OngoingEventsScreenProps> = ({
                 style={{
                   fontSize: theme.fontSize.xs,
                   color: theme.colors.text.tertiary,
-                  textAlign: 'center',
+                  textAlign: "center",
                   marginTop: 4,
                 }}
               >
-                {item.location || 'En ligne'}
+                {item.location || "En ligne"}
               </Text>
             </View>
 
@@ -153,11 +160,21 @@ export const OngoingEventsScreen: React.FC<OngoingEventsScreenProps> = ({
                 numberOfLines={2}
                 ellipsizeMode="tail"
               >
-                {item.name || 'Événement sans titre'}
+                {item.name || "Événement sans titre"}
               </Text>
 
-              <View style={[styles.ongoingBadge, { backgroundColor: theme.colors.brand[600], alignSelf: 'flex-start', paddingVertical: 2, marginBottom: 0 }]}>
-                <Text style={[styles.ongoingBadgeText, { color: '#FFFFFF' }]}>
+              <View
+                style={[
+                  styles.ongoingBadge,
+                  {
+                    backgroundColor: theme.colors.brand[600],
+                    alignSelf: "flex-start",
+                    paddingVertical: 2,
+                    marginBottom: 0,
+                  },
+                ]}
+              >
+                <Text style={[styles.ongoingBadgeText, { color: "#FFFFFF" }]}>
                   EN COURS
                 </Text>
               </View>
@@ -170,7 +187,7 @@ export const OngoingEventsScreen: React.FC<OngoingEventsScreenProps> = ({
                 }}
                 numberOfLines={1}
               >
-                {item.description || ' '}
+                {item.description || " "}
               </Text>
             </View>
           </View>
@@ -181,7 +198,9 @@ export const OngoingEventsScreen: React.FC<OngoingEventsScreenProps> = ({
 
   if (isLoading) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <View
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
+      >
         <SkeletonList
           count={5}
           renderItem={() => <EventCardSkeleton />}
@@ -191,31 +210,44 @@ export const OngoingEventsScreen: React.FC<OngoingEventsScreenProps> = ({
     );
   }
 
+  // P10: Afficher une erreur explicite au lieu d'une liste vide silencieuse
+  if (error && events.length === 0) {
+    return (
+      <View
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
+      >
+        <EmptyState
+          title={t("common.error", "Erreur")}
+          description={t(
+            "events.loadError",
+            "Impossible de charger les événements. Vérifiez votre connexion.",
+          )}
+          actionLabel={t("common.retry", "Réessayer")}
+          onAction={handleRefresh}
+        />
+      </View>
+    );
+  }
+
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+    >
       <FlatList
         data={filteredEvents}
         renderItem={renderEventCard}
         keyExtractor={(item, index) => item.id || `event-${index}`}
-        contentContainerStyle={{ padding: theme.spacing.lg }}
+        contentContainerStyle={{ padding: theme.spacing.lg, flexGrow: 1 }}
         ListEmptyComponent={
-          <View style={styles.emptyStateContainer}>
-            <Text style={[styles.emptyTitle, { color: theme.colors.text.primary }]}>
-              Aucun événement en cours
-            </Text>
-            <Text style={[styles.emptyDescription, { color: theme.colors.text.secondary }]}>
-              Il n'y a actuellement aucun événement en cours.
-            </Text>
-            <TouchableOpacity
-              style={[styles.ctaButton, { backgroundColor: theme.colors.brand[600] }]}
-              onPress={handleViewUpcoming}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.ctaButtonText, { color: '#FFFFFF' }]}>
-                Voir les événements à venir
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <EmptyState
+            title={t("events.noOngoingEvents", "Aucun événement en cours")}
+            description={t(
+              "events.noOngoingEventsDescription",
+              "Il n'y a actuellement aucun événement en cours.",
+            )}
+            actionLabel={t("common.refresh", "Rafraîchir")}
+            onAction={handleRefresh}
+          />
         }
         ListFooterComponent={renderFooter}
         onEndReached={handleLoadMore}
@@ -238,23 +270,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   eventCard: {
-    flexDirection: 'row',
+    flexDirection: "row",
   },
   dateColumn: {
     marginRight: 16,
     minWidth: 80,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   eventInfo: {
     flex: 1,
-    justifyContent: 'flex-start',
+    justifyContent: "flex-start",
   },
   footerLoader: {
     paddingVertical: 20,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
   },
   ongoingBadge: {
     paddingHorizontal: 8,
@@ -264,36 +296,7 @@ const styles = StyleSheet.create({
   },
   ongoingBadgeText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: "700",
     letterSpacing: 0.5,
-  },
-  emptyStateContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 64,
-    paddingHorizontal: 24,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  emptyDescription: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 22,
-  },
-  ctaButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginTop: 8,
-  },
-  ctaButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
   },
 });

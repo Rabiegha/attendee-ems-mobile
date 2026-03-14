@@ -1,62 +1,77 @@
 /**
  * Service WebSocket pour les connexions en temps réel
+ *
+ * Fix P1: auth est une fonction factory → token frais à chaque reconnexion
+ * Fix P2: disconnect() vide la Map listeners → plus d'empilement
  */
 
-import { io, Socket } from 'socket.io-client';
-import { secureStorage, STORAGE_KEYS } from '../utils/storage';
-import { getApiBaseUrl } from '../config/apiUrl';
+import { io, Socket } from "socket.io-client";
+import { secureStorage, STORAGE_KEYS } from "../utils/storage";
+import { getApiBaseUrl } from "../config/apiUrl";
+import { logger } from "../utils/logger";
 
 class SocketService {
   private socket: Socket | null = null;
   private listeners: Map<string, Array<(...args: any[]) => void>> = new Map();
 
   async connect() {
-    console.log('[Socket] 🔌 connect() called');
+    logger.log("[Socket] 🔌 connect() called");
     const token = await secureStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
-    console.log('[Socket] Token from storage:', token ? `EXISTS (${token.substring(0, 20)}...)` : 'NULL');
     const baseUrl = getApiBaseUrl();
 
     if (!token) {
-      console.log('[Socket] ❌ No token available, cannot connect');
+      logger.log("[Socket] ❌ No token available, cannot connect");
       return;
     }
 
-    if (this.socket?.connected) {
-      console.log('[Socket] ✅ Already connected');
-      return;
+    // Si un socket existe déjà (même en cours de reconnexion), le fermer proprement
+    if (this.socket) {
+      logger.log("[Socket] ♻️ Closing existing socket before reconnecting");
+      this.socket.removeAllListeners();
+      this.socket.disconnect();
+      this.socket = null;
     }
 
-    console.log('[Socket] 🚀 Connecting to:', `${baseUrl}/events`);
+    logger.log("[Socket] 🚀 Connecting to:", `${baseUrl}/events`);
 
     this.socket = io(`${baseUrl}/events`, {
-      auth: {
-        token,
+      // Factory function : socket.io appelle cette fonction à CHAQUE connexion/reconnexion
+      // → le token est toujours frais, même après un refresh
+      auth: async (cb) => {
+        try {
+          const freshToken = await secureStorage.getItem(
+            STORAGE_KEYS.ACCESS_TOKEN,
+          );
+          cb({ token: freshToken });
+        } catch {
+          cb({ token });
+        }
       },
-      transports: ['websocket'],
+      transports: ["websocket"],
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionAttempts: 5,
     });
 
-    this.socket.on('connect', () => {
-      console.log('[Socket] Connected:', this.socket?.id);
+    this.socket.on("connect", () => {
+      logger.log("[Socket] ✅ Connected:", this.socket?.id);
     });
 
-    this.socket.on('disconnect', (reason) => {
-      console.log('[Socket] Disconnected:', reason);
+    this.socket.on("disconnect", (reason) => {
+      logger.log("[Socket] Disconnected:", reason);
     });
 
-    this.socket.on('error', (error) => {
-      console.error('[Socket] Error:', error);
+    this.socket.on("error", (error) => {
+      logger.error("[Socket] Error:", error);
     });
 
-    this.socket.on('connect_error', (error) => {
-      console.error('[Socket] Connection error:', error.message);
+    this.socket.on("connect_error", (error) => {
+      logger.error("[Socket] Connection error:", error.message);
     });
 
-    // Écouter tous les événements enregistrés
+    // Réattacher les listeners enregistrés au nouveau socket
     this.listeners.forEach((callbacks, event) => {
-      callbacks.forEach(callback => {
+      callbacks.forEach((callback) => {
         this.socket?.on(event, callback);
       });
     });
@@ -64,18 +79,26 @@ class SocketService {
 
   disconnect() {
     if (this.socket) {
-      console.log('[Socket] Disconnecting...');
+      logger.log("[Socket] Disconnecting...");
+      this.socket.removeAllListeners();
       this.socket.disconnect();
       this.socket = null;
     }
+    // Vider TOUS les listeners enregistrés pour éviter l'empilement
+    this.listeners.clear();
   }
 
-   on(event: string, callback: (...args: any[]) => void) {
-    // Ajouter le listener à la liste
+  on(event: string, callback: (...args: any[]) => void) {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, []);
     }
-    this.listeners.get(event)?.push(callback);
+
+    const callbacks = this.listeners.get(event)!;
+
+    // Éviter les doublons : ne pas ajouter si le callback exact existe déjà
+    if (!callbacks.includes(callback)) {
+      callbacks.push(callback);
+    }
 
     // Si déjà connecté, ajouter le listener au socket
     if (this.socket?.connected) {
@@ -85,7 +108,6 @@ class SocketService {
 
   off(event: string, callback?: (...args: any[]) => void) {
     if (callback) {
-      // Retirer un listener spécifique
       const callbacks = this.listeners.get(event);
       if (callbacks) {
         const index = callbacks.indexOf(callback);
@@ -95,7 +117,6 @@ class SocketService {
       }
       this.socket?.off(event, callback);
     } else {
-      // Retirer tous les listeners de cet événement
       this.listeners.delete(event);
       this.socket?.off(event);
     }
